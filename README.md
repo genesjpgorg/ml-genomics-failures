@@ -46,6 +46,7 @@ Any MCP client can use the book through tools instead of reading files:
 | `check_sequence_similarity(train_fasta, test_fasta, test_scores?)` | Each test sequence's nearest training sequence by k-mer containment, and performance by identity to training (F12) |
 | `check_shortcuts(table, label, features, group_column?)` | Cross-validated score of each candidate confounder (batch, GC, distance, ancestry...) predicting the label alone (F10, F11, F01) |
 | `kmer_baseline(train, test)` | GC-only and k-mer composition baselines for sequence → label (F01, F02, F08) |
+| `audit_directory(path)` | One call, local servers only: scans a directory, finds the train/test files and runs every check that applies |
 
 The `check_*` tools and `kmer_baseline` measure pitfalls on your own data. Pass `model_score` and each result
 reports what share of your model's gain over chance the trivial baseline already reaches. They take CSV/TSV or

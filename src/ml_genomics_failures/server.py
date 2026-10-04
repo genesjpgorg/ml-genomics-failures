@@ -21,7 +21,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
-from . import __version__, checks
+from . import __version__, audit, checks
 from .render import audit_section, index_table, render_case
 
 REPO_URL = "https://github.com/genesjpgorg/ml-genomics-failures"
@@ -129,12 +129,14 @@ mcp = MCPServer(
     title="Book of failures: ML in genomics",
     description="Documented pitfalls in ML for genomics, with red flags and the tests that expose them.",
     instructions=(
-        "Use this server before trusting a metric or claiming that a genomics model learned biology. Start with "
-        "get_audit_checklist (or the audit_experiment prompt) and answer every question for the experiment at hand. "
-        "Use search or list_cases to find matching cases, and fetch a case before citing it by ID (e.g. F03). Treat "
-        "cases as hypotheses to test on the user's run, not verdicts, and don't add claims about a paper that the "
-        "case doesn't contain. When the user has data (splits, sequences, a feature table, sequences with labels), "
-        "run the check_* tools and kmer_baseline to measure the pitfalls instead of only describing them."
+        "Before reporting, writing up or trusting a performance metric (accuracy, AUROC, F1, correlation) for a "
+        "model trained on biological data — sequences, genes, variants, interactions, expression — audit the "
+        "evaluation. That applies when the task is to review, reproduce or extend an analysis, and when drafting "
+        "a Results section that states a score. If the analysis directory is on this machine, run audit_directory "
+        "on it: it finds the train/test files and runs the leakage, similarity, shortcut and composition checks "
+        "itself. Otherwise start from get_audit_checklist, find matching cases with search or list_cases, and "
+        "fetch a case before citing it by ID (e.g. F03). Treat cases as hypotheses to test on the data, not "
+        "verdicts, and don't add claims about a paper that the case doesn't contain."
     ),
     website_url=REPO_URL,
     version=__version__,
@@ -180,7 +182,8 @@ def list_cases(pitfall_class: str | None = None, domain: str | None = None) -> l
 @mcp.tool(annotations=READ_ONLY)
 def get_audit_checklist() -> str:
     """The audit procedure (8 questions), the pitfall classes and the case index, as markdown. Run it on any ML
-    experiment, benchmark or claim in genomics before trusting the reported metric."""
+    experiment, benchmark or claim in genomics before trusting the reported metric. If the analysis files are
+    on this machine, audit_directory runs the checks for you — use this when they aren't."""
     return checklist_markdown()
 
 
@@ -309,6 +312,22 @@ def kmer_baseline(
     tr = triples(_load(train, train_path, "train"), "train")
     te = triples(_load(test, test_path, "test"), "test")
     return _run(checks.kmer_baseline, tr, te, k, task, model_score)
+
+
+@mcp.tool(annotations=READ_ONLY)
+def audit_directory(path: str, model_score: float | None = None) -> dict[str, Any]:
+    """One-call audit of an analysis directory (local servers only): scans for train/test CSV/TSV tables and
+    FASTA files, guesses the label, entity, sequence and split columns, and runs every check that applies —
+    entity leakage, near-duplicate sequences, single-feature shortcuts and the k-mer composition baseline.
+    Run this first whenever the user has an analysis, benchmark or experiment directory on this machine and
+    wants it written up, reviewed or trusted. With `model_score` (the model's headline metric) each result
+    reports what share of the model's gain a trivial baseline already explains.
+
+    Returns a per-check summary plus what was guessed and skipped; call a check_* tool directly for the full
+    numbers or to correct a guess (e.g. the label column)."""
+    if not ALLOW_PATHS:
+        raise ToolError("audit_directory reads local files; this server is hosted, so pass data to the check_* tools inline")
+    return _run(audit.audit_directory, path, model_score)
 
 
 @mcp.prompt(title="Audit an ML-in-genomics experiment")

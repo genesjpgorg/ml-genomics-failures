@@ -1,6 +1,6 @@
 [project]
 name = "ml-genomics-failures"
-version = "0.1.0"
+version = "0.2.0"
 description = "Book of failures for ML in genomics: documented pitfalls and the tests that expose them, as an MCP server for AI agents"
 readme = "README.md"
 requires-python = ">=3.10"

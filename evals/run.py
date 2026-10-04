@@ -1,13 +1,21 @@
 """Run the eval: every task x arm x repetition as one headless Claude Code session.
 
 usage: evals/.venv/bin/python evals/run.py --out evals/results/pilot [--arms 0,1,3] [--reps 2] [--tasks T01,C02]
-                                           [--model claude-sonnet-5-5] [--parallel 4]
+                                           [--model claude-sonnet-5-5] [--backend claude|devin] [--parallel 4]
 
 Arms:
   0  baseline: no book, no MCP
-  1  the book as text: dist/AGENTS.md appended to the system prompt
+  1  the book as text: dist/AGENTS.md appended to the system prompt (claude backend only)
   2  MCP server available, not mentioned in the prompt
   3  MCP server available, and the prompt asks to audit with it
+
+Backends:
+  claude  headless Claude Code in --restricted mode (default)
+  devin   headless `devin -p` sessions (Devin CLI). Each run gets a workspace copy with a project-scope
+          .devin/mcp_config.json that overrides the account plugin: disabled for arm 0, this repo's local
+          build for arms 2 and 3. The trajectory is exported in ATIF and parsed for tool calls.
+          Devin exposes MCP through generic mcp_* tools, so an unprompted arm-2 agent must discover the
+          server itself: mcp_list_servers -> mcp_list_tools -> mcp_call_tool.
 
 Isolation: each run gets a fresh copy of the task workspace in a temp directory outside this repo, Claude Code in
 --restricted mode (user/project settings ignored, file tools confined to the workspace), only the MCP servers the
@@ -62,7 +70,13 @@ ARMS = {
     "3": {"mcp": True, "book": False, "suffix": ARM3_SUFFIX},
 }
 BASH = ["python", "python3", "ls", "head", "tail", "wc", "cat", "grep", "sort", "cut"]
-CONTAMINATION = ("rubric.json", "ml-genomics-failures/evals", "ml-genomics-failures/dist", "AGENTS.md", "FAILURES.md")
+CONTAMINATION = (
+    "rubric.json", "ml-genomics-failures/evals", "ml-genomics-failures/dist", "AGENTS.md", "FAILURES.md",
+    "make_tasks.py", "genesjpgorg",
+)
+WEB_TOOLS = {"web_search", "webfetch", "browser_preview"}
+MCP_DISABLED = {"mcpServers": {"ml-genomics-failures": {"command": "true", "disabled": True}}}
+MCP_LOCAL = {"mcpServers": {"ml-genomics-failures": {"command": str(MCP_SERVER), "args": []}}}
 
 
 def claude_cmd(arm: dict, mcp_config: Path, model: str, prompt: str) -> list[str]:
@@ -112,11 +126,60 @@ def parse_stream(lines: list[str]) -> dict:
     }
 
 
+def devin_cmd(arm: dict, model: str, prompt: str, atif: Path) -> list[str]:
+    return [
+        "devin", "-p", prompt + arm["suffix"],
+        "--model", model,
+        "--permission-mode", "dangerous",  # headless runs can't answer prompts; the workspace is disposable
+        "--export", str(atif),
+        "--respect-workspace-trust", "false",
+    ]
+
+
+def parse_atif(path: Path, stdout: str) -> dict:
+    """Tool calls and the final answer from a Devin ATIF trajectory."""
+    tools, answer = [], ""
+    try:
+        d = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        d = {}
+    for s in d.get("steps", []):
+        for tc in s.get("tool_calls") or []:
+            tools.append({"name": tc.get("function_name"), "input": tc.get("arguments", {})})
+        if s.get("source") == "assistant" and isinstance(s.get("message"), str) and s["message"].strip():
+            answer = s["message"]
+    mcp = []
+    for t in tools:
+        if t["name"] == "mcp_call_tool":
+            mcp.append(str(t["input"].get("tool_name", t["input"].get("name", "?"))))
+        elif t["name"] in ("mcp_list_servers", "mcp_list_tools"):
+            mcp.append(t["name"])
+    blob = json.dumps([t["input"] for t in tools])
+    contaminated = any(m in blob for m in CONTAMINATION) or "mcp_config" in blob
+    web = [t["name"] for t in tools if t["name"] in WEB_TOOLS]
+    fm = d.get("final_metrics", {})
+    return {
+        "answer": answer or stdout.strip(),
+        "tool_calls": [t["name"] for t in tools],
+        "mcp_calls": mcp,
+        "contaminated": contaminated or bool(web),
+        "tool_inputs": tools,
+        "turns": sum(1 for s in d.get("steps", []) if s.get("tool_calls")),
+        "prompt_tokens": fm.get("total_prompt_tokens"),
+        "completion_tokens": fm.get("total_completion_tokens"),
+    }
+
+
 class LimitReached(RuntimeError):
     """The account hit a usage or rate limit: the run says nothing about the agent, so it isn't recorded."""
 
 
-def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: int, prompt: str = "review") -> dict:
+def run_one(
+    task: str, arm_id: str, rep: int, out: Path, model: str, timeout: int,
+    prompt: str = "review", backend: str = "claude",
+) -> dict:
+    if backend == "devin":
+        return run_one_devin(task, arm_id, rep, out, model, timeout, prompt)
     run_dir = out / "runs" / task / f"arm{arm_id}" / f"rep{rep}"
     if (run_dir / "run.json").exists():
         return json.loads((run_dir / "run.json").read_text())
@@ -165,6 +228,65 @@ def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: in
     return result
 
 
+def run_one_devin(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: int, prompt: str) -> dict:
+    run_dir = out / "runs" / task / f"arm{arm_id}" / f"rep{rep}"
+    if (run_dir / "run.json").exists():
+        return json.loads((run_dir / "run.json").read_text())
+    run_dir.mkdir(parents=True, exist_ok=True)
+    arm = ARMS[arm_id]
+    if arm["book"]:
+        raise SystemExit("arm 1 (book as system prompt) isn't supported by the devin backend")
+    tmp = Path(tempfile.mkdtemp(prefix="review-"))
+    try:
+        ws = tmp / "analysis"
+        shutil.copytree(TASKS / task / "workspace", ws)
+        (ws / ".devin").mkdir()
+        (ws / ".devin" / "mcp_config.json").write_text(
+            json.dumps(MCP_LOCAL if arm["mcp"] else MCP_DISABLED)
+        )
+        atif = tmp / "trajectory.json"
+        env = {**os.environ, "PATH": f"{AGENT_PYTHON_BIN}:{os.environ['PATH']}"}
+        t0 = time.time()
+        try:
+            proc = subprocess.run(
+                devin_cmd(arm, model, PROMPTS[prompt], atif),
+                cwd=ws,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            stdout, stderr, timed_out = proc.stdout, proc.stderr, proc.returncode != 0
+        except subprocess.TimeoutExpired as e:
+            stdout = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+            stderr, timed_out = "timeout", True
+        result = {
+            "task": task,
+            "arm": arm_id,
+            "rep": rep,
+            "model": model,
+            "prompt": prompt,
+            "prompt_text": PROMPTS[prompt] + arm["suffix"],
+            "wall_s": round(time.time() - t0, 1),
+            "timed_out": timed_out,
+            "stderr_tail": stderr[-500:],
+            "duration_s": round(time.time() - t0, 1),
+            "cost_usd": None,
+            "api_error_status": None,
+            **parse_atif(atif, stdout),
+        }
+        result["is_error"] = timed_out or not result["answer"].strip()
+        (run_dir / "transcript.jsonl").write_text(atif.read_text() if atif.exists() else stdout)
+        if "usage limit" in result["answer"].lower() or "limit reached" in result["answer"].lower():
+            raise LimitReached(f"{task} arm{arm_id} rep{rep}: {result['answer'][:200]}")
+        (run_dir / "run.json").write_text(json.dumps(result, indent=2))
+        return result
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--out", type=Path, required=True)
@@ -178,6 +300,7 @@ def main() -> None:
         default="review",
         help="review: is the claim supported? writeup: draft the Results paragraph (no audit requested)",
     )
+    p.add_argument("--backend", choices=["claude", "devin"], default="claude")
     p.add_argument("--parallel", type=int, default=4)
     p.add_argument("--timeout", type=int, default=1200)
     a = p.parse_args()
@@ -191,7 +314,10 @@ def main() -> None:
     a.out.mkdir(parents=True, exist_ok=True)
     (a.out / "config.json").write_text(
         json.dumps(
-            {"tasks": tasks, "arms": arms, "reps": a.reps, "model": a.model, "git": sha, "prompt": a.prompt}, indent=2
+            {
+                "tasks": tasks, "arms": arms, "reps": a.reps, "model": a.model, "git": sha,
+                "prompt": a.prompt, "backend": a.backend,
+            }, indent=2
         )
     )
     jobs = [(t, arm, r) for t in tasks for arm in arms for r in range(a.reps)]
@@ -201,7 +327,10 @@ def main() -> None:
     )
     total = 0.0
     with ThreadPoolExecutor(a.parallel) as pool:
-        futs = {pool.submit(run_one, t, arm, r, a.out, a.model, a.timeout, a.prompt): (t, arm, r) for t, arm, r in jobs}
+        futs = {
+            pool.submit(run_one, t, arm, r, a.out, a.model, a.timeout, a.prompt, a.backend): (t, arm, r)
+            for t, arm, r in jobs
+        }
         for i, f in enumerate(as_completed(futs), 1):
             t, arm, r = futs[f]
             try:
