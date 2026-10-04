@@ -95,6 +95,7 @@ def parse_stream(lines: list[str]) -> dict:
     return {
         "answer": final.get("result") or answer,
         "is_error": bool(final.get("is_error")) or not final,
+        "api_error_status": final.get("api_error_status"),
         "cost_usd": final.get("total_cost_usd"),
         "duration_s": round(final.get("duration_ms", 0) / 1000, 1),
         "turns": final.get("num_turns"),
@@ -103,6 +104,10 @@ def parse_stream(lines: list[str]) -> dict:
         "contaminated": any(m in json.dumps(t["input"]) for t in tools for m in CONTAMINATION),
         "tool_inputs": tools,
     }
+
+
+class LimitReached(RuntimeError):
+    """The account hit a usage or rate limit: the run says nothing about the agent, so it isn't recorded."""
 
 
 def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: int) -> dict:
@@ -145,6 +150,9 @@ def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: in
         "stderr_tail": stderr[-500:],
         **parse_stream(stdout.splitlines()),
     }
+    if result["api_error_status"] == 429 or (result["is_error"] and "limit" in (result["answer"] or "").lower()):
+        (run_dir / "transcript.jsonl").unlink()
+        raise LimitReached(f"{task} arm{arm_id} rep{rep}: {result['answer']}")
     (run_dir / "run.json").write_text(json.dumps(result, indent=2))
     return result
 
@@ -173,13 +181,21 @@ def main() -> None:
         )
     )
     jobs = [(t, arm, r) for t in tasks for arm in arms for r in range(a.reps)]
-    print(f"{len(jobs)} runs: {len(tasks)} tasks x arms {arms} x {a.reps} reps, model {a.model}, {a.parallel} parallel")
+    print(
+        f"{len(jobs)} runs: {len(tasks)} tasks x arms {arms} x {a.reps} reps, model {a.model}, {a.parallel} parallel",
+        flush=True,
+    )
     total = 0.0
     with ThreadPoolExecutor(a.parallel) as pool:
         futs = {pool.submit(run_one, t, arm, r, a.out, a.model, a.timeout): (t, arm, r) for t, arm, r in jobs}
         for i, f in enumerate(as_completed(futs), 1):
             t, arm, r = futs[f]
-            res = f.result()
+            try:
+                res = f.result()
+            except LimitReached as e:
+                for other in futs:
+                    other.cancel()
+                sys.exit(f"stopped: {e}. Finished runs are kept; rerun the same command to resume.")
             total += res.get("cost_usd") or 0
             flags = " ERROR" * res["is_error"] + " TIMEOUT" * res["timed_out"] + " CONTAMINATED" * res["contaminated"]
             print(

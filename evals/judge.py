@@ -94,7 +94,11 @@ def grade(run_json: Path, model: str) -> dict:
             text = json.loads(proc.stdout)["result"]
             result |= json.loads(re.search(r"\{.*\}", text, re.DOTALL).group(0))
         except (json.JSONDecodeError, KeyError, AttributeError):
-            result |= {"error": f"unparseable judge output: {proc.stdout[-300:]} {proc.stderr[-300:]}"}
+            # not saved, so a rerun retries it (usage limits, transient failures)
+            return {
+                "error": f"unparseable judge output: {proc.stdout[-300:]} {proc.stderr[-300:]}",
+                "verdict_correct": False,
+            }
     result["final_verdict"] = result["parsed_verdict"] or result.get("verdict")
     result["verdict_correct"] = result["final_verdict"] == rubric["expected_verdict"]
     result["flawed"] = rubric["flawed"]
@@ -114,6 +118,9 @@ def main() -> None:
     with ThreadPoolExecutor(a.parallel) as pool:
         for path, res in zip(runs, pool.map(lambda r: grade(r, a.model), runs)):
             tag = "/".join(path.parts[-4:-1])
+            if "final_verdict" not in res:
+                print(f"{tag}: NOT GRADED ({res['error'][:120]})")
+                continue
             print(f"{tag}: verdict {res.get('final_verdict')} ({'ok' if res['verdict_correct'] else 'WRONG'}), "
                   f"detected={res.get('detected')} false_alarm={res.get('false_alarm')}{' ERROR' if 'error' in res else ''}")  # fmt: skip
 
