@@ -11,7 +11,8 @@ Outputs:
   skills/ml-genomics-failures/SKILL.md     Agent Skill: audit procedure + case index (Claude, Codex, Cursor, ...)
   skills/ml-genomics-failures/FAILURES.md  Agent Skill: full cases, read on demand
   dist/AGENTS.md                           everything in one markdown file (Devin Knowledge, AGENTS.md, prompts)
-  dist/failures.json                       machine-readable checklist + cases (MCP server, other tools)
+  dist/failures.json                       machine-readable checklist + cases (other tools)
+  src/ml_genomics_failures/data/failures.json  the same JSON, bundled with the MCP server package
 """
 
 from __future__ import annotations
@@ -21,6 +22,9 @@ import sys
 from pathlib import Path
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+from ml_genomics_failures.render import audit_section, index_table, render_case
 
 ROOT = Path(__file__).parent
 SKILL_DIR = ROOT / "skills" / "ml-genomics-failures"
@@ -74,9 +78,7 @@ def validate(case: dict, stem: str, codes: set[str]) -> list[str]:
     if case["id"] != stem:
         errors.append(f"id {case['id']} doesn't match file name {stem}")
     errors += [f"unknown class {c}" for c in case["classes"] if c not in codes]
-    errors += [
-        f"source {i} needs a 'citation'" for i, s in enumerate(case["sources"]) if not s.get("citation")
-    ]
+    errors += [f"source {i} needs a 'citation'" for i, s in enumerate(case["sources"]) if not s.get("citation")]
     status = case["status"]
     if status.get("state") not in STATES:
         errors.append(f"status.state must be one of {STATES}")
@@ -89,72 +91,6 @@ def validate(case: dict, stem: str, codes: set[str]) -> list[str]:
 
 
 # --- render -------------------------------------------------------------------------------------------------
-
-
-def classes_table(checklist: dict) -> str:
-    rows = [f"| **{c['code']}** | {c['name']} | {c['test']} |" for c in checklist["classes"]]
-    return "\n".join(["| Code | Class | One-line test |", "|---|---|---|", *rows])
-
-
-def audit_section(checklist: dict, level: int) -> str:
-    h = "#" * level
-    steps = [
-        f"{i}. **{s['title']}{'' if s['title'][-1] in '.?!' else '.'}** {s['text']}" for i, s in enumerate(checklist["audit"]["steps"], 1)
-    ]
-    usage = [f"- {u}" for u in checklist["usage"]]
-    return "\n".join(
-        [
-            f"{h} Pitfall classes",
-            "",
-            classes_table(checklist),
-            "",
-            f"{h} Audit procedure",
-            "",
-            checklist["audit"]["intro"],
-            "",
-            *steps,
-            "",
-            f"{h} How to use the cases",
-            "",
-            *usage,
-        ]
-    )
-
-
-def index_table(cases: list[dict]) -> str:
-    rows = [
-        f"| {c['id']} | {c['title']} | {', '.join(c['classes'])} | {c['status']['state']} |"
-        for c in cases
-    ]
-    return "\n".join(["| ID | Case | Class | Status |", "|---|---|---|---|", *rows])
-
-
-def status_text(s: dict) -> str:
-    if s["state"] == "internal":
-        return f"internal ({s['date']}). Pending: {s['pending']}"
-    return s["state"]
-
-
-def render_case(c: dict, level: int) -> str:
-    sources = [f"  - {s['citation']}" + (f" {s['url']}" if s.get("url") else "") for s in c["sources"]]
-    flags = [f"  - {f}" for f in c["red_flags"]]
-    return "\n".join(
-        [
-            f"{'#' * level} {c['id']}. {c['title']}",
-            "",
-            f"- **Domain:** {c['domain']}",
-            f"- **Class:** {', '.join(c['classes'])}",
-            f"- **Claim:** {c['claim']}",
-            f"- **What went wrong:** {c['mechanism']}",
-            "- **Red flags:**",
-            *flags,
-            f"- **Test that exposes it:** {c['test']}",
-            f"- **Fix:** {c['fix']}",
-            "- **Sources:**",
-            *sources,
-            f"- **Status:** {status_text(c['status'])}",
-        ]
-    )
 
 
 def skill_md(checklist: dict, cases: list[dict]) -> str:
@@ -181,8 +117,10 @@ def skill_md(checklist: dict, cases: list[dict]) -> str:
             "",
             "## Adding a case",
             "",
-            f"Cases live as YAML in {REPO_URL} (`cases/`). Add one there and run `uv run build.py`; don't edit these "
-            "generated files.",
+            (
+                f"Cases live as YAML in {REPO_URL} (`cases/`). Add one there and run `uv run build.py`; don't edit "
+                "these generated files."
+            ),
             "",
         ]
     )
@@ -190,31 +128,37 @@ def skill_md(checklist: dict, cases: list[dict]) -> str:
 
 def failures_md(checklist: dict, cases: list[dict]) -> str:
     codes = ", ".join(f"**{c['code']}** {c['name'].lower()}" for c in checklist["classes"])
-    return "\n\n".join(
-        [
-            GENERATED,
-            f"# {checklist['title']} (cases)",
-            f"Class codes: {codes}. See `SKILL.md` for the audit procedure.",
-            index_table(cases),
-            *[render_case(c, 2) for c in cases],
-        ]
-    ) + "\n"
+    return (
+        "\n\n".join(
+            [
+                GENERATED,
+                f"# {checklist['title']} (cases)",
+                f"Class codes: {codes}. See `SKILL.md` for the audit procedure.",
+                index_table(cases),
+                *[render_case(c, 2) for c in cases],
+            ]
+        )
+        + "\n"
+    )
 
 
 def agents_md(checklist: dict, cases: list[dict]) -> str:
-    return "\n\n".join(
-        [
-            GENERATED,
-            f"# {checklist['title']}",
-            checklist["summary"],
-            f"Use this when: {checklist['description']}",
-            audit_section(checklist, 2),
-            "## Cases",
-            index_table(cases),
-            *[render_case(c, 3) for c in cases],
-            f"Source: {REPO_URL}",
-        ]
-    ) + "\n"
+    return (
+        "\n\n".join(
+            [
+                GENERATED,
+                f"# {checklist['title']}",
+                checklist["summary"],
+                f"Use this when: {checklist['description']}",
+                audit_section(checklist, 2),
+                "## Cases",
+                index_table(cases),
+                *[render_case(c, 3) for c in cases],
+                f"Source: {REPO_URL}",
+            ]
+        )
+        + "\n"
+    )
 
 
 def failures_json(checklist: dict, cases: list[dict]) -> str:
@@ -232,6 +176,7 @@ def main() -> None:
         SKILL_DIR / "FAILURES.md": failures_md(checklist, cases),
         ROOT / "dist" / "AGENTS.md": agents_md(checklist, cases),
         ROOT / "dist" / "failures.json": failures_json(checklist, cases),
+        ROOT / "src" / "ml_genomics_failures" / "data" / "failures.json": failures_json(checklist, cases),
     }
     stale = []
     for path, text in outputs.items():

@@ -30,8 +30,55 @@ All outputs are generated from the same YAML, so every agent sees the same conte
 | ChatGPT | Upload [`dist/AGENTS.md`](dist/AGENTS.md) to a Project or custom GPT as knowledge |
 | Anything else | Put [`dist/AGENTS.md`](dist/AGENTS.md) in the prompt, or read [`dist/failures.json`](dist/failures.json) |
 
-An MCP server (search and fetch cases, the audit as a prompt, and executable checks such as split-overlap and
-k-mer baselines) is planned and will read `dist/failures.json`.
+## MCP server
+
+Any MCP client can use the book through tools instead of reading files:
+
+| Tool / prompt | What it does |
+|---|---|
+| `search(query)` | Cases by free text, case ID or class code, best first |
+| `fetch(id)` | One full case as markdown, plus metadata |
+| `list_cases(pitfall_class?, domain?)` | Filtered case summaries |
+| `get_audit_checklist()` | The 8-question audit, pitfall classes and case index |
+| prompt `audit_experiment(description)` | The audit applied to your experiment |
+| resource `failures://book` | The whole book as one markdown document |
+
+`search` and `fetch` use the result shape ChatGPT connectors expect, so one server works everywhere.
+
+**Local clients (stdio).** Needs [uv](https://docs.astral.sh/uv/).
+
+```bash
+# Claude Code
+claude mcp add ml-genomics-failures -- uvx --from git+https://github.com/genesjpgorg/ml-genomics-failures ml-genomics-failures-mcp
+```
+
+Claude Desktop, Cursor and most other clients take the same command in their JSON config:
+
+```json
+{
+  "mcpServers": {
+    "ml-genomics-failures": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/genesjpgorg/ml-genomics-failures", "ml-genomics-failures-mcp"]
+    }
+  }
+}
+```
+
+Codex CLI (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.ml-genomics-failures]
+command = "uvx"
+args = ["--from", "git+https://github.com/genesjpgorg/ml-genomics-failures", "ml-genomics-failures-mcp"]
+```
+
+**Web agents (ChatGPT, Devin, claude.ai).** These need a public HTTPS endpoint. Run the server with
+`ml-genomics-failures-mcp --http --host 0.0.0.0 --port 8000` (add `--stateless` for serverless or multi-replica
+hosting) behind HTTPS, and add `https://<host>/mcp` as a connector. A hosted endpoint isn't set up yet.
+
+Executable checks (split overlap between train and test entities, nearest-training-sequence identity, shortcut and
+k-mer baselines) are planned as further tools.
 
 ## Layout
 
@@ -43,6 +90,8 @@ skills/ml-genomics-failures/SKILL.md     generated: Agent Skill (audit + case in
 skills/ml-genomics-failures/FAILURES.md  generated: full cases
 dist/AGENTS.md            generated: everything in one file
 dist/failures.json        generated: machine-readable
+src/ml_genomics_failures/ MCP server package (render.py is shared with build.py; data/ is generated)
+tests/                    MCP server tests (`uv run pytest`)
 ```
 
 ## Add a case
@@ -51,7 +100,7 @@ dist/failures.json        generated: machine-readable
    `mechanism`, `red_flags`, `test`, `fix`, `sources` (each with `citation`, optional `url`), `status`
    (`state: published`, or `state: internal` with `date` and `pending`).
 2. Run `uv run build.py` and commit the YAML together with the regenerated files. CI runs
-   `uv run build.py --check` and fails if they're out of date.
+   `uv run build.py --check` (fails if they're out of date), `ruff` and the tests.
 
 Only write claims the cited source supports, and link the source. Mark unpublished cases `internal` and update
 them when the deciding experiment has run.
