@@ -1,0 +1,13 @@
+{
+  "id": "T13",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "L + S (two flaws)",
+  "mechanism": "Two independent flaws: (1) pairs were split at random, so every test protein also appears in training and labels follow per-protein propensity \u2014 memorizing entity label rates reproduces most of the score; (2) the assay batch is confounded with the label (positives were mostly run in batch 1), so batch predicts the label without any biology. A valid review names BOTH: fixing only the split leaves the confounded batch; fixing only the batch leaves the memorization.",
+  "quantify": [
+    "~100% of test pairs share a protein with training",
+    "batch alone predicts the label with AUROC ~0.77"
+  ],
+  "fix": "Entity-disjoint split AND batch-matched (or batch-corrected) evaluation; report both baselines.",
+  "book_case": "F03 + F10 (disguised)"
+}

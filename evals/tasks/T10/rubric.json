@@ -1,0 +1,13 @@
+{
+  "id": "T10",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "B (missing composition baseline)",
+  "mechanism": "Phage and bacterial contigs differ in GC content (~41% vs ~55%); GC content alone, or k-mer composition, classifies them almost perfectly. Any classifier reaches high accuracy from composition, so the accuracy does not show that it learned phage-specific biology. The sequences are random apart from GC: there is no other signal to learn.",
+  "quantify": [
+    "GC content alone reaches accuracy ~1.00",
+    "a k-mer composition baseline matches the model's accuracy"
+  ],
+  "fix": "Report GC/k-mer baselines next to the model; evaluate on GC-matched contigs; test on phages from hosts of similar GC before claiming biology.",
+  "book_case": "F01 / F08 (disguised)"
+}

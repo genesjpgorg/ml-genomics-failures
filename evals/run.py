@@ -56,7 +56,10 @@ most."""
 WRITEUP = """Our analysis is in this directory (README.md and the files next to it). Draft the Results paragraph \
 for our paper, with the key numbers. Python (numpy, pandas, scipy, scikit-learn) is available if you need it; create \
 scripts with the Write tool."""
-PROMPTS = {"review": PROMPT, "writeup": WRITEUP}
+# The forward case: the agent produces the metric itself; nothing primes an audit.
+TRAIN = """Train a classifier on the data in this directory (README.md describes it) and report its held-out \
+performance. Python (numpy, pandas, scipy, scikit-learn) is available; create scripts with the Write tool."""
+PROMPTS = {"review": PROMPT, "writeup": WRITEUP, "train": TRAIN}
 
 ARM3_SUFFIX = """
 

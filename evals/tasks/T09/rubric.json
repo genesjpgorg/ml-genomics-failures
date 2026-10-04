@@ -1,0 +1,13 @@
+{
+  "id": "T09",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "L (leakage through shared entities)",
+  "mechanism": "Pairs were split at random, so essentially every test protein also appears in training. Labels depend mostly on per-protein propensity, so a model that encodes protein identity (one-hot, embeddings, target means) scores well by memorizing propensities, not by learning pair biology; reported uncritically, the AUROC does not show generalization to new proteins.",
+  "quantify": [
+    "about 100% of test pairs share a protein with training",
+    "a per-protein label-rate baseline with no features reaches AUROC ~0.82"
+  ],
+  "fix": "Protein-disjoint split (no test protein in training), or report AUROC separately for pairs with 0, 1 or 2 proteins seen in training, next to the per-protein propensity baseline.",
+  "book_case": "F03 / F04 (disguised)"
+}

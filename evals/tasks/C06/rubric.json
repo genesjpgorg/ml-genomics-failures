@@ -1,0 +1,15 @@
+{
+  "id": "C06",
+  "flawed": false,
+  "expected_verdict": "SUPPORTED",
+  "mechanism": "Clean control. The split is disjoint at both gene and family level, so a moderate AUROC (driven by conservation, the one real signal) is earned; a family label-rate baseline is useless on unseen families.",
+  "false_alarms": [
+    "claiming family leakage (the split is family-disjoint)",
+    "calling the result invalid because conservation does most of the work"
+  ],
+  "acceptable_caveats": [
+    "modest effect size",
+    "one label source",
+    "wider families may still overlap"
+  ]
+}

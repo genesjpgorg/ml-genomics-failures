@@ -1,0 +1,13 @@
+{
+  "id": "T11",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "S (batch confounding)",
+  "mechanism": "Cases were mostly run on plates 1-2 and controls on plates 3-4, and plates shift every protein, so a classifier learns the plate, not disease. A high CV AUROC does not show a cancer signature; the label is essentially readable from the processing batch.",
+  "quantify": [
+    "plate or run date alone predicts case status with AUROC ~0.82",
+    "~85% of cases on plates 1-2 vs ~15% of controls"
+  ],
+  "fix": "Randomize cases and controls across plates; correct for plate inside CV folds; validate on an independently processed cohort before calling it a signature.",
+  "book_case": "F10 (disguised)"
+}

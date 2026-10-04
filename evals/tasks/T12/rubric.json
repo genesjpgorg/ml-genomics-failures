@@ -1,0 +1,13 @@
+{
+  "id": "T12",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "L (leakage through a clustering level)",
+  "mechanism": "The split is gene-disjoint but not family-disjoint: every test variant's Pfam family appears in training, and labels follow per-family propensity, so a model can score well by memorizing family label rates. Gene-level disjointness is only the appearance of a clean split; the generalization claimed (to unrelated genes) is untested.",
+  "quantify": [
+    "100% of test variants share their pfam family with training",
+    "a family label-rate baseline reaches AUROC ~0.88"
+  ],
+  "fix": "Split at the family level (no test variant's family in training), or report AUROC within families unseen in training.",
+  "book_case": "F12 / F09 (disguised)"
+}

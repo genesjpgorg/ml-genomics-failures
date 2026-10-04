@@ -1,0 +1,15 @@
+{
+  "id": "C05",
+  "flawed": false,
+  "expected_verdict": "SUPPORTED",
+  "mechanism": "Clean control. Plates are balanced across status (plate alone AUROC ~0.36) and a few proteins carry a real shift, so a cross-validated AUROC around 0.79 is earned by signal, not batch.",
+  "false_alarms": [
+    "claiming plate/batch confounding",
+    "claiming feature-selection leakage"
+  ],
+  "acceptable_caveats": [
+    "needs external validation",
+    "modest sample size",
+    "selection inside CV"
+  ]
+}
