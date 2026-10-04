@@ -54,11 +54,12 @@ numpy: about 5 s for 12 Mbp of sequence. For proteins or alignment-level identit
 
 `search` and `fetch` use the result shape ChatGPT connectors expect, so one server works everywhere.
 
-**Local clients (stdio).** Needs [uv](https://docs.astral.sh/uv/).
+**Local clients (stdio).** Needs [uv](https://docs.astral.sh/uv/). The commands pin a release tag, so a client only
+changes behaviour when you change the tag; drop `@v0.1.0` to follow `main`.
 
 ```bash
 # Claude Code
-claude mcp add ml-genomics-failures -- uvx --from git+https://github.com/genesjpgorg/ml-genomics-failures ml-genomics-failures-mcp
+claude mcp add ml-genomics-failures -- uvx --from git+https://github.com/genesjpgorg/ml-genomics-failures@v0.1.0 ml-genomics-failures-mcp
 ```
 
 Claude Desktop, Cursor and most other clients take the same command in their JSON config:
@@ -68,7 +69,7 @@ Claude Desktop, Cursor and most other clients take the same command in their JSO
   "mcpServers": {
     "ml-genomics-failures": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/genesjpgorg/ml-genomics-failures", "ml-genomics-failures-mcp"]
+      "args": ["--from", "git+https://github.com/genesjpgorg/ml-genomics-failures@v0.1.0", "ml-genomics-failures-mcp"]
     }
   }
 }
@@ -79,13 +80,19 @@ Codex CLI (`~/.codex/config.toml`):
 ```toml
 [mcp_servers.ml-genomics-failures]
 command = "uvx"
-args = ["--from", "git+https://github.com/genesjpgorg/ml-genomics-failures", "ml-genomics-failures-mcp"]
+args = ["--from", "git+https://github.com/genesjpgorg/ml-genomics-failures@v0.1.0", "ml-genomics-failures-mcp"]
 ```
 
-**Web agents (ChatGPT, Devin, claude.ai).** These need a public HTTPS endpoint. Run the server with
-`ml-genomics-failures-mcp --http --host 0.0.0.0 --port 8000` (add `--stateless` for serverless or multi-replica
-hosting) behind HTTPS, and add `https://<host>/mcp` as a connector. A hosted endpoint isn't set up yet.
+Devin (verified): in Settings → MCP, add a custom server with transport `STDIO`, command `uvx` and three
+arguments: `--from`, `git+https://github.com/genesjpgorg/ml-genomics-failures@v0.1.0`, `ml-genomics-failures-mcp`.
+Devin can't test stdio servers from settings; use **Use MCP** to start a session that calls the tools. The first
+start builds the package and can take a few seconds.
 
+**Web agents (ChatGPT, claude.ai).** These need a public HTTPS endpoint. To host one, deploy
+`deploy/modal_app.py` with `uvx modal deploy deploy/modal_app.py`, or run
+`ml-genomics-failures-mcp --http --host 0.0.0.0 --public` (or `--allowed-host <your host>` instead of `--public`)
+behind HTTPS, and add `https://<host>/mcp` as a connector. The HTTP server is stateless, never reads files, and
+needs no auth because everything it serves is public and read-only. There's no shared hosted endpoint yet.
 
 ## Layout
 
