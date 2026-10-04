@@ -768,7 +768,7 @@ def c03() -> None:
     for motif in (a, b):
         pos = np.array([r["sequence"].find(motif) for r in test])
         y = np.array([r["order_ab"] for r in test])
-        for t in range(0, 200):
+        for t in range(200):
             acc = np.mean((pos < t) == y)
             pos_acc = max(pos_acc, acc, 1 - acc)
     check(pos_acc < 0.6, f"C03 position-only rule {pos_acc:.2f}")
