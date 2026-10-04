@@ -251,6 +251,9 @@ def audit_directory(path: str, model_score: float | None = None) -> dict[str, An
         features = [c for c in tr.feature_cols() if c in common]
         if label and features:
             add("check_shortcuts", on, checks.shortcuts, both, label, features, "auto", None, 5, model_score)
+        nums = [c for c in features if c not in entities and checks._num(tr.values(c)) is not None]
+        if len(nums) >= 3:  # nearest-neighbour spacing is uninformative in 1-2 dimensions
+            add("check_duplicate_rows", on, checks.duplicate_rows, tr.rows, te.rows, nums)
 
     if trains and tests:
         used |= {t.name for t in trains + tests}
@@ -321,6 +324,9 @@ def _pair_rows(t: Table, tr: list[dict], te: list[dict], add, model_score: float
             add("kmer_baseline", on, checks.kmer_baseline,
                 [(r.get(key, str(i)), r[t.label], r[t.seq]) for i, r in enumerate(tr)],
                 [(r.get(key, str(i)), r[t.label], r[t.seq]) for i, r in enumerate(te)], 5, "auto", model_score)
+    nums = [c for c in t.feature_cols() if c not in entities and checks._num(t.values(c)) is not None]
+    if len(nums) >= 3:  # nearest-neighbour spacing is uninformative in 1-2 dimensions
+        add("check_duplicate_rows", on, checks.duplicate_rows, tr, te, nums)
 
 
 def _label_map(tables: list[Table]) -> dict[str, tuple[str, str]]:

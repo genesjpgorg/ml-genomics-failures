@@ -106,6 +106,24 @@ def test_unpaired_table_with_confounder(tmp_path):
     assert top["feature"] == "plate" and top["score"] == 1.0
 
 
+def test_feature_pair_runs_duplicate_rows(tmp_path):
+    import numpy as np
+
+    rng = np.random.default_rng(5)
+    cols = ["m1", "m2", "m3", "m4"]
+    train = [
+        {"sample": f"s{i}", "label": i % 2, **{c: float(v) for c, v in zip(cols, row)}}
+        for i, row in enumerate(rng.normal(0, 1, (200, 4)))
+    ]
+    test = [
+        {"sample": f"n{i}", "label": 0, **{c: r[c] + 0.005 for c in cols}}
+        for i, r in enumerate(train[:30])
+    ]
+    write_pair(tmp_path, train, test)
+    got = analyses(audit.audit_directory(str(tmp_path)))
+    assert got["check_duplicate_rows"][0]["result"]["test_rows_near_duplicate"] >= 28
+
+
 def test_directory_without_data_files(tmp_path):
     (tmp_path / "notes.txt").write_text("no data here")
     report = audit.audit_directory(str(tmp_path))

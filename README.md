@@ -39,12 +39,13 @@ Any MCP client can use the book through tools instead of reading files:
 | `search(query)` | Cases by free text, case ID or class code, best first |
 | `fetch(id)` | One full case as markdown, plus metadata |
 | `list_cases(pitfall_class?, domain?)` | Filtered case summaries |
-| `get_audit_checklist()` | The 8-question audit, pitfall classes and case index |
+| `get_audit_checklist()` | The 9-question audit, pitfall classes and case index |
 | prompt `audit_experiment(description)` | The audit applied to your experiment |
 | resource `failures://book` | The whole book as one markdown document |
 | `check_split_overlap(columns, train, test, label?)` | Entities (genes, enhancers, species, individuals) shared by train and test, and the score of memorizing each entity's label (F03, F04, F09) |
 | `check_sequence_similarity(train_fasta, test_fasta, test_scores?)` | Each test sequence's nearest training sequence by k-mer containment, and performance by identity to training (F12) |
 | `check_shortcuts(table, label, features, group_column?)` | Cross-validated score of each candidate confounder (batch, GC, distance, ancestry...) predicting the label alone (F10, F11, F01) |
+| `check_duplicate_rows(features, train, test)` | Test rows that are near-copies of training rows in feature space — reprocessed or re-annotated samples with new IDs (F12's mechanism for non-sequence data) |
 | `kmer_baseline(train, test)` | GC-only and k-mer composition baselines for sequence → label (F01, F02, F08) |
 | `audit_directory(path)` | One call, local servers only: scans a directory, finds the train/test files and runs every check that applies |
 

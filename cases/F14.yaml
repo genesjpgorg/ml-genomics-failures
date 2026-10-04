@@ -1,0 +1,37 @@
+id: F14
+title: Preprocessing fit on the whole dataset before the split leaks the answer
+domain: >-
+  Any pipeline with steps fit on data: feature selection, normalization, imputation, batch correction,
+  dimensionality reduction, embeddings, oversampling.
+classes: [L]
+claim: "The model was validated by cross-validation / held out test set."
+mechanism: >-
+  A step fit on all samples before splitting uses information from test rows — often their labels: genes
+  selected by correlation with the outcome on the full matrix, batch correction or scaling fit on all data,
+  oversampling (SMOTE) applied before the split. Ambroise & McLachlan showed that selecting genes by
+  label-correlation on the whole matrix, then cross-validating, produces near-perfect apparent accuracy on data
+  where the honest score is near chance.
+red_flags:
+  - >-
+    "We selected the top N genes/features" or "we normalized/batch-corrected the matrix" stated outside or
+    before the CV loop.
+  - Oversampling or imputation described before the split.
+  - A public dataset whose processed form embeds the labels (e.g. features pre-selected by the publisher).
+test: >-
+  Re-run with the split first and every learned step refit inside training folds only; compare the scores.
+  Any step whose parameters depend on labels or on test-row distributions must move inside the loop.
+fix: >-
+  Fit all learned preprocessing inside the training folds. Precomputed steps are allowed only when they never
+  saw the labels and used only training rows.
+sources:
+  - citation: >-
+      Ambroise C, McLachlan GJ. Selection bias in gene extraction on the basis of microarray gene-expression
+      data. Proc Natl Acad Sci USA 99:6562–6566 (2002). The canonical demonstration: feature selection outside
+      CV turned near-chance into apparent accuracy.
+    url: https://doi.org/10.1073/pnas.102841399
+  - citation: >-
+      Whalen S, Schreiber J, Noble WS, Pollard KS. Navigating the pitfalls of applying machine learning in
+      genomics. Nat Rev Genet 23:169–181 (2022) — "leaky preprocessing" section.
+    url: https://www.nature.com/articles/s41576-021-00434-9
+status:
+  state: published

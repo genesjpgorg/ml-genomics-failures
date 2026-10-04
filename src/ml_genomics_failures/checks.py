@@ -449,6 +449,97 @@ def _similarity_summary(o: dict) -> str:
 # --- shortcuts -----------------------------------------------------------------------------------------------
 
 
+def duplicate_rows(
+    train: list[dict],
+    test: list[dict],
+    features: list[str],
+    ratio: float = 0.1,
+    max_train: int = 4000,
+) -> dict:
+    """Feature-space near-duplicates across the split (class L; case F12's mechanism for non-sequence rows):
+    reprocessed samples, re-annotated rows or perturbed copies can sit on both sides with different IDs and pass
+    every entity check. For each test row, distance to the nearest training row in z-scored feature space,
+    relative to the typical train-to-train spacing; ``ratio`` of that spacing flags near-copies."""
+    if not features:
+        raise CheckError("give numeric feature columns (exclude IDs, entities and the label)")
+    train, test = _strs(train), _strs(test)
+    require_columns(train, features, "train")
+    require_columns(test, features, "test")
+    x_tr = np.stack([_num([r[f] for r in train]) for f in features], axis=1)
+    x_te = np.stack([_num([r[f] for r in test]) for f in features], axis=1)
+    if np.isnan(x_tr).any() or np.isnan(x_te).any():
+        raise CheckError("features must be numeric without missing values")
+    keep = x_tr.std(axis=0) > 0
+    if keep.sum() == 0:
+        raise CheckError("all features are constant in training")
+    x_tr, x_te = x_tr[:, keep], x_te[:, keep]
+    dropped = [f for f, k in zip(features, keep) if not k]
+    mu, sd = x_tr.mean(axis=0), np.maximum(x_tr.std(axis=0), 1e-12)
+    x_tr = (x_tr - mu) / sd
+    x_te = (x_te - mu) / sd
+    if len(x_tr) > max_train:
+        sub = np.random.default_rng(0).choice(len(x_tr), max_train, replace=False)
+        x_tr_sub = x_tr[np.sort(sub)]
+        note = f"nearest distances computed against a {max_train}-row subsample of training"
+    else:
+        x_tr_sub, note = x_tr, None
+    nearest = np.empty(len(x_te), int)
+    dist = np.empty(len(x_te))
+    for s in range(0, len(x_te), 500):
+        d = np.sqrt(((x_te[s : s + 500, None, :] - x_tr_sub[None, :, :]) ** 2).sum(axis=2))
+        nearest[s : s + 500] = d.argmin(axis=1)
+        dist[s : s + 500] = d[np.arange(len(d)), nearest[s : s + 500]]
+    ref = x_tr if len(x_tr) <= 1000 else x_tr[np.random.default_rng(1).choice(len(x_tr), 1000, False)]
+    nn = np.empty(len(ref))
+    for s in range(0, len(ref), 500):
+        blk = ref[s : s + 500]
+        dd = np.sqrt(((blk[:, None, :] - ref[None, :, :]) ** 2).sum(axis=2))
+        dd[np.arange(len(blk)), s + np.arange(len(blk))] = np.inf  # exclude self
+        nn[s : s + 500] = dd.min(axis=1)
+    spacing = float(np.median(nn)) if len(nn) else float("nan")
+    flagged = dist < ratio * spacing if np.isfinite(spacing) else dist == 0
+    order = np.argsort(dist)[:10]
+    low_dim = int(keep.sum()) < 3
+    out = {
+        "n_train": len(x_tr),
+        "n_test": len(x_te),
+        "n_features": int(keep.sum()),
+        "constant_features_dropped": dropped,
+        "median_train_spacing": _r(spacing),
+        "near_duplicate_threshold": _r(ratio * spacing),
+        "test_rows_near_duplicate": int(flagged.sum()),
+        "test_rows_near_duplicate_fraction": _r(float(flagged.mean())),
+        "nearest_distance_quantiles": {
+            f"q{q}": _r(float(np.quantile(dist, q / 100))) for q in (0, 10, 25, 50, 75)
+        },
+        "closest_examples": [
+            {"test_row": int(i), "train_row": int(nearest[i]), "distance": _r(float(dist[i]))}
+            for i in order
+        ],
+    }
+    if note:
+        out["note"] = note
+    if low_dim:
+        out["note"] = (out.get("note") or "") + (
+            " Fewer than 3 numeric features: in low dimensions every point is close to a neighbour, "
+            "so flagged counts overstate duplication — treat them skeptically."
+        ).strip()
+    n = out["test_rows_near_duplicate"]
+    if n:
+        out["summary"] = (
+            f"{n} of {len(x_te)} test rows ({out['test_rows_near_duplicate_fraction']:.0%}) sit closer to a "
+            f"training row than {ratio:.0%} of typical training spacing — likely reprocessed or perturbed "
+            "copies with new IDs. An entity-disjoint split doesn't catch these (class L; F12's mechanism "
+            "applied to feature rows). Remove duplicates at the sample level, then re-split."
+        )
+    else:
+        out["summary"] = (
+            f"No test row is nearer than {ratio:.0%} of typical training spacing to a training row. "
+            "No feature-space duplicates found."
+        )
+    return out
+
+
 def shortcuts(
     rows: list[dict],
     label: str,

@@ -1,0 +1,39 @@
+id: F13
+title: The split is disjoint on the wrong entity — a hidden cluster column carries the label
+domain: >-
+  Any dataset that carries more than one ID-like or cluster column: Pfam/orthogroup/family annotations, gene
+  families, donors, individuals, cell lines, hospitals, batches or clonotypes.
+classes: [L]
+claim: >-
+  "The split is entity-disjoint — no test gene/variant/sequence appears in training", so held-out performance
+  measures generalization to new entities.
+mechanism: >-
+  The advertised entity (gene, variant, protein) is disjoint, but examples cluster at a coarser level that is
+  shared across the split and predicts the label: every test variant's Pfam family is in training, every test
+  donor's cells are in both splits, every test site's patients were assayed by the same lab. Memorizing the
+  cluster's label rate reproduces most of the model's score, so disjointness on the fine entity is only the
+  appearance of a clean split; generalization to unseen clusters is untested.
+red_flags:
+  - More than one ID-like or cluster column in the data, and only the advertised one was checked for overlap.
+  - Label rates that vary strongly by family/donor/site.
+  - >-
+    "We held out X" stated without asking what X is nested inside (protein -> family, cell -> donor,
+    patient -> site, gene -> orthogroup).
+test: >-
+  Run the entity-overlap check on EVERY ID-like column, not just the split's named entity; report the
+  memorization baseline per column. Then split at the coarsest predictive level.
+fix: >-
+  Split at the cluster level (no test row's family/donor/site in training), or report performance restricted to
+  unseen clusters.
+sources:
+  - citation: >-
+      Roberts DR, et al. Cross-validation strategies for data with temporal, spatial, hierarchical, or
+      phylogenetic structure. Ecography 40:913–929 (2017). Blocking CV at the level of the dependence structure
+      is the general fix for clustered entities.
+    url: https://doi.org/10.1111/ecog.02881
+  - citation: >-
+      Synthetic demonstration in this repo's evals: task T12 splits variants by gene (disjoint) but every test
+      Pfam family is shared, and a family label-rate baseline reaches AUROC ~0.8.
+    url: https://github.com/genesjpgorg/ml-genomics-failures/tree/main/evals/tasks/T12
+status:
+  state: published

@@ -18,6 +18,8 @@ Class codes: **L** leakage through shared entities, **S** shortcut / confounder,
 | F10 | Batch effects confounded with the outcome | S | published |
 | F11 | Polygenic scores lose accuracy across ancestries | A, S | published |
 | F12 | Homologous sequences on both sides of the split | L | published |
+| F13 | The split is disjoint on the wrong entity — a hidden cluster column carries the label | L | published |
+| F14 | Preprocessing fit on the whole dataset before the split leaks the answer | L | published |
 
 ## F01. Genome → organism image learns phylogeny, not phenotype
 
@@ -49,11 +51,13 @@ Class codes: **L** leakage through shared entities, **S** shortcut / confounder,
   - The shuffled control lands near a composition baseline.
   - Its loss is still falling at the end of training.
   - The frozen pretrained baseline doesn't change under shuffling.
+  - Evaluating one fixed checkpoint on shuffled tokens (no retraining) shows how much of the score is pure composition: on the genes.jpg pilot chunk model shuffled was indistinguishable from intact (sometimes better); on the 1,871-species gene model the shuffle kept Spearman 0.42–0.55 of the intact 0.66–0.70.
 - **Test that exposes it:** Run a true null alongside (each entity gets another entity's input; held-out scores should fall to chance). Compare shuffled vs intact at matched training loss and over several seeds. Restrict windows to repeat-masked or coding regions to see where the order signal comes from.
 - **Fix:** Label each control by what it removes and what it keeps. Only call a control a null if it removes the confounder too.
 - **Sources:**
   - genes.jpg control B report (shuffled 16/30 vs intact 25/30 family top-1 on held-out species; k-mer baseline 20/30; one seed). https://github.com/genesjpgorg/genes.jpg/blob/main/docs/reports/control-b-shuffle-tokens.md
-- **Status:** internal (2026-10-04). Pending: Multi-seed and matched-loss comparison not run.
+  - genes.jpg longevity controls (eval-time shuffle of the same checkpoint): pilot chunk model shuffled ~= intact (docs/longevity-anage100-controls); full gene model shuffled retains most of the intact rank correlation (docs/longevity-gene-shuffle). https://github.com/genesjpgorg/genes.jpg/tree/main/docs/longevity-gene-shuffle
+- **Status:** internal (2026-10-04). Pending: Eval-time order ablation now measured (chunk model order-insensitive; gene model keeps ~63–78% of rank correlation). Still missing: a model *trained* on shuffled inputs and a matched-loss comparison.
 
 ## F03. Enhancer–promoter interaction prediction inflated by shared elements
 
@@ -207,4 +211,38 @@ Class codes: **L** leakage through shared entities, **S** shortcut / confounder,
 - **Fix:** Cluster by sequence identity (e.g. MMseqs2, CD-HIT) and split by cluster. Report performance by distance to training.
 - **Sources:**
   - General pitfall ("dependent examples") in Whalen S, Schreiber J, Noble WS, Pollard KS. Navigating the pitfalls of applying machine learning in genomics. Nat Rev Genet 23:169–181 (2022). The review also covers distributional differences, confounding, leaky preprocessing and unbalanced classes, and is the best single reference behind this book. https://www.nature.com/articles/s41576-021-00434-9
+- **Status:** published
+
+## F13. The split is disjoint on the wrong entity — a hidden cluster column carries the label
+
+- **Domain:** Any dataset that carries more than one ID-like or cluster column: Pfam/orthogroup/family annotations, gene families, donors, individuals, cell lines, hospitals, batches or clonotypes.
+- **Class:** L
+- **Claim:** "The split is entity-disjoint — no test gene/variant/sequence appears in training", so held-out performance measures generalization to new entities.
+- **What went wrong:** The advertised entity (gene, variant, protein) is disjoint, but examples cluster at a coarser level that is shared across the split and predicts the label: every test variant's Pfam family is in training, every test donor's cells are in both splits, every test site's patients were assayed by the same lab. Memorizing the cluster's label rate reproduces most of the model's score, so disjointness on the fine entity is only the appearance of a clean split; generalization to unseen clusters is untested.
+- **Red flags:**
+  - More than one ID-like or cluster column in the data, and only the advertised one was checked for overlap.
+  - Label rates that vary strongly by family/donor/site.
+  - "We held out X" stated without asking what X is nested inside (protein -> family, cell -> donor, patient -> site, gene -> orthogroup).
+- **Test that exposes it:** Run the entity-overlap check on EVERY ID-like column, not just the split's named entity; report the memorization baseline per column. Then split at the coarsest predictive level.
+- **Fix:** Split at the cluster level (no test row's family/donor/site in training), or report performance restricted to unseen clusters.
+- **Sources:**
+  - Roberts DR, et al. Cross-validation strategies for data with temporal, spatial, hierarchical, or phylogenetic structure. Ecography 40:913–929 (2017). Blocking CV at the level of the dependence structure is the general fix for clustered entities. https://doi.org/10.1111/ecog.02881
+  - Synthetic demonstration in this repo's evals: task T12 splits variants by gene (disjoint) but every test Pfam family is shared, and a family label-rate baseline reaches AUROC ~0.8. https://github.com/genesjpgorg/ml-genomics-failures/tree/main/evals/tasks/T12
+- **Status:** published
+
+## F14. Preprocessing fit on the whole dataset before the split leaks the answer
+
+- **Domain:** Any pipeline with steps fit on data: feature selection, normalization, imputation, batch correction, dimensionality reduction, embeddings, oversampling.
+- **Class:** L
+- **Claim:** The model was validated by cross-validation / held out test set.
+- **What went wrong:** A step fit on all samples before splitting uses information from test rows — often their labels: genes selected by correlation with the outcome on the full matrix, batch correction or scaling fit on all data, oversampling (SMOTE) applied before the split. Ambroise & McLachlan showed that selecting genes by label-correlation on the whole matrix, then cross-validating, produces near-perfect apparent accuracy on data where the honest score is near chance.
+- **Red flags:**
+  - "We selected the top N genes/features" or "we normalized/batch-corrected the matrix" stated outside or before the CV loop.
+  - Oversampling or imputation described before the split.
+  - A public dataset whose processed form embeds the labels (e.g. features pre-selected by the publisher).
+- **Test that exposes it:** Re-run with the split first and every learned step refit inside training folds only; compare the scores. Any step whose parameters depend on labels or on test-row distributions must move inside the loop.
+- **Fix:** Fit all learned preprocessing inside the training folds. Precomputed steps are allowed only when they never saw the labels and used only training rows.
+- **Sources:**
+  - Ambroise C, McLachlan GJ. Selection bias in gene extraction on the basis of microarray gene-expression data. Proc Natl Acad Sci USA 99:6562–6566 (2002). The canonical demonstration: feature selection outside CV turned near-chance into apparent accuracy. https://doi.org/10.1073/pnas.102841399
+  - Whalen S, Schreiber J, Noble WS, Pollard KS. Navigating the pitfalls of applying machine learning in genomics. Nat Rev Genet 23:169–181 (2022) — "leaky preprocessing" section. https://www.nature.com/articles/s41576-021-00434-9
 - **Status:** published

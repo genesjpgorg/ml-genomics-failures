@@ -24,14 +24,15 @@ A catalogue of ways ML-in-genomics results have been inflated or misread, each w
 
 Answer each question in writing, with numbers from the run where possible.
 
-1. **Unit of independence.** What is one independent example: a pair, a gene, a species, a person or a locus? Split at that level, or above it. Random splits of pairs, edges, windows or photos almost always leak (L).
+1. **Unit of independence.** What is one independent example: a pair, a gene, a species, a person or a locus — and what is it nested inside (protein in a family, cell in a donor, patient in a site)? Split at that level, or above it. Random splits of pairs, edges, windows or photos almost always leak (L).
 2. **Shortcut inventory.** List every non-biological or coarse feature that correlates with the label. Fit a model on each one alone. If one of them reaches most of the headline score, the headline is about that feature (S).
 3. **Claim vs test axis.** Write the claim as "X predicts Y across Z". Check that the held-out set varies Z, with the confounder held fixed (A).
 4. **Baselines.** Report the cheapest baselines next to the model: chance, the label prior, per-entity means, linear/additive models, nearest neighbour on a simple representation (k-mers, one-hot CNN, highly variable genes) (B).
 5. **A true null.** Run at least one control that should drop the score to chance, such as permuting labels at the entity level or giving each entity another entity's input. If the null doesn't fall to chance, something leaks (K).
 6. **What does each control keep?** For every ablation, write down which information survives it. A control that keeps the main confounder isn't evidence either way (K).
 7. **Circularity.** Trace where the benchmark labels came from. Remove anything that shares origin with the training data (C).
-8. **Variance.** One seed and a few dozen held-out entities can't separate effects of a few points. Give counts ("25/30 species"), not only rates.
+8. **Learned steps inside folds.** Was any feature selection, normalization, imputation, batch correction or oversampling fit on data before the split? Every step that learns from data (especially from labels) must be refit inside the training folds; steps fit on the full matrix leak the test rows' labels (F14).
+9. **Variance.** One seed and a few dozen held-out entities can't separate effects of a few points. Give counts ("25/30 species"), not only rates.
 
 ## How to use the cases
 
@@ -55,6 +56,8 @@ Answer each question in writing, with numbers from the run where possible.
 | F10 | Batch effects confounded with the outcome | S | published |
 | F11 | Polygenic scores lose accuracy across ancestries | A, S | published |
 | F12 | Homologous sequences on both sides of the split | L | published |
+| F13 | The split is disjoint on the wrong entity — a hidden cluster column carries the label | L | published |
+| F14 | Preprocessing fit on the whole dataset before the split leaks the answer | L | published |
 
 Read the matching entries in `FAILURES.md` before citing a case.
 

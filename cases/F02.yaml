@@ -16,6 +16,10 @@ red_flags:
   - The shuffled control lands near a composition baseline.
   - Its loss is still falling at the end of training.
   - The frozen pretrained baseline doesn't change under shuffling.
+  - >-
+    Evaluating one fixed checkpoint on shuffled tokens (no retraining) shows how much of the score is pure
+    composition: on the genes.jpg pilot chunk model shuffled was indistinguishable from intact (sometimes
+    better); on the 1,871-species gene model the shuffle kept Spearman 0.42–0.55 of the intact 0.66–0.70.
 test: >-
   Run a true null alongside (each entity gets another entity's input; held-out scores should fall to chance).
   Compare shuffled vs intact at matched training loss and over several seeds. Restrict windows to repeat-masked or
@@ -28,7 +32,14 @@ sources:
       genes.jpg control B report (shuffled 16/30 vs intact 25/30 family top-1 on held-out species; k-mer baseline
       20/30; one seed).
     url: https://github.com/genesjpgorg/genes.jpg/blob/main/docs/reports/control-b-shuffle-tokens.md
+  - citation: >-
+      genes.jpg longevity controls (eval-time shuffle of the same checkpoint): pilot chunk model shuffled ~= intact
+      (docs/longevity-anage100-controls); full gene model shuffled retains most of the intact rank correlation
+      (docs/longevity-gene-shuffle).
+    url: https://github.com/genesjpgorg/genes.jpg/tree/main/docs/longevity-gene-shuffle
 status:
   state: internal
   date: 2026-10-04
-  pending: Multi-seed and matched-loss comparison not run.
+  pending: >-
+    Eval-time order ablation now measured (chunk model order-insensitive; gene model keeps ~63–78% of rank
+    correlation). Still missing: a model *trained* on shuffled inputs and a matched-loss comparison.

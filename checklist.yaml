@@ -44,8 +44,9 @@ audit:
   steps:
     - title: Unit of independence
       text: >-
-        What is one independent example: a pair, a gene, a species, a person or a locus? Split at that level, or
-        above it. Random splits of pairs, edges, windows or photos almost always leak (L).
+        What is one independent example: a pair, a gene, a species, a person or a locus — and what is it nested
+        inside (protein in a family, cell in a donor, patient in a site)? Split at that level, or above it.
+        Random splits of pairs, edges, windows or photos almost always leak (L).
     - title: Shortcut inventory
       text: >-
         List every non-biological or coarse feature that correlates with the label. Fit a model on each one alone.
@@ -69,6 +70,11 @@ audit:
     - title: Circularity
       text: >-
         Trace where the benchmark labels came from. Remove anything that shares origin with the training data (C).
+    - title: Learned steps inside folds
+      text: >-
+        Was any feature selection, normalization, imputation, batch correction or oversampling fit on data
+        before the split? Every step that learns from data (especially from labels) must be refit inside the
+        training folds; steps fit on the full matrix leak the test rows' labels (F14).
     - title: Variance
       text: >-
         One seed and a few dozen held-out entities can't separate effects of a few points. Give counts ("25/30

@@ -162,6 +162,31 @@ def test_shortcuts_regression_and_multiclass():
     assert out["task"] == "multiclass" and out["features"][0]["score"] == 1.0
 
 
+# --- duplicate rows ------------------------------------------------------------------------------------------
+
+
+def test_duplicate_rows_finds_reprocessed_samples():
+    rng = np.random.default_rng(3)
+    cols = [f"f{i}" for i in range(10)]
+    train = [{c: float(v) for c, v in zip(cols, row)} for row in rng.normal(0, 1, (300, 10))]
+    fresh = [{c: float(v) for c, v in zip(cols, row)} for row in rng.normal(0, 1, (100, 10))]
+    copies = [{c: r[c] + float(rng.normal(0, 0.01)) for c in cols} for r in train[:40]]
+    out = checks.duplicate_rows(train, fresh + copies, cols)
+    assert out["test_rows_near_duplicate"] >= 38
+    assert out["test_rows_near_duplicate_fraction"] > 0.25
+    assert "F12" in out["summary"]
+
+
+def test_duplicate_rows_clean_split_reports_none():
+    rng = np.random.default_rng(4)
+    cols = [f"f{i}" for i in range(10)]
+    train = [{c: float(v) for c, v in zip(cols, row)} for row in rng.normal(0, 1, (300, 10))]
+    test = [{c: float(v) for c, v in zip(cols, row)} for row in rng.normal(0, 1, (100, 10))]
+    out = checks.duplicate_rows(train, test, cols)
+    assert out["test_rows_near_duplicate"] == 0
+    assert "No feature-space duplicates" in out["summary"]
+
+
 # --- k-mer baseline ------------------------------------------------------------------------------------------
 
 

@@ -181,7 +181,7 @@ def list_cases(pitfall_class: str | None = None, domain: str | None = None) -> l
 
 @mcp.tool(annotations=READ_ONLY)
 def get_audit_checklist() -> str:
-    """The audit procedure (8 questions), the pitfall classes and the case index, as markdown. Run it on any ML
+    """The audit procedure (9 questions), the pitfall classes and the case index, as markdown. Run it on any ML
     experiment, benchmark or claim in genomics before trusting the reported metric. If the analysis files are
     on this machine, audit_directory runs the checks for you — use this when they aren't."""
     return checklist_markdown()
@@ -315,10 +315,33 @@ def kmer_baseline(
 
 
 @mcp.tool(annotations=READ_ONLY)
+def check_duplicate_rows(
+    features: list[str],
+    train: str | None = None,
+    test: str | None = None,
+    train_path: str | None = None,
+    test_path: str | None = None,
+    ratio: float = 0.1,
+) -> dict[str, Any]:
+    """Duplicate-row leakage check (class L; F12's mechanism without sequences): test rows that are near-copies
+    of training rows in feature space — reprocessed samples, re-annotated rows or perturbed copies with new IDs
+    that entity checks miss. For each test row, distance to the nearest training row (z-scored numeric features)
+    relative to typical train-to-train spacing; `ratio` sets the flag threshold. Exclude IDs, entity and label
+    columns from `features`.
+
+    Give each input inline (CSV/TSV) or, when the server runs locally, as a file path (.gz is fine).
+    Returns a plain-language summary that names the matching cases, plus the numbers."""
+    tr = checks.parse_csv(_load(train, train_path, "train"), "train")
+    te = checks.parse_csv(_load(test, test_path, "test"), "test")
+    return _run(checks.duplicate_rows, tr, te, features, ratio)
+
+
+@mcp.tool(annotations=READ_ONLY)
 def audit_directory(path: str, model_score: float | None = None) -> dict[str, Any]:
     """One-call audit of an analysis directory (local servers only): scans for train/test CSV/TSV tables and
     FASTA files, guesses the label, entity, sequence and split columns, and runs every check that applies —
-    entity leakage, near-duplicate sequences, single-feature shortcuts and the k-mer composition baseline.
+    entity leakage, near-duplicate sequences and feature rows, single-feature shortcuts and the k-mer
+    composition baseline.
     Run this first whenever the user has an analysis, benchmark or experiment directory on this machine and
     wants it written up, reviewed or trusted. With `model_score` (the model's headline metric) each result
     reports what share of the model's gain a trivial baseline already explains.
@@ -335,7 +358,7 @@ def audit_experiment(description: str) -> str:
     """Audit an experiment, benchmark or paper claim against the book of failures."""
     return (
         f"{checklist_markdown()}\n\n---\n\nAudit this experiment with the procedure above:\n\n{description}\n\n"
-        "Answer each of the 8 questions with numbers from the experiment where available, and say what is unknown. "
+        "Answer each of the 9 questions with numbers from the experiment where available, and say what is unknown. "
         "Name the cases that match (fetch them first) and, for each, the check that would confirm or rule it out. "
         "End with the claim the evidence supports today and the single most informative next experiment."
     )
