@@ -1,0 +1,25 @@
+id: F10
+title: Batch effects confounded with the outcome
+domain: Any high-throughput assay (microarray, sequencing, proteomics, single-cell).
+classes: [S]
+claim: A classifier separates cases from controls, or one condition from another.
+mechanism: >-
+  Lab conditions, reagent lots, processing date and personnel shift the measurements. When batch is correlated with
+  the outcome, models learn the batch.
+red_flags:
+  - All cases processed in one batch.
+  - Processing date or plate predicts the label.
+  - Performance falls on an external cohort.
+test: >-
+  Predict the label from batch variables alone. Check whether the top principal components track batch. Validate on
+  data from another batch or site.
+fix: >-
+  Randomize the outcome across batches at design time. Split by batch or site. Correct batch effects within training
+  folds only, so the correction doesn't leak test information.
+sources:
+  - citation: >-
+      Leek JT, et al. Tackling the widespread and critical impact of batch effects in high-throughput data. Nat Rev
+      Genet 11:733–739 (2010).
+    url: https://www.nature.com/articles/nrg2825
+status:
+  state: published

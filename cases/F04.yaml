@@ -1,0 +1,28 @@
+id: F04
+title: Supervised GRN inference learns per-gene label imbalance
+domain: >-
+  Gene regulatory network inference from single-cell expression with supervised models trained on known
+  (ground-truth) TF–target edges.
+classes: [L, S]
+claim: Supervised models reach high accuracy at predicting regulatory edges.
+mechanism: >-
+  Standard benchmarks hide edges between genes that also appear in training. Models can exploit gene-specific
+  biases such as each gene's class imbalance (how many known interactions it has) instead of learning regulatory
+  mechanisms. On interactions involving genes absent from training, the advantage shrinks.
+red_flags:
+  - Edge-level random splits.
+  - Most test edges touch hub genes seen in training.
+  - A per-gene degree prior gets close to the model's score.
+test: >-
+  "Unseen genes" split (test genes absent from training). Baseline that scores an edge by its genes' training
+  degree alone.
+fix: >-
+  Evaluate on unseen genes, which is also the realistic use case (e.g. biomarker discovery). InfoSEM uses
+  ground-truth labels as a prior instead of direct supervision, plus textual gene embeddings from foundation models.
+sources:
+  - citation: >-
+      Cui T, Xu S-J, Moskalev A, Li S, Mansi T, Prakash M, Liao R. InfoSEM: A deep generative model with informative
+      priors for gene regulatory network inference. arXiv:2503.04483 (2025); ICML 2025.
+    url: https://arxiv.org/abs/2503.04483
+status:
+  state: published

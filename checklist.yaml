@@ -1,0 +1,80 @@
+# Audit procedure and pitfall classes. Source of truth for the "how to audit" part of every generated output.
+name: ml-genomics-failures
+title: "Book of failures: ML in genomics"
+summary: >-
+  A catalogue of ways ML-in-genomics results have been inflated or misread, each with the test that exposes it.
+  Run the audit before you trust a metric, and before you write a conclusion that says a model "learned biology".
+description: >-
+  Book of failures for machine learning on genomic and biological data - documented cases where a model looked
+  good but had learned a shortcut, leaked test data, or was never compared to a simple baseline. Use it to audit an
+  ML experiment, benchmark, evaluation split, control or paper claim in genomics, transcriptomics, single-cell,
+  regulatory genomics, variant effect prediction, gene regulatory networks, DNA/protein language models or
+  genotype-to-phenotype models. Trigger on "does it learn something biological", "is this result real", "why does
+  the control also work", "review this evaluation", "design a train/test split", "what baselines do we need", "is
+  this leakage", or before reporting any held-out metric.
+
+classes:
+  - code: L
+    name: Leakage through shared entities
+    test: >-
+      Does any test example share a gene, enhancer, promoter, species, individual, homologous sequence or batch with
+      training?
+  - code: S
+    name: Shortcut / confounder
+    test: >-
+      Can a trivial feature (distance, GC, gene degree, phylogeny, batch, ancestry, depth) predict the label alone?
+  - code: A
+    name: Wrong axis of generalization
+    test: >-
+      Does the test vary the same thing the claim is about (across individuals vs across genes, across phenotypes vs
+      across lineages)?
+  - code: B
+    name: Missing or weak baseline
+    test: Has it been compared with mean, linear, nearest-neighbour, one-hot CNN and k-mer baselines?
+  - code: C
+    name: Circular evaluation
+    test: Were benchmark labels, or the tools that made them, also used in training?
+  - code: K
+    name: Control that isn't a null
+    test: >-
+      What does the ablation keep? If it keeps the confounder, a good score under the control proves nothing.
+
+audit:
+  intro: Answer each question in writing, with numbers from the run where possible.
+  steps:
+    - title: Unit of independence
+      text: >-
+        What is one independent example: a pair, a gene, a species, a person or a locus? Split at that level, or
+        above it. Random splits of pairs, edges, windows or photos almost always leak (L).
+    - title: Shortcut inventory
+      text: >-
+        List every non-biological or coarse feature that correlates with the label. Fit a model on each one alone.
+        If one of them reaches most of the headline score, the headline is about that feature (S).
+    - title: Claim vs test axis
+      text: >-
+        Write the claim as "X predicts Y across Z". Check that the held-out set varies Z, with the confounder held
+        fixed (A).
+    - title: Baselines
+      text: >-
+        Report the cheapest baselines next to the model: chance, the label prior, per-entity means, linear/additive
+        models, nearest neighbour on a simple representation (k-mers, one-hot CNN, highly variable genes) (B).
+    - title: A true null
+      text: >-
+        Run at least one control that should drop the score to chance, such as permuting labels at the entity level
+        or giving each entity another entity's input. If the null doesn't fall to chance, something leaks (K).
+    - title: What does each control keep?
+      text: >-
+        For every ablation, write down which information survives it. A control that keeps the main confounder isn't
+        evidence either way (K).
+    - title: Circularity
+      text: >-
+        Trace where the benchmark labels came from. Remove anything that shares origin with the training data (C).
+    - title: Variance
+      text: >-
+        One seed and a few dozen held-out entities can't separate effects of a few points. Give counts ("25/30
+        species"), not only rates.
+
+usage:
+  - Match the experiment to cases by class code and domain, and cite them by ID (e.g. `F03`).
+  - Treat each case as a hypothesis to test on the current run, not a verdict. Say which check would confirm it.
+  - Quote sources as listed. Don't add claims about a paper that the case doesn't contain. Read the paper first.

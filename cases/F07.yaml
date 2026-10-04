@@ -1,0 +1,21 @@
+id: F07
+title: Single-cell foundation models lose to HVG/scVI zero-shot
+domain: Single-cell foundation models (Geneformer, scGPT) used without fine-tuning.
+classes: [B]
+claim: Pretrained cell embeddings are useful as they are for clustering and batch integration.
+mechanism: >-
+  Zero-shot, both models performed worse than selecting highly variable genes or using established methods
+  (Harmony, scVI) for cell type clustering and batch integration. They sometimes did worse on datasets that were in
+  their own pretraining data.
+red_flags:
+  - Results reported only after fine-tuning.
+  - No HVG/PCA/scVI baselines.
+test: Zero-shot evaluation against HVG + PCA, Harmony and scVI.
+fix: Include those baselines. Don't assume pretraining scale buys generalization.
+sources:
+  - citation: >-
+      Kedzierska KZ, et al. Zero-shot evaluation reveals limitations of single-cell foundation models. Genome Biol
+      (2025).
+    url: https://link.springer.com/article/10.1186/s13059-025-03574-x
+status:
+  state: published

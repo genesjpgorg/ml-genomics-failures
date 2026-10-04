@@ -1,0 +1,20 @@
+id: F11
+title: Polygenic scores lose accuracy across ancestries
+domain: Statistical genetics; polygenic risk scores.
+classes: [A, S]
+claim: A polygenic score predicts the trait.
+mechanism: >-
+  Scores built from mostly European-ancestry GWAS were several times more accurate in people of European ancestry
+  than in other ancestries. Accuracy measured within one ancestry doesn't carry over to others.
+red_flags:
+  - Training and test drawn from the same ancestry group.
+  - Population structure correlated with the trait.
+test: Report accuracy stratified by ancestry. Evaluate in a cohort of different ancestry.
+fix: Diverse training cohorts; report stratified performance; control for population structure.
+sources:
+  - citation: >-
+      Martin AR, et al. Clinical use of current polygenic risk scores may exacerbate health disparities. Nat Genet
+      51:584–591 (2019).
+    url: https://www.nature.com/articles/s41588-019-0379-x
+status:
+  state: published

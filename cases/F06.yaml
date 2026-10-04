@@ -1,0 +1,23 @@
+id: F06
+title: Perturbation-effect models don't beat linear baselines
+domain: >-
+  Predicting transcriptome changes after single or double genetic perturbations (foundation models and other deep
+  learning models).
+classes: [B]
+claim: Deep models predict the outcome of unseen perturbations.
+mechanism: >-
+  Compared against deliberately simple baselines, five foundation models and two other deep models did not
+  outperform them. For double perturbations their error was higher than an additive model's.
+red_flags:
+  - A comparison only against other deep models.
+  - No mean or additive baseline.
+test: >-
+  Report a no-change/mean baseline, an additive model for combinations, and a linear model next to the deep model.
+fix: Make these baselines mandatory in perturbation benchmarks.
+sources:
+  - citation: >-
+      Ahlmann-Eltze C, Huber W, Anders S. Deep-learning-based gene perturbation effect prediction does not yet
+      outperform simple linear baselines. Nat Methods 22:1657–1661 (2025).
+    url: https://doi.org/10.1038/s41592-025-02772-6
+status:
+  state: published

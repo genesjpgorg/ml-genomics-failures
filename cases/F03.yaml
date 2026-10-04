@@ -1,0 +1,35 @@
+id: F03
+title: Enhancer–promoter interaction prediction inflated by shared elements
+domain: >-
+  Regulatory genomics; predicting which enhancer–promoter (EP) pairs interact (e.g. TargetFinder and later
+  methods).
+classes: [L, S]
+claim: >-
+  High accuracy at telling interacting from non-interacting EP pairs using epigenomic features or sequence.
+mechanism: >-
+  Pairs were split at random, so the same enhancers and promoters appeared in both training and test pairs. The
+  test set wasn't independent of training, and models could memorize element-level properties (e.g. how often an
+  element interacts) instead of learning interactions. Performance fell sharply under splits that keep elements,
+  or chromosomes, apart. Xi & Beer also found that the high accuracy came largely from features of the window
+  between enhancer and promoter, and that local epigenomic state alone discriminated poorly.
+red_flags:
+  - Pair-level random cross-validation.
+  - A high score from features that describe one element only.
+  - Positive and negative pairs with different distance distributions.
+test: >-
+  Split by chromosome or by element, so no enhancer or promoter is on both sides. Run a baseline using only
+  per-element features or only distance.
+fix: Entity-level or chromosome-level splits; distance-matched negatives.
+sources:
+  - citation: >-
+      Cao F, Fullwood MJ. Inflated performance measures in enhancer–promoter interaction-prediction methods. Nat
+      Genet 51:1196–1198 (2019).
+    url: https://www.nature.com/articles/s41588-019-0434-7
+  - citation: Reply by the TargetFinder authors, acknowledging the non-IID problem. Nat Genet (2019).
+    url: https://www.nature.com/articles/s41588-019-0473-0
+  - citation: >-
+      Xi W, Beer MA. Local epigenomic state cannot discriminate interacting and non-interacting enhancer–promoter
+      pairs with high accuracy. PLoS Comput Biol 14:e1006625 (2018).
+    url: https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1006625
+status:
+  state: published

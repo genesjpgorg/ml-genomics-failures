@@ -1,0 +1,23 @@
+id: F09
+title: Missense pathogenicity benchmarks are circular
+domain: Variant effect / pathogenicity predictors.
+classes: [C, L]
+claim: Tool X beats others on a pathogenic vs benign missense benchmark.
+mechanism: >-
+  Two kinds of circularity. (1) Benchmark variants overlap with the variants the tools were trained on. (2) Variants
+  in the same gene tend to have the same label, so a tool can score well by learning which genes are pathogenic
+  rather than which variants are.
+red_flags:
+  - A benchmark drawn from the same databases (e.g. ClinVar, HGMD) used to train the tools.
+  - Genes with only pathogenic or only benign variants.
+test: >-
+  Remove variants seen in any tool's training data. Evaluate within genes that have both labels, or with gene-level
+  splits. Run a baseline using only the gene's label proportion.
+fix: Held-out variant sets with documented provenance; gene-balanced evaluation.
+sources:
+  - citation: >-
+      Grimm DG, et al. The evaluation of tools used to predict the impact of missense variants is hindered by two
+      types of circularity. Hum Mutat 36:513–523 (2015).
+    url: https://github.com/grimmlab/Pathogenicity-Prediction
+status:
+  state: published

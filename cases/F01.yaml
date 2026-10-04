@@ -1,0 +1,38 @@
+id: F01
+title: Genome → organism image learns phylogeny, not phenotype
+domain: >-
+  Genotype-to-phenotype; DNA language model (ModernGENA) aligned to BioCLIP image space, decoded with Stable
+  Diffusion (genes.jpg).
+classes: [S, A]
+claim: >-
+  From random 6.3 kb nuclear-genome windows, the model places held-out species in the right family (25/30 held-out
+  mammals, family top-1 0.83) and generates images that look like the organism.
+mechanism: >-
+  Each species has one genome, so the training target is effectively a species label. The loss also includes a
+  taxonomy-caption term, and BioCLIP's image space is organized by taxonomy. The model learns "which lineage is this
+  genome from" and returns its nearest training relative's appearance. Nothing tests whether DNA predicts phenotype
+  beyond what phylogeny already predicts.
+red_flags:
+  - >-
+    Accuracy degrades by taxonomic distance, not by trait: new species from a known family 0.83 family top-1, new
+    families 0.00 at family and order level (class only).
+  - "Generated images show the nearest relative: horse → zebras, black rhino → elephants."
+  - >-
+    A frozen-embedding ridge regression gets 0.53–0.58 species top-1 on seen species and 0.00 on new ones:
+    seen-species scores are memorization.
+  - A composition-only k-mer nearest neighbour already gets 0.67 family top-1 on new species.
+test: >-
+  A nearest-relative baseline using true phylogenetic distance (tree distance, Mash/ANI) that returns the relative's
+  photos. Score traits (body size, habitat, colour) and test whether DNA explains the variation left after phylogeny
+  (phylogenetic contrasts). Look at lineages where phenotype breaks from phylogeny (whales vs hippos, seals).
+fix: >-
+  Report results as phylogenetic signal unless they beat the phylogeny baseline. Use phenotype-relevant input
+  (coding sequences, candidate genes) rather than random windows, which are about 1–2% coding in mammals.
+sources:
+  - citation: genes.jpg control B report (run tol200m-refseq-diverse-genome).
+    url: https://github.com/genesjpgorg/genes.jpg/blob/main/docs/reports/control-b-shuffle-tokens.md
+  - citation: Felsenstein J. Phylogenies and the comparative method. Am Nat 125:1–15 (1985).
+status:
+  state: internal
+  date: 2026-10-04
+  pending: Genome-permutation null (control C) prepared, not trained; phylogeny baseline not built.

@@ -1,0 +1,34 @@
+id: F02
+title: Token-order shuffle mistaken for a null control
+domain: DNA language models; control design.
+classes: [K]
+claim: >-
+  "The shuffled-DNA control still performs well, so something is wrong" or, conversely, "the model beats the
+  shuffled control, so it reads DNA order / biology".
+mechanism: >-
+  Shuffling BPE tokens within a window (about 6 bp per token at 1024 tokens / 6.3 kb) keeps the bag of tokens,
+  roughly a 6-mer composition spectrum. Composition (GC, k-mer bias, repeat content) carries phylogeny, so the
+  shuffled model reaches about the k-mer baseline. It's an order ablation, not a null. The gap between intact and
+  shuffled input is also confounded: shuffled tokens are out of distribution for the pretrained LM, so they may
+  just be harder to fine-tune. And "order" signal can still be phylogenetic (structure of lineage-specific
+  transposable elements and satellites, ~50% of a mammal genome), not genes.
+red_flags:
+  - The shuffled control lands near a composition baseline.
+  - Its loss is still falling at the end of training.
+  - The frozen pretrained baseline doesn't change under shuffling.
+test: >-
+  Run a true null alongside (each entity gets another entity's input; held-out scores should fall to chance).
+  Compare shuffled vs intact at matched training loss and over several seeds. Restrict windows to repeat-masked or
+  coding regions to see where the order signal comes from.
+fix: >-
+  Label each control by what it removes and what it keeps. Only call a control a null if it removes the
+  confounder too.
+sources:
+  - citation: >-
+      genes.jpg control B report (shuffled 16/30 vs intact 25/30 family top-1 on held-out species; k-mer baseline
+      20/30; one seed).
+    url: https://github.com/genesjpgorg/genes.jpg/blob/main/docs/reports/control-b-shuffle-tokens.md
+status:
+  state: internal
+  date: 2026-10-04
+  pending: Multi-seed and matched-loss comparison not run.

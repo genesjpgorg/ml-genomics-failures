@@ -1,0 +1,22 @@
+id: F08
+title: DNA language model embeddings don't beat one-hot CNNs
+domain: Genomic language models (Nucleotide Transformer, DNABERT2, HyenaDNA, GPN) for regulatory genomics tasks.
+classes: [B]
+claim: Pretrained DNA LM representations improve functional genomics prediction.
+mechanism: >-
+  On six cell-type-specific regulatory tasks, representations from LMs pretrained on whole genomes gave no
+  noticeable advantage over one-hot sequence with a conventional supervised network. Supervised models pretrained
+  on functional genomics data transferred better, when the source and target tasks were close.
+red_flags:
+  - The LM is compared only with other LMs, or with a weak non-deep baseline.
+test: Train a one-hot CNN of similar capacity on the same task and split.
+fix: >-
+  A one-hot CNN baseline is mandatory. A k-mer composition baseline (see F01, F02) shows how much of the signal is
+  composition.
+sources:
+  - citation: >-
+      Tang Z, Somia N, Yu Y, Koo PK. Evaluating the representational power of pre-trained DNA language models for
+      regulatory genomics. Genome Biol (2025).
+    url: https://link.springer.com/article/10.1186/s13059-025-03674-8
+status:
+  state: published

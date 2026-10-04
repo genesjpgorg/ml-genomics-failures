@@ -1,0 +1,30 @@
+id: F05
+title: Sequence-to-expression models fail across individuals
+domain: Sequence-to-expression deep learning (Enformer, Basenji2, ExPecto, Xpresso).
+classes: [A]
+claim: >-
+  Models that predict expression from DNA sequence well should predict the effect of personal genetic variants on
+  expression.
+mechanism: >-
+  They were trained and evaluated on variation across genes (on the reference genome). Applied to personal genomes,
+  they explain little of the variation across individuals, and often get the direction of a cis-regulatory
+  variant's effect wrong.
+red_flags:
+  - A claim about variants or individuals backed only by across-gene correlation.
+test: >-
+  Evaluate on paired personal genomes and transcriptomes (e.g. Geuvadis, GTEx), per gene, across individuals,
+  including the sign of the effect.
+fix: >-
+  Make the test vary the same axis as the claim. Train on personal sequence variation where the goal is variant
+  effects.
+sources:
+  - citation: >-
+      Huang C, et al. Personal transcriptome variation is poorly explained by current genomic deep learning models.
+      Nat Genet (2023).
+    url: https://www.nature.com/articles/s41588-023-01574-w
+  - citation: >-
+      Sasse A, et al. Benchmarking of deep neural networks for predicting personal gene expression from DNA sequence
+      highlights shortcomings. Nat Genet 55:2060–2064 (2023).
+    url: https://www.nature.com/articles/s41588-023-01524-6
+status:
+  state: published

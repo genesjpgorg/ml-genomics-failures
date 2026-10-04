@@ -1,0 +1,26 @@
+id: F12
+title: Homologous sequences on both sides of the split
+domain: Any model trained on DNA, RNA or protein sequences.
+classes: [L]
+claim: The model generalizes to new sequences.
+mechanism: >-
+  Random splits put near-identical sequences (paralogs, orthologs, repeats, close homologs) in both training and
+  test, so test accuracy partly measures recall of training examples. Holding out a chromosome doesn't stop this:
+  paralogs and repeat families span chromosomes.
+red_flags:
+  - No sequence-identity filtering between splits.
+  - Accuracy falls with the test example's distance to its nearest training sequence.
+test: >-
+  For each test sequence, compute identity to its nearest training sequence, and plot accuracy against it.
+fix: >-
+  Cluster by sequence identity (e.g. MMseqs2, CD-HIT) and split by cluster. Report performance by distance to
+  training.
+sources:
+  - citation: >-
+      General pitfall ("dependent examples") in Whalen S, Schreiber J, Noble WS, Pollard KS. Navigating the pitfalls
+      of applying machine learning in genomics. Nat Rev Genet 23:169–181 (2022). The review also covers
+      distributional differences, confounding, leaky preprocessing and unbalanced classes, and is the best single
+      reference behind this book.
+    url: https://www.nature.com/articles/s41576-021-00434-9
+status:
+  state: published
