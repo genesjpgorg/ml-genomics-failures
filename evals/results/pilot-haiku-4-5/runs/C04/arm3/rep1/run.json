@@ -1,0 +1,212 @@
+{
+  "task": "C04",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 165.8,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "## Review Complete\n\nI've thoroughly audited this analysis using the ml-genomics-failures framework. Here are my findings:\n\n### Key Issues Found:\n\n1. **Missing Baselines (Class B \u2014 F06, F08)**: The analysis reports r = 0.79 but provides **no comparison with k-mer, composition, or linear baselines**. This is critical because sequence-to-function models often simply exploit sequence composition rather than learning regulatory biology. Without these baselines, the claim is unsupported.\n\n2. **Misleading Metric**: \n   - The headline r = 0.79 does NOT mean \"79% variance explained\"\n   - **Actual R\u00b2 = 0.363** (only 36% of variance explained)\n   - Critically, correlation is **non-uniform by expression level**:\n     - Medium expression (where most genes are): r \u2248 0.31 (poor)\n     - Very high expression: r \u2248 0.54 (better)\n   - The overall r = 0.79 is driven by extreme values, not typical genes\n\n3. **Systematic Bias**: The model underpredicts by ~1 log TPM unit on average, increasing with expression level. This suggests it's ranking genes rather than quantitatively predicting expression.\n\n4. **Missing Null Controls (Class K)**: No label permutation tests, no ablations, nothing that should fail to verify the signal is real.\n\n5. **Unresolved Leakage Risk (F12)**: Chromosome-level splits are vulnerable to paralogous sequences. No MMseqs2/CD-HIT verification that training and test sequences are truly independent.\n\n### What's Good \u2713\n- Claim is carefully framed (appropriately disclaims individual/variant effects)\n- Chromosome-level split is reasonable for between-gene predictions\n- Adequate sample size (2,000 genes)\n- Metric is correctly computed\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\n**Critical Issues:**\n1. No baselines to rule out sequence composition as the main driver (Class B pitfall)\n2. Metric is misleading: r = 0.79 explains only 36% of variance and is driven by expression extremes, not typical genes\n3. Missing null controls to verify the signal is real (Class K)\n4. No verification against sequence homology leakage (F12)\n\nTo support the claim, the authors must provide k-mer/composition baselines, stratified performance metrics across expression levels, label-permutation controls, and verification of independence between training and test sequences.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.1740214,
+  "duration_s": 164.3,
+  "turns": 26,
+  "tool_calls": [
+    "Read",
+    "Bash",
+    "Read",
+    "Read",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "Edit",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "search",
+    "fetch",
+    "fetch",
+    "fetch",
+    "search",
+    "fetch",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-ph9h2udm/analysis"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis/README.md"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis/gene_level_eval.csv",
+        "limit": 50
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis/audit_analysis.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom scipy.stats import pearsonr, spearmanr\nfrom sklearn.linear_model import LinearRegression\nfrom sklearn.metrics import mean_squared_error, r2_score\n\n# Load the data\ndf = pd.read_csv('/tmp/review-ph9h2udm/analysis/gene_level_eval.csv')\n\nprint(\"=== BASIC DATA CHECKS ===\")\nprint(f\"Total genes in test set: {len(df)}\")\nprint(f\"Columns: {df.columns.tolist()}\")\nprint(f\"\\nData shape: {df.shape}\")\nprint(f\"Missing values:\\n{df.isnull().sum()}\")\n\n# Verify the Pearson r claim\npearson_r, pearson_p = pearsonr(df['observed_log_tpm'], df['predicted_log_tpm'])\nprint(f\"\\n=== MAIN CLAIM VERIFICATION ===\")\nprint(f\"Claimed Pearson r: 0.79\")\nprint(f\"Actual Pearson r: {pearson_r:.3f}\")\nprint(f\"P-value: {pearson_p}\")\n\n# Check other metrics\nspearman_r, spearman_p = spearmanr(df['observed_log_tpm'], df['predicted_log_tpm'])\nr2 = r2_score(df['observed_log_tpm'], df['predicted_log_tpm'])\nrmse = np.sqrt(mean_squared_error(df['observed_log_tpm'], df['predicted_log_tpm']))\n\nprint(f\"\\nSpearman r: {spearman_r:.3f}\")\nprint(f\"R\u00b2 score: {r2:.3f}\")\nprint(f\"RMSE: {rmse:.3f}\")\n\n# Check baseline: mean prediction\nmean_obs = df['observed_log_tpm'].mean()\nbaseline_rmse = np.sqrt(mean_squared_error(df['observed_log_tpm'], np.full(len(df), mean_obs)))\nbaseline_r2 = r2_score(df['observed_log_tpm'], np.full(len(df), mean_obs))\nprint(f\"\\n=== BASELINE: PREDICTING MEAN ===\")\nprint(f\"Mean of observed expression: {mean_obs:.3f}\")\nprint(f\"Baseline R\u00b2: {baseline_r2:.3f}\")\nprint(f\"Baseline RMSE: {baseline_rmse:.3f}\")\nprint(f\"Model improvement in R\u00b2: {r2 - baseline_r2:.3f}\")\n\n# Check per-chromosome performance\nprint(f\"\\n=== PER-CHROMOSOME PERFORMANCE ===\")\nfor chrom in sorted(df['test_chromosome'].unique()):\n    subset = df[df['test_chromosome'] == chrom]\n    r, p = pearsonr(subset['observed_log_tpm'], subset['predicted_log_tpm'])\n    r2_chrom = r2_score(subset['observed_log_tpm'], subset['predicted_log_tpm'])\n    print(f\"{chrom}: n={len(subset)}, r={r:.3f}, R\u00b2={r2_chrom:.3f}\")\n\n# Check prediction distribution\nprint(f\"\\n=== PREDICTION QUALITY ===\")\ndiff = df['predicted_log_tpm'] - df['observed_log_tpm']\nprint(f\"Prediction bias (mean error): {diff.mean():.3f}\")\nprint(f\"Prediction variance (std error): {diff.std():.3f}\")\nprint(f\"% predictions within 1 TPM log: {(np.abs(diff) < 1).sum() / len(df) * 100:.1f}%\")\nprint(f\"% predictions within 2 TPM log: {(np.abs(diff) < 2).sum() / len(df) * 100:.1f}%\")\n\n# Check for potential confounders\nprint(f\"\\n=== POTENTIAL CONFOUNDERS ===\")\nprint(f\"Observed expression range: [{df['observed_log_tpm'].min():.2f}, {df['observed_log_tpm'].max():.2f}]\")\nprint(f\"Predicted expression range: [{df['predicted_log_tpm'].min():.2f}, {df['predicted_log_tpm'].max():.2f}]\")\n\n# Check if genes cluster by chromosome\nprint(f\"\\n=== CHROMOSOME DISTRIBUTION ===\")\nprint(df['test_chromosome'].value_counts().sort_index())\n\n# Linear regression: can a simple linear model achieve similar performance?\nX = df[['observed_log_tpm']].values\ny = df['predicted_log_tpm'].values\nlr = LinearRegression()\nlr.fit(X, y)\nlr_pred = lr.predict(X)\nlr_r2 = r2_score(y, lr_pred)\nprint(f\"\\n=== SIMPLE LINEAR BASELINE (predicting from observed) ===\")\nprint(f\"Linear model R\u00b2: {lr_r2:.3f}\")\nprint(f\"This shows the maximum R\u00b2 if predictions were a linear function of observations\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python audit_analysis.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "sequence expression prediction gene"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F05"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F12"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "baseline composition k-mer"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F06"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F08"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis/extended_audit.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom scipy.stats import pearsonr\n\n# Load the data\ndf = pd.read_csv('/tmp/review-ph9h2udm/analysis/gene_level_eval.csv')\n\nprint(\"=== AUDIT CHECKLIST RESPONSES ===\\n\")\n\nprint(\"1. UNIT OF INDEPENDENCE\")\nprint(\"   Unit: Gene\")\nprint(\"   Split: Chromosome-level (training on chr 1-7, 11-22; test on chr 8-10)\")\nprint(\"   Status: \u2713 Reasonable, but F12 warns that homologous sequences can span chromosomes\")\nprint(\"   Issue: No filtering for paralogous or homologous sequences in the data provided\\n\")\n\nprint(\"2. SHORTCUT INVENTORY - CHECKING FOR CONFOUNDERS\")\n# Check if expression is clustered by chromosome (batch effect?)\nprint(\"   Checking for per-chromosome patterns:\")\nfor chrom in sorted(df['test_chromosome'].unique()):\n    subset = df[df['test_chromosome'] == chrom]\n    mean_obs = subset['observed_log_tpm'].mean()\n    mean_pred = subset['predicted_log_tpm'].mean()\n    r, p = pearsonr(subset['observed_log_tpm'], subset['predicted_log_tpm'])\n    print(f\"     {chrom}: observed_mean={mean_obs:.2f}, predicted_mean={mean_pred:.2f}, r={r:.3f}\")\nprint(\"   - No obvious batch effect or chromosome-specific clustering\\n\")\n\n# Check if prediction quality is biased toward common vs rare expression levels\nprint(\"   Checking for expression-level bias:\")\nquantiles = pd.qcut(df['observed_log_tpm'], q=5, labels=['lowest', 'low', 'mid', 'high', 'highest'])\nfor quant in ['lowest', 'low', 'mid', 'high', 'highest']:\n    subset = df[quantiles == quant]\n    if len(subset) > 0:\n        r, _ = pearsonr(subset['observed_log_tpm'], subset['predicted_log_tpm'])\n        rmse = np.sqrt(np.mean((subset['observed_log_tpm'] - subset['predicted_log_tpm'])**2))\n        print(f\"     {quant:7s} expression (n={len(subset)}): r={r:.3f}, RMSE={rmse:.3f}\")\nprint(\"   - Potential bias: Better predictions at mid-to-high expression levels\\n\")\n\nprint(\"3. CLAIM VS TEST AXIS\")\nprint(\"   Claim: 'reference sequence near the TSS explains variation in baseline\")\nprint(\"           expression BETWEEN GENES in this cell type'\")\nprint(\"   Test: Held-out genes on chromosomes 8-10 vs training genes on other chromosomes\")\nprint(\"   Status: \u2713 AXIS MATCHES - This is a between-gene claim and the test varies across genes\")\nprint(\"   Caveat: Claim correctly disclaims predictions across individuals/variants\\n\")\n\nprint(\"4. BASELINES - MISSING IN THE REPORTED RESULTS\")\nprint(\"   \u2717 CRITICAL GAP: No baselines reported. Missing:\")\nprint(\"     - Mean prediction baseline (R\u00b2 = 0.000 by definition)\")\nprint(\"     - Linear regression (R\u00b2 would capture linear signal)\")\nprint(\"     - k-mer frequency baseline (test if sequence composition alone works)\")\nprint(\"     - GC content baseline (simple composition feature)\")\nprint(\"     - Nearest-neighbor baseline (e.g. by k-mer distance)\")\nprint(\"   - Without baselines, we can't assess whether the model learns biology\")\nprint(\"       or just sequence composition\\n\")\n\nprint(\"5. TRUE NULL CONTROL\")\nprint(\"   \u2717 MISSING: No null controls reported\")\nprint(\"     - No label permutation at gene level\")\nprint(\"     - No ablation (e.g., shuffle sequence within context)\")\nprint(\"     - No control that should fail\\n\")\n\nprint(\"6. ABLATIONS\")\nprint(\"   \u2717 MISSING: No ablations reported\")\nprint(\"     - No test of sequence length importance\")\nprint(\"     - No test of specific regulatory elements\\n\")\n\nprint(\"7. CIRCULARITY\")\nprint(\"   \u2713 APPEARS CLEAN: Training/test on different chromosomes is a standard\")\nprint(\"     held-out split. No obvious circular benchmarking mentioned.\\n\")\n\nprint(\"8. VARIANCE / SAMPLE SIZE\")\nprint(\"   \u2713 ADEQUATE: 2,000 test genes across 3 chromosomes\")\nprint(\"     (n=640-692 per chromosome) is reasonable statistical power\\n\")\n\nprint(\"=== CRITICAL ISSUES FOR INTERPRETATION ===\\n\")\n\nprint(\"ISSUE 1: r = 0.79 does NOT mean 79% variance explained\")\nprint(f\"  - Pearson r = 0.79 \u2192 r\u00b2 = 0.62 (if model were perfect)\")\nprint(f\"  - Actual R\u00b2 = {(df['predicted_log_tpm'].corr(df['observed_log_tpm'])**2):.3f}\")\nprint(f\"  - This means the model explains only 36% of variance in expression\\n\")\n\nprint(\"ISSUE 2: Systematic prediction bias\")\nprint(f\"  - Mean prediction error: {(df['predicted_log_tpm'] - df['observed_log_tpm']).mean():.3f}\")\nprint(f\"  - Model tends to UNDERpredict (especially for high expression)\\n\")\n\nprint(\"ISSUE 3: Large prediction errors are common\")\nprint(f\"  - {(np.abs(df['predicted_log_tpm'] - df['observed_log_tpm']) >= 2).sum()} / {len(df)} genes\")\nprint(f\"    have predictions >2 TPM log units off (21.4% error rate)\\n\")\n\nprint(\"ISSUE 4: No evidence against composition as confounder\")\nprint(\"  - F08 and others show that k-mer/GC baselines often capture\")\nprint(\"    most of the signal in sequence\u2192function tasks\")\nprint(\"  - The README does not report composition baselines\\n\")\n\nprint(\"ISSUE 5: Potential sequence homology leakage (F12)\")\nprint(\"  - Chromosome-level split is vulnerable to paralogous sequences\")\nprint(\"  - Would need MMseqs2 or CD-HIT to verify no leakage\\n\")\n\nprint(\"=== WHAT'S GOOD ===\")\nprint(\"\u2713 Claim is carefully framed (no claims about individuals/variants)\")\nprint(\"\u2713 Chromosome-level split is reasonable for between-gene predictions\")\nprint(\"\u2713 Evaluation on 2,000 genes with decent size per chromosome\")\nprint(\"\u2713 Consistent performance across chromosomes\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python extended_audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis/distribution_analysis.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom scipy.stats import pearsonr\nimport matplotlib.pyplot as plt\n\ndf = pd.read_csv('/tmp/review-ph9h2udm/analysis/gene_level_eval.csv')\n\nprint(\"=== DETAILED EXPRESSION RANGE ANALYSIS ===\\n\")\n\n# Create a more detailed breakdown by expression ranges\nranges = [\n    (-2, 0, 'Silent/low'),\n    (0, 2, 'Very low'),\n    (2, 4, 'Low'),\n    (4, 6, 'Medium'),\n    (6, 8, 'High'),\n    (8, 15, 'Very high'),\n]\n\nprint(\"Expression level | N genes | Pearson r | R\u00b2 | RMSE | Prediction Bias\")\nprint(\"-\" * 75)\nfor low, high, label in ranges:\n    subset = df[(df['observed_log_tpm'] >= low) & (df['observed_log_tpm'] < high)]\n    if len(subset) > 1:\n        r, p = pearsonr(subset['observed_log_tpm'], subset['predicted_log_tpm'])\n        r2 = r ** 2\n        rmse = np.sqrt(np.mean((subset['observed_log_tpm'] - subset['predicted_log_tpm'])**2))\n        bias = (subset['predicted_log_tpm'] - subset['observed_log_tpm']).mean()\n        print(f\"{label:17s} | {len(subset):7d} | {r:9.3f} | {r2:.3f} | {rmse:4.2f} | {bias:6.3f}\")\n\nprint(\"\\n=== CHECKING IF EXTREME OUTLIERS DRIVE THE CORRELATION ===\\n\")\n\n# What if we remove extreme predictions?\nprint(f\"Full dataset: r = {pearsonr(df['observed_log_tpm'], df['predicted_log_tpm'])[0]:.3f}\")\n\n# Remove predictions that are >3 log units off\nsubset = df[np.abs(df['predicted_log_tpm'] - df['observed_log_tpm']) < 3]\nr_trim3, _ = pearsonr(subset['observed_log_tpm'], subset['predicted_log_tpm'])\nprint(f\"After removing predictions >3 log units off (n={len(subset)}): r = {r_trim3:.3f}\")\n\n# Remove predictions that are >2 log units off\nsubset = df[np.abs(df['predicted_log_tpm'] - df['observed_log_tpm']) < 2]\nr_trim2, _ = pearsonr(subset['observed_log_tpm'], subset['predicted_log_tpm'])\nprint(f\"After removing predictions >2 log units off (n={len(subset)}): r = {r_trim2:.3f}\")\n\n# Remove predictions that are >1 log unit off\nsubset = df[np.abs(df['predicted_log_tpm'] - df['observed_log_tpm']) < 1]\nr_trim1, _ = pearsonr(subset['observed_log_tpm'], subset['predicted_log_tpm'])\nprint(f\"After removing predictions >1 log unit off (n={len(subset)}): r = {r_trim1:.3f}\")\n\nprint(\"\\n=== CHECKING FOR RANK-ORDER EFFECT ===\")\nprint(\"Is the model just getting the rough ranking right?\")\nspearman_r = df['observed_log_tpm'].corr(df['predicted_log_tpm'], method='spearman')\npearson_r = df['observed_log_tpm'].corr(df['predicted_log_tpm'], method='pearson')\nprint(f\"Spearman (rank) r: {spearman_r:.3f}\")\nprint(f\"Pearson (linear) r: {pearson_r:.3f}\")\nprint(f\"Difference (rank vs linear): {abs(spearman_r - pearson_r):.3f}\")\nprint(f\"Interpretation: Similar correlations suggest ranking is preserved\")\n\nprint(\"\\n=== IS THE CORRELATION MONOTONIC OR DUE TO CLUSTERS? ===\")\n# Check if prediction correlation drops in specific ranges\nprint(\"\\nCumulatively adding genes from lowest to highest expression:\")\ndf_sorted = df.sort_values('observed_log_tpm')\nfor n_genes in [100, 200, 500, 1000, 1500, 2000]:\n    r, _ = pearsonr(df_sorted['observed_log_tpm'].iloc[:n_genes],\n                     df_sorted['predicted_log_tpm'].iloc[:n_genes])\n    print(f\"  First {n_genes} genes (lowest expr): r = {r:.3f}\")\n\nprint(\"\\n=== SUMMARY: What explains the r=0.79? ===\")\nprint(\"\"\"\nKey finding: The overall r=0.79 is HEAVILY INFLUENCED by the two extreme\nexpression groups (lowest and highest), while middle-range expression shows\npoor predictions (r=0.15-0.23).\n\nThis suggests:\n1. The model may be learning a simple high/low distinction, not\n   quantitative expression level\n2. Genes with naturally extreme expression are easier to identify\n3. The claim \"explains much of the variation between genes\" is overstated\n   for the majority of genes with moderate expression\n\"\"\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python distribution_analysis.py"
+      }
+    },
+    {
+      "name": "Edit",
+      "input": {
+        "replace_all": false,
+        "file_path": "/tmp/review-ph9h2udm/analysis/distribution_analysis.py",
+        "old_string": "import pandas as pd\nimport numpy as np\nfrom scipy.stats import pearsonr\nimport matplotlib.pyplot as plt",
+        "new_string": "import pandas as pd\nimport numpy as np\nfrom scipy.stats import pearsonr"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python distribution_analysis.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ph9h2udm && find . -type f -name \"*.fa\" -o -name \"*.fasta\" -o -name \"*.seq\" -o -name \"*.csv\" | head -20"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-ph9h2udm/"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis/validation_requirements.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom scipy.stats import pearsonr\n\ndf = pd.read_csv('/tmp/review-ph9h2udm/analysis/gene_level_eval.csv')\n\nprint(\"=\" * 80)\nprint(\"WHAT'S MISSING FOR THIS CLAIM TO BE WELL-SUPPORTED\")\nprint(\"=\" * 80)\n\nprint(\"\\n1. MISSING BASELINES (Critical for Class B pitfall)\")\nprint(\"-\" * 80)\nprint(\"\"\"\nPer the ml-genomics-failures audit (F06, F08), the claim needs:\n\n  a) Composition baseline: Do k-mer frequencies or GC content alone\n     predict expression? This tests whether the model learns anything\n     beyond simple sequence composition.\n     \u2192 WHAT THIS WOULD SHOW: If k-mers achieve r > 0.6, the headline\n         r=0.79 might just be explaining sequence composition, not\n         regulatory biology\n\n  b) Linear regression baseline: Can a simple linear model of sequence\n     features (k-mer frequencies, GC content, motif counts) match the\n     deep model's performance?\n     \u2192 WHAT THIS WOULD SHOW: If linear r > 0.7, deep learning adds\n         little value\n\n  c) Per-gene mean baseline: Can we predict each test gene's expression\n     from the mean expression of similar training genes (by k-mer\n     distance)?\n     \u2192 WHAT THIS WOULD SHOW: This captures the information in sequence\n         similarity\n\"\"\")\n\nprint(\"\\n2. MISSING: NULL CONTROLS (Critical for validity)\")\nprint(\"-\" * 80)\nprint(\"\"\"\n  a) Shuffle sequence labels at gene level\n     Expected: r should drop to ~0 (no correlation with shuffled labels)\n     Risk if not reported: Model might be exploiting data artifacts\n\n  b) Scramble sequence while preserving composition\n     Expected: r should drop significantly\n     Risk if not reported: Model might only use GC/composition, not\n         specific regulatory elements\n\"\"\")\n\nprint(\"\\n3. MISSING: ANALYSIS OF NON-UNIFORM CORRELATION\")\nprint(\"-\" * 80)\nprint(\"\"\"\nThe data shows correlation varies dramatically by expression level:\n  - Medium expression (where most genes are): r \u2248 0.31\n  - Very high expression: r \u2248 0.54\n  - Overall: r \u2248 0.79\n\nThis suggests the correlation is NOT about explaining variation across\nmost genes, but about identifying extremes.\n\nThe claim should be: \"Distinguishes very high from mid-range expression\"\nNOT: \"Explains variation between genes\"\n\nThe authors should report:\n  \u2717 Accuracy at classifying genes into high/medium/low categories\n  \u2717 Quantitative prediction accuracy across the full range\n  \u2717 Whether model has differential accuracy for different expression levels\n\"\"\")\n\nprint(\"\\n4. MISSING: ANALYSIS OF SYSTEMATIC BIAS\")\nprint(\"-\" * 80)\nbias = (df['predicted_log_tpm'] - df['observed_log_tpm']).mean()\nprint(f\"\"\"\nThe model systematically underpredicts by ~{abs(bias):.1f} log TPM units.\nThis is not random error - it's systematic.\n\nFor a model claiming to \"explain variation\", systematic bias suggests it's\nnot actually predicting the quantitative level, just correlating.\n\nShould report:\n  \u2717 Bias as a function of true expression level\n  \u2717 Heteroscedasticity (does error increase with expression?)\n  \u2717 Whether bias can be corrected (post-hoc calibration)\n\"\"\")\n\nprint(\"\\n5. CONCERNING PATTERN: Correlation climbs with adding more genes\")\nprint(\"-\" * 80)\nprint(\"\"\"\nWhen sorted by expression and added cumulatively:\n  - First 100 genes (lowest): r=0.46\n  - First 500 genes: r=0.53\n  - First 1000 genes: r=0.62\n  - All 2000 genes: r=0.79\n\nThis pattern suggests: HIGH-expressing genes drive the correlation.\nThese are easier to predict (less variable, perhaps).\n\nShould report:\n  \u2717 Separate performance for top 10%, 50%, bottom 50% of genes\n  \u2717 Whether model simply learns to avoid middle-of-the-road predictions\n\"\"\")\n\nprint(\"\\n6. HOMOLOGY LEAKAGE RISK (F12: Homologous sequences on both sides)\")\nprint(\"-\" * 80)\nprint(\"\"\"\nChromosome-level split is good, but vulnerable to:\n  - Paralogous sequences (same gene duplicated elsewhere in genome)\n  - Segmental duplications\n  - Repetitive elements\n\nShould verify:\n  \u2717 MMseqs2 or CD-HIT clustering of test sequences vs training\n  \u2717 Sequence identity of each test gene to its nearest training match\n  \u2717 Whether accuracy correlates with distance to nearest training sequence\n\"\"\")\n\nprint(\"\\n\" + \"=\" * 80)\nprint(\"SUMMARY: CAN THE CLAIM BE SUPPORTED WITH DATA IN THIS DIRECTORY?\")\nprint(\"=\" * 80)\nprint(\"\"\"\nNO - Critical evidence is missing:\n\nBLOCKAGE 1 (Class B, Missing Baseline):\n  The README claims sequence \"explains much of the variation\" but provides\n  no baselines. Without k-mer or linear baselines, we cannot rule out that\n  this is just sequence composition (which is trivial).\n\nBLOCKAGE 2 (Misleading Metric):\n  r = 0.79 does NOT mean 79% of variance is explained.\n  - R\u00b2 = 0.363 (36% of variance explained)\n  - Correlation is not uniform: r \u2248 0.31 for medium expression\n  - Headline metric is driven by extreme values, not typical genes\n\nBLOCKAGE 3 (Systematic Bias):\n  The model systematically underpredicts (~1 log unit low), suggesting\n  it's not actually learning quantitative prediction, just ranking.\n\nBLOCKAGE 4 (Unexplored Confounders):\n  No analysis of whether simple composition-based models could achieve\n  similar performance.\n\nBLOCKAGE 5 (Potential Leakage):\n  No verification against F12 (homologous sequences spanning chromosomes).\n\"\"\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python validation_requirements.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ph9h2udm/analysis/REVIEW_SUMMARY.md",
+        "content": "# Review of ExprNet Analysis\n\n## Executive Summary\nThe claim that \"reference sequence near the TSS explains much of the variation in baseline expression between genes\" (r = 0.79) is **NOT ADEQUATELY SUPPORTED** by the evidence presented. While the reported metric is accurate, critical supporting evidence is missing, the metric is misleading, and the data reveals concerning patterns that undermine the main claim.\n\n## What the Analysis Reports\n- **Training**: Deep learning model trained on genes from chromosomes 1-7, 11-22\n- **Evaluation**: 2,000 genes on held-out chromosomes 8-10\n- **Reported metric**: Pearson r = 0.79 on predicted vs observed log TPM\n- **Claim**: Sequence explains \"much of the variation\" in baseline expression between genes\n\n## What I Verified \u2713\n- Pearson r = 0.792 is correctly computed\n- Sample size is adequate (2,000 genes, ~650-700 per chromosome)\n- Chromosome-level split is reasonable for between-gene claims\n- Claim appropriately disclaims predictions for individuals/variants (per F05)\n- No obvious circularity in the evaluation\n\n## Critical Issues Found \u2717\n\n### 1. **MISSING BASELINES (Class B Pitfall \u2014 F06, F08)**\n**Severity: BLOCKING**\n\nThe analysis provides no baselines. Per ml-genomics-failures standards, we cannot assess the claim without:\n- k-mer frequency baseline (tests if sequence composition alone explains the signal)\n- GC content baseline (tests if simple composition explains predictions)\n- Linear regression baseline (tests if deep learning adds value)\n- Nearest-neighbor baseline (tests if sequence similarity alone works)\n\n**Why this matters**: Recent work (F06, F08) shows that deep learning models on genomic sequences often fail to beat composition-based baselines. Without these checks, we cannot distinguish \"the model learned regulatory biology\" from \"the model learned sequence composition.\"\n\n### 2. **MISLEADING METRIC PRESENTATION (Class B Concern)**\n**Severity: HIGH**\n\nThe headline \"r = 0.79\" does not mean \"79% of variance explained\":\n- **Actual R\u00b2 = 0.363** (only 36% of variance explained)\n- The correlation is **non-uniform across expression ranges**:\n  - Silent/very low expression: r = 0.25-0.30 (very weak)\n  - Medium expression (mode of distribution): r = 0.31 (poor)\n  - High expression: r = 0.37 (weak-to-moderate)\n  - Very high expression: r = 0.54 (moderate)\n\nThe overall r = 0.79 is achieved by including high-expressing outliers. For the majority of genes (those with moderate expression), the model explains little variation.\n\n### 3. **SYSTEMATIC PREDICTION BIAS (Data Quality)**\n**Severity: HIGH**\n\n- Mean prediction error: **\u22120.94 log TPM** (model systematically underpredicts)\n- Bias increases with expression level: \u22120.86 at high, \u22121.86 at very high\n- 21.4% of predictions are >2 log TPM units off\n- This is not random error but systematic underprediction\n\nThis suggests the model is ranking expression levels (Spearman r = 0.774 \u2248 Pearson r = 0.792) rather than predicting quantitative levels.\n\n### 4. **MISSING NULL CONTROLS (Class K)**\n**Severity: HIGH**\n\nNo reported:\n- Label shuffling at gene level (should drop r to ~0)\n- Ablations (e.g., sequence scrambling while preserving composition)\n- Any control that should fail\n\nWithout these, we cannot verify the signal is real.\n\n### 5. **POTENTIAL SEQUENCE HOMOLOGY LEAKAGE (Class L \u2014 F12)**\n**Severity: MEDIUM-HIGH**\n\nF12 warns that chromosome-level splits are vulnerable to:\n- Paralogous sequences (gene duplications spanning chromosomes)\n- Segmental duplications and repeats\n\nNo analysis provided checking for sequence identity between test and training sets. This requires MMseqs2/CD-HIT clustering to verify, which is not reported.\n\n### 6. **EXPRESSION-LEVEL BIAS IN CORRELATION**\n**Severity: MEDIUM**\n\nWhen genes are added cumulatively by expression level:\n- First 100 genes (lowest): r = 0.46\n- First 500 genes: r = 0.53  \n- First 1000 genes: r = 0.62\n- All 2000 genes: r = 0.79\n\nThe correlation climbs monotonically, showing high-expressing genes drive the overall r. This indicates the model does not explain variation uniformly across the expression spectrum.\n\n## What's Done Well \u2713\n- Careful claim framing (explicitly disclaims individual/variant level effects)\n- Reasonable split design at chromosome level\n- Adequate evaluation set size\n- Consistent performance across chromosomes\n- Honest about the scope of evaluation\n\n## Required to Support the Claim\n\nTo turn this into a well-supported result, the authors must provide:\n\n1. **Baselines** (mandatory):\n   - k-mer frequency predictions (k=4-8)\n   - GC content baseline\n   - Linear model trained on sequence features\n   - Nearest-neighbor baseline by k-mer distance\n\n2. **Null controls** (mandatory):\n   - Label permutation test (expect r \u2192 0)\n   - Sequence scrambling control\n\n3. **Stratified analysis**:\n   - Report r separately for expression quintiles\n   - Report accuracy at classifying into high/medium/low categories\n   - Explain why medium-expression genes show r \u2248 0.31\n\n4. **Verification against leakage** (mandatory):\n   - MMseqs2/CD-HIT: cluster test sequences and check identity to training\n   - Report accuracy as function of sequence identity to training\n\n5. **Metric clarification**:\n   - Report R\u00b2 = 0.36 alongside r = 0.79\n   - Explain what \"explains much of the variation\" means quantitatively\n   - Acknowledge that metric is driven by expression extremes\n\n---\n\n## VERDICT: NOT SUPPORTED\n\nThe main claim is not supported because:\n\n1. **Missing Class B evidence** \u2014 No baselines provided to rule out that the signal is just sequence composition\n2. **Misleading metric** \u2014 r = 0.79 overstates the model's performance; actual R\u00b2 = 0.36, with non-uniform correlation across expression ranges (r \u2248 0.31 for most genes)\n3. **Missing Class K controls** \u2014 No null tests to verify the signal is real\n4. **Systematic bias** \u2014 Model underpredicts by ~1 log unit, suggesting ranking rather than quantitative prediction\n5. **Unresolved leakage risk (F12)** \u2014 No verification against sequence homology leakage\n\n### Specific Issues to Raise with Authors (in priority order)\n1. **Provide composition baselines** \u2014 Report k-mer and GC baselines; if these achieve r > 0.6, the model adds little value\n2. **Clarify the metric** \u2014 Explain that r = 0.79 explains only 36% of variance and is driven by expression extremes\n3. **Stratify by expression level** \u2014 Separate results for low/medium/high genes to show whether the claim holds across the board\n4. **Add null controls** \u2014 Show that label shuffling drops r to ~0\n5. **Check for homology** \u2014 Verify no sequence similarity leakage between splits (MMseqs2 clustering)\n"
+      }
+    }
+  ]
+}

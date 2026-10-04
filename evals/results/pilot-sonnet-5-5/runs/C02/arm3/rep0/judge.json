@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": false,
+  "rationale": "The reviewer correctly found plates balanced (plate-only AUROC 0.36) and selection inside CV folds, explicitly ruling out both listed false alarms, and returned SUPPORTED with acceptable caveats (external validation, modest N, seed variance). The extra points about patient-level grouping, sample timing and severity adjustment are speculative documentation requests, not demonstrated problems.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

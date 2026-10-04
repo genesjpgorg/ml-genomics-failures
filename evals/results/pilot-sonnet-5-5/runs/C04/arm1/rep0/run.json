@@ -1,0 +1,41 @@
+{
+  "task": "C04",
+  "arm": "1",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 21.2,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim holds as written, with caveats about what the evidence can't show.\n\n**What I checked** (on `gene_level_eval.csv`, 2,000 genes on chr8\u201310):\n- Pearson r = 0.792, which reproduces the README's 0.79. Spearman is 0.774.\n- The result is consistent across chromosomes. Pearson r is 0.82 on chr8, 0.78 on chr9 and 0.78 on chr10, so no single chromosome drives it.\n- Gene IDs are unique, so no gene is duplicated within the evaluation file.\n- The claim is scoped to variation between genes. That matches the test axis, which varies genes. It explicitly disclaims individuals and variants (see F05).\n\n**Issues that matter**\n1. **No baselines (B).** An r of 0.79 across genes is hard to interpret without cheap comparisons. These would be GC or CpG content at the TSS, a k-mer or one-hot CNN, and a promoter-only window. Between-gene expression is known to be largely predictable from simple promoter features, so the model's added value is unquantified. The claim says sequence \"explains much\" of the variation. That is true of sequence in general, but the evidence doesn't show it is true of ExprNet specifically.\n2. **Possible homology leakage (L, F12).** Holding out chromosomes 8\u201310 doesn't separate paralogs or repeat families from the training chromosomes. I can't test this from the CSV, which has no sequences. Report accuracy against sequence identity to the nearest training gene, or cluster the genes and split by cluster.\n3. **Systematic bias.** Predictions run about 0.94 log units below observed on average (mean 4.02 vs 4.96). RMSE is 1.58 against an observed SD of 1.98. Pearson r hides this offset. It suggests a calibration or normalisation mismatch between the training and test sets. Report R\u00b2 or RMSE alongside r. R\u00b2 against the raw predictions is about 0.36, whereas r\u00b2 is 0.63.\n4. **Single split and single seed.** There are no confidence intervals. A gene-level bootstrap would be easy to add.\n5. **The README gives no training details.** Examples are how expression was normalised and whether the 100 kb window is shared across neighbouring genes. Neighbouring genes with overlapping windows near a chromosome boundary are a minor concern.\n\nThe between-genes claim is consistent with the data, and the README is honest about the limits of the test. Items 1 and 2 should be addressed before the paper says anything stronger than \"r = 0.79 on held-out chromosomes\".\n\nVERDICT: SUPPORTED\n\nMost important issues: (1) there are no simple baselines such as GC/CpG, k-mer or one-hot CNN; (2) homology leakage across chromosomes hasn't been ruled out; (3) there is a ~0.94 log-unit prediction offset that r hides.",
+  "is_error": false,
+  "cost_usd": 0.039674,
+  "duration_s": 20.3,
+  "turns": 4,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-yvzv5d6e/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-yvzv5d6e/analysis; head -5 gene_level_eval.csv; python -c \"\nimport pandas as pd;d=pd.read_csv('gene_level_eval.csv');print(d.describe(include='all'));print(d.corr(numeric_only=True))\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-yvzv5d6e/analysis; python -c \"\nimport pandas as pd,numpy as np;from scipy.stats import spearmanr\nd=pd.read_csv('gene_level_eval.csv')\nfor c,g in d.groupby('test_chromosome'):print(c,len(g),g.predicted_log_tpm.corr(g.observed_log_tpm),spearmanr(g.predicted_log_tpm,g.observed_log_tpm)[0])\nprint(spearmanr(d.predicted_log_tpm,d.observed_log_tpm)[0])\ne=d.observed_log_tpm-d.predicted_log_tpm;print(e.mean(),e.std(),np.sqrt((e**2).mean()))\nprint(d.gene.is_unique)\n\""
+      }
+    }
+  ]
+}

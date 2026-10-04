@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found both flaws. Every test protein also appears in training: a per-protein label-rate baseline scores AUROC 0.83 with no features. Batch is confounded with the label: batch alone gives AUROC 0.77. It concluded that the 0.79 mostly reflects these shortcuts and proposed a protein-disjoint split plus within-batch AUROC, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

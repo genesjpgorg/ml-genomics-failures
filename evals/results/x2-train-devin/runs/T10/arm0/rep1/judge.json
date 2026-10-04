@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that GC content (about 41% vs 55%) separates the classes, and that a GC-only baseline matches the k-mer model at 98%. It concluded that the model probably learned GC and not phage biology, and it proposed GC-matched contigs and test phages from different hosts as the fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

@@ -1,0 +1,42 @@
+{
+  "task": "T07",
+  "arm": "1",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 16.8,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim is not supported. The r = 0.80 is real, but it measures the wrong thing for the claim.\n\n**What I checked** (on `gene_level_eval.csv` and `variant_eval.csv`):\n- **Gene-level result.** Pearson r = 0.798 across 2,000 genes, and it is stable per chromosome (chr8 0.79, chr9 0.79, chr10 0.81). The held-out chromosome split is fine as far as I can tell. Chromosome splits don't stop paralogs or repeat families from leaking across the split (F12), and no identity filtering is described.\n- **Variant-level result.** This is the evidence on the actual use case, and it is essentially null:\n  - Pearson r with eQTL beta is 0.12 (p = 0.04).\n  - Spearman is 0.10 (p = 0.08).\n  - Sign agreement is 53%. Because 54% of the observed betas are positive, always guessing \"positive\" would score about the same.\n  - Correlation of |predicted| with |observed| effect size is \u22120.001.\n- **Scale.** Predicted effects have SD 0.05 against observed betas with SD 0.39, so the predictions are also badly miscalibrated.\n\n**Why this matters (F05, wrong axis of generalization, class A).** The r = 0.80 comes from variation across genes on the reference genome. Gene identity, promoter type and baseline expression level drive most of that. The claim is about the effect of personal variants within a gene, across individuals. The README's own variant table shows the model barely captures that. The README reports the 0.80 and does not report the variant result.\n\n**Other gaps (B and S):**\n- There are no baselines. A GC-content, gene-length or promoter k-mer model, or a one-hot CNN, would probably reach a large share of r = 0.80 by predicting which genes are highly expressed. Without them, \"predicts expression from sequence\" is not established even at the gene level.\n- There is no per-gene-across-individuals evaluation, for example on Geuvadis or GTEx paired genomes and transcriptomes.\n- The 300 variants are unfiltered by provenance. That is a small sample from 283 genes, and I can't tell whether they were chosen post hoc or overlap with training data.\n- Everything comes from one run with no seed variance.\n\n**Needed before this goes in a paper:**\n1. Remove or rewrite the claim about personal variant interpretation.\n2. Report the variant-level results (r \u2248 0.1, sign 53%) openly.\n3. Add simple baselines for the gene-level result.\n4. If variant effects are the goal, evaluate per gene across individuals, with sign, and train on personal variation.\n\nVERDICT: NOT SUPPORTED\n\nIssues that matter most:\n1. The claim rests on across-gene correlation (r = 0.80), but the use case is within-gene variant effects (F05).\n2. The variant-level evidence is null: r = 0.12, sign agreement 53% (chance level), |effect| correlation about 0.\n3. There are no simple baselines (GC, k-mer, one-hot CNN), so even the 0.80 can't be attributed to learned regulatory sequence logic (F08).\n4. The chromosome split may still leak homologous sequence (F12), and there is a single run with no variance estimate.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.040974,
+  "duration_s": 15.9,
+  "turns": 4,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ve87mjuf/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ve87mjuf/analysis; head -4 *.csv; python -c \"\nimport pandas as pd\nfor f in ['gene_level_eval.csv','variant_eval.csv']:\n    d=pd.read_csv(f);print(d.describe(include='all').T)\n\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ve87mjuf/analysis; python -c \"\nimport pandas as pd,numpy as np\nfrom scipy.stats import pearsonr,spearmanr\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(pearsonr(g.predicted_log_tpm,g.observed_log_tpm))\nprint(g.groupby('test_chromosome').apply(lambda x:pearsonr(x.predicted_log_tpm,x.observed_log_tpm)[0]))\nprint(pearsonr(v.predicted_effect,v.observed_eqtl_beta),spearmanr(v.predicted_effect,v.observed_eqtl_beta))\ns=np.sign(v.predicted_effect)==np.sign(v.observed_eqtl_beta);print('sign',s.mean(),(v.observed_eqtl_beta>0).mean())\na=v.predicted_effect.abs();print(pearsonr(a,v.observed_eqtl_beta.abs()))\nprint(v.describe())\n\""
+      }
+    }
+  ]
+}

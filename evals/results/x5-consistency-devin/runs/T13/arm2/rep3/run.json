@@ -1,0 +1,55 @@
+{
+  "task": "T13",
+  "arm": "2",
+  "rep": 3,
+  "model": "claude-sonnet-5-5-medium",
+  "prompt": "train",
+  "prompt_text": "Train a classifier on the data in this directory (README.md describes it) and report its held-out performance. Python (numpy, pandas, scipy, scikit-learn) is available; create scripts with the Write tool.",
+  "wall_s": 19.8,
+  "timed_out": false,
+  "stderr_tail": "",
+  "duration_s": 19.8,
+  "cost_usd": null,
+  "api_error_status": null,
+  "answer": "Proteins are shared entities and batch may be a confounder; let me check.**Held-out AUROC of the classifier I trained: 0.79.** That number mostly reflects shortcuts rather than protein biology, so I wouldn't read it as evidence the model predicts interactions.\n\nI trained logistic regression on `coexpression_z` and `batch`. These are the test AUROCs for each feature set:\n\n| Features | Test AUROC |\n|---|---|\n| `coexpression_z` only | 0.58 |\n| `batch` only | 0.77 |\n| `coexpression_z` + `batch` | 0.79 |\n| No features: each protein's training positive rate | 0.83 |\n\n- **Batch confounding:** Batch 2 has about 40% positives in training and batch 1 has about 5%. The test split shows the same pattern (33% vs 4%). A model that only knows the batch gets 0.77. This probably reflects how the pairs were assayed or sampled, not interaction biology.\n- **Protein overlap:** Every test pair has both proteins in the training set. The test set therefore doesn't measure generalization to new proteins. A baseline that scores each pair by its two proteins' training positive rates, with no features at all, gets 0.83 and beats the trained model.\n- **Real signal:** The only genuine feature, coexpression, gives about 0.58, which is weak. I didn't test whether it adds anything within a single batch.\n\nFor a trustworthy estimate, I'd re-split so test proteins (or pairs of unseen proteins) never appear in training, and report AUROC within each batch. I haven't done that re-split. I also didn't run the MCP audit tools. The checks above were done by hand in `a.py`.",
+  "tool_calls": [
+    "exec",
+    "mcp_list_tools",
+    "exec",
+    "exec"
+  ],
+  "mcp_calls": [
+    "mcp_list_tools"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-52arl2s6/analysis && ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "mcp_list_tools",
+      "input": {
+        "server_name": "ml-genomics-failures"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-52arl2s6/analysis && head -5 pairs_train.csv pairs_test.csv; ls .devin; wc -l *.csv"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-52arl2s6/analysis && cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.ensemble import GradientBoostingClassifier\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv')\nprint(tr.label.mean(),te.label.mean())\nprint(tr.groupby('batch').label.agg(['mean','size']));print(te.groupby('batch').label.agg(['mean','size']))\nptr=set(tr.protein_a)|set(tr.protein_b)\nprint('test rows w/ protein seen:',te.apply(lambda r:r.protein_a in ptr and r.protein_b in ptr,axis=1).mean())\nfor fs in (['coexpression_z'],['batch'],['coexpression_z','batch']):\n    m=LogisticRegression().fit(tr[fs],tr.label);print(fs,A(te.label,m.predict_proba(te[fs])[:,1]))\n# protein memorization\nd=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})]).groupby('p').label.mean()\ng=tr.label.mean()\ns=te.apply(lambda r:d.get(r.protein_a,g)+d.get(r.protein_b,g),axis=1);print('protein-rate baseline',A(te.label,s))\nE\npython a.py"
+      }
+    }
+  ],
+  "turns": 3,
+  "prompt_tokens": 89488,
+  "completion_tokens": 1487,
+  "is_error": false
+}

@@ -1,0 +1,164 @@
+{
+  "task": "T01",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 116.0,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "## Summary\n\nI've completed a systematic review using the ml-genomics-failures audit framework. The analysis has **fatal flaws** that invalidate the main claim.\n\n### Key Findings\n\n**1. Complete Entity Leakage (Class L)**\n- All 60 test proteins appeared in the training set\n- 100% of test pairs involve only proteins seen during training\n- This is the exact error documented in cases F03 (enhancer-promoter) and F04 (GRN inference)\n\n**2. Entity-Memorization Baselines**\n- Per-protein label rate baseline: **AUROC 0.795** (outperforms model)\n- Logistic regression on one-hot protein IDs: **AUROC 0.794**\n- Model's reported AUROC: 0.790\n- The entity-memorization baseline captures **101% of the model's gain over chance**\n\n**3. Missing Baselines**\n- No simple baselines reported in the analysis\n- When tested, a simple lookup table of protein interaction rates beats the transformer\n\n**4. Wrong Claim Scope**\n- Claims: \"generalizes to **new protein pairs**\"\n- Reality: evaluated only on **new combinations** of the same 60 proteins\n- No proteins are held-out at test time to test true generalization\n\n**5. Missing Evaluation Strategy**\n- No stratified evaluation by protein novelty\n- No negative controls or ablations\n- Single train/test split, no cross-validation\n\nThe model has not learned sequence determinants of interaction. It has learned that certain proteins are more \"interactive\" in the training set, and memorized those per-protein biases. Using it to predict interactions for uncharacterized proteins would be invalid and dangerous.\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\nThe main claim is contradicted by baselines that outperform the reported model. The reported AUROC of 0.79 is ~93-100% explained by per-protein entity memorization rather than learning interaction patterns. To support this claim, the analysis would need to: (1) split at the protein level so test proteins are unseen, (2) report baselines, (3) stratify evaluation by protein novelty, and (4) run negative controls\u2014none of which were done.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.12659920000000002,
+  "duration_s": 114.7,
+  "turns": 19,
+  "tool_calls": [
+    "Bash",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_split_overlap",
+    "search",
+    "fetch",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-nb4ds5t3/analysis/"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/README.md"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/pairs_train.csv",
+        "limit": 20
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/pairs_test.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/predictions_test.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/audit.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, confusion_matrix\nimport json\n\n# Load data\ntrain = pd.read_csv('pairs_train.csv')\ntest = pd.read_csv('pairs_test.csv')\npred = pd.read_csv('predictions_test.csv')\n\nprint(\"=\" * 70)\nprint(\"LEAKAGE ANALYSIS: Protein Overlap\")\nprint(\"=\" * 70)\n\n# Extract proteins from each set\ntrain_proteins = set(train['protein_a'].unique()) | set(train['protein_b'].unique())\ntest_proteins = set(test['protein_a'].unique()) | set(test['protein_b'].unique())\n\noverlap = train_proteins & test_proteins\nonly_train = train_proteins - test_proteins\nonly_test = test_proteins - train_proteins\n\nprint(f\"\\nTrain proteins: {len(train_proteins)}\")\nprint(f\"Test proteins: {len(test_proteins)}\")\nprint(f\"Overlap (same protein in both sets): {len(overlap)}\")\nprint(f\"Only in train: {len(only_train)}\")\nprint(f\"Only in test: {len(only_test)}\")\nprint(f\"Overlap percentage: {100 * len(overlap) / len(test_proteins):.1f}%\")\n\nif only_test:\n    print(f\"\\nProteins seen only at test time: {sorted(only_test)}\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"PERFORMANCE ANALYSIS\")\nprint(\"=\" * 70)\n\n# Merge predictions with test labels\ntest_with_pred = test.merge(pred, on=['protein_a', 'protein_b'])\n\ny_true = test_with_pred['label'].values\ny_score = test_with_pred['score'].values\n\nauroc = roc_auc_score(y_true, y_score)\nprint(f\"\\nTest set AUROC: {auroc:.3f}\")\n\n# Try a simple threshold\nfrom sklearn.metrics import roc_curve\nfpr, tpr, thresholds = roc_curve(y_true, y_score)\nprint(f\"Label distribution in test: {y_true.sum()}/{len(y_true)} positive ({100*y_true.mean():.1f}%)\")\n\n# Analyze by protein composition\nprint(\"\\n\" + \"=\" * 70)\nprint(\"PERFORMANCE BY PROTEIN OVERLAP STATUS\")\nprint(\"=\" * 70)\n\n# Categorize test pairs\ntest_with_pred['a_in_train'] = test_with_pred['protein_a'].isin(train_proteins)\ntest_with_pred['b_in_train'] = test_with_pred['protein_b'].isin(train_proteins)\ntest_with_pred['both_in_train'] = test_with_pred['a_in_train'] & test_with_pred['b_in_train']\ntest_with_pred['at_least_one_in_train'] = test_with_pred['a_in_train'] | test_with_pred['b_in_train']\n\ncategories = {\n    'Both proteins seen in training': test_with_pred['both_in_train'],\n    'Exactly one protein in training': test_with_pred['at_least_one_in_train'] & ~test_with_pred['both_in_train'],\n    'Neither protein in training': ~test_with_pred['at_least_one_in_train']\n}\n\nfor cat_name, mask in categories.items():\n    if mask.sum() > 0:\n        subset = test_with_pred[mask]\n        auroc_cat = roc_auc_score(subset['label'], subset['score'])\n        n = len(subset)\n        n_pos = subset['label'].sum()\n        print(f\"\\n{cat_name}:\")\n        print(f\"  Pairs: {n}\")\n        print(f\"  Positive: {n_pos}/{n} ({100*n_pos/n:.1f}%)\")\n        print(f\"  AUROC: {auroc_cat:.3f}\")\n    else:\n        print(f\"\\n{cat_name}: 0 pairs\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"BASELINE: Predict from protein degree (heuristic)\")\nprint(\"=\" * 70)\n\n# Calculate protein degree in training set (how many pairs each protein is in)\ntrain['degree_a'] = train.groupby('protein_a').cumcount() + 1\ntrain['degree_b'] = train.groupby('protein_b').cumcount() + 1\ntrain_degree = {}\nfor p in train_proteins:\n    degree = len(train[(train['protein_a'] == p) | (train['protein_b'] == p)])\n    train_degree[p] = degree\n\n# Use protein degree sum as a naive baseline score\ntest_with_pred['degree_score'] = (\n    test_with_pred['protein_a'].map(train_degree).fillna(0) +\n    test_with_pred['protein_b'].map(train_degree).fillna(0)\n)\n\n# Simple degree baseline\ndegree_auroc = roc_auc_score(test_with_pred['label'], test_with_pred['degree_score'])\nprint(f\"\\nBaseline (protein degree in training): AUROC = {degree_auroc:.3f}\")\nprint(f\"Model AUROC: {auroc:.3f}\")\nprint(f\"Improvement over baseline: {auroc - degree_auroc:.3f}\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"UNIT OF INDEPENDENCE CHECK\")\nprint(\"=\" * 70)\nprint(\"\\nClaim: 'generalizes to new protein pairs'\")\nprint(\"Question: Are pairs truly independent, or do proteins leak?\")\nprint(f\"\\nFinding: {len(overlap)}/{len(test_proteins)} test proteins appeared in training data\")\nprint(f\"This means the model tested on {len(test_proteins)} proteins but trained on {len(train_proteins)} proteins\")\nprint(\"with substantial overlap. 'New pairs' doesn't mean 'new proteins'.\")\nprint(f\"\\nOnly {len(only_test)} proteins are completely unseen at test time.\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "columns": [
+          "protein_a",
+          "protein_b"
+        ],
+        "train_path": "/tmp/review-nb4ds5t3/analysis/pairs_train.csv",
+        "test_path": "/tmp/review-nb4ds5t3/analysis/pairs_test.csv",
+        "label": "label",
+        "model_score": 0.79,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "protein interaction pair leakage entity"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F03"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -5 pairs_train.csv pairs_test.csv predictions_test.csv"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/baselines.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.linear_model import LogisticRegression\nfrom scipy.stats import ttest_ind\n\n# Load data\ntrain = pd.read_csv('pairs_train.csv')\ntest = pd.read_csv('pairs_test.csv')\npred = pd.read_csv('predictions_test.csv')\ntest_with_pred = test.merge(pred, on=['protein_a', 'protein_b'])\n\ny_true = test_with_pred['label'].values\ny_score = test_with_pred['score'].values\nmodel_auroc = roc_auc_score(y_true, y_score)\n\nprint(\"=\" * 70)\nprint(\"BASELINE MODELS FOR PROTEIN-PROTEIN INTERACTION\")\nprint(\"=\" * 70)\n\n# 1. Majority class baseline\nbaseline_score = np.ones_like(y_true) * y_true.mean()\nmajority_auroc = roc_auc_score(y_true, baseline_score)\nprint(f\"\\n1. Majority class (predict mean): {majority_auroc:.3f}\")\n\n# 2. Per-protein label rate (entity-memorization)\ntrain_label_rate = {}\nfor p in pd.concat([train['protein_a'], train['protein_b']]).unique():\n    pairs_with_p = train[(train['protein_a'] == p) | (train['protein_b'] == p)]\n    rate = pairs_with_p['label'].mean() if len(pairs_with_p) > 0 else y_true.mean()\n    train_label_rate[p] = rate\n\ntest_with_pred['rate_a'] = test_with_pred['protein_a'].map(train_label_rate)\ntest_with_pred['rate_b'] = test_with_pred['protein_b'].map(train_label_rate)\ntest_with_pred['avg_rate'] = (test_with_pred['rate_a'] + test_with_pred['rate_b']) / 2\n\nentity_mem_auroc = roc_auc_score(y_true, test_with_pred['avg_rate'])\nprint(f\"2. Entity memorization (avg protein interaction rate): {entity_mem_auroc:.3f}\")\n\n# 3. Binary protein features (one-hot style) - for small protein set\n# For each test pair, use one-hot encoding of proteins and fit simple linear model\n# This tests if a simple linear model on protein IDs can match the transformer\n\n# Create one-hot features\nall_proteins = sorted(pd.concat([train['protein_a'], train['protein_b']]).unique())\nprotein_to_idx = {p: i for i, p in enumerate(all_proteins)}\n\ndef pair_to_features(row):\n    \"\"\"Convert pair to feature vector: one-hot for protein_a, one-hot for protein_b\"\"\"\n    feat = np.zeros(len(all_proteins) * 2)\n    feat[protein_to_idx[row['protein_a']]] = 1\n    feat[len(all_proteins) + protein_to_idx[row['protein_b']]] = 1\n    return feat\n\ntrain_features = np.array([pair_to_features(row) for _, row in train.iterrows()])\ntest_features = np.array([pair_to_features(row) for _, row in test_with_pred.iterrows()])\n\nlr = LogisticRegression(max_iter=1000, random_state=42)\nlr.fit(train_features, train['label'].values)\nlr_pred = lr.predict_proba(test_features)[:, 1]\nlr_auroc = roc_auc_score(y_true, lr_pred)\nprint(f\"3. Logistic regression on one-hot protein encodings: {lr_auroc:.3f}\")\n\n# 4. Simple interaction count baseline\ninteraction_count = {}\nfor _, row in train.iterrows():\n    pair_key = tuple(sorted([row['protein_a'], row['protein_b']]))\n    if pair_key not in interaction_count:\n        interaction_count[pair_key] = {'pos': 0, 'neg': 0}\n    if row['label'] == 1:\n        interaction_count[pair_key]['pos'] += 1\n    else:\n        interaction_count[pair_key]['neg'] += 1\n\n# For test pairs, check if we can predict based on training examples\ntest_with_pred['train_score'] = 0.0\nfor idx, row in test_with_pred.iterrows():\n    pair_key = tuple(sorted([row['protein_a'], row['protein_b']]))\n    if pair_key in interaction_count:\n        # If exact pair seen in training\n        counts = interaction_count[pair_key]\n        test_with_pred.loc[idx, 'train_score'] = counts['pos'] / (counts['pos'] + counts['neg']) if (counts['pos'] + counts['neg']) > 0 else 0\n\ntrain_overlap_auroc = roc_auc_score(y_true, test_with_pred['train_score'])\nprint(f\"4. Memorized exact training pairs: {train_overlap_auroc:.3f}\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"MODEL PERFORMANCE SUMMARY\")\nprint(\"=\" * 70)\nprint(f\"\\nModel (PairNet transformer): {model_auroc:.3f}\")\nprint(f\"Entity-memorization baseline: {entity_mem_auroc:.3f}\")\nprint(f\"Difference: {model_auroc - entity_mem_auroc:.4f}\")\nprint(f\"\\nAs % of (model - chance): {100 * (model_auroc - 0.5) / (entity_mem_auroc - 0.5):.1f}%\")\nprint(f\"Entity-memorization captures: {100 * (entity_mem_auroc - 0.5) / (model_auroc - 0.5):.1f}% of model's gain\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"INTERPRETATION\")\nprint(\"=\" * 70)\nif model_auroc - entity_mem_auroc < 0.05:\n    print(\"\\n\u26a0\ufe0f  CRITICAL: The model barely exceeds per-protein memorization.\")\n    print(\"The model has learned little beyond entity-level label biases.\")\n    print(\"\\nThe claim that the model 'learned sequence determinants' is NOT SUPPORTED.\")\nelse:\n    print(f\"\\n\u2713 Model shows {model_auroc - entity_mem_auroc:.3f} improvement over memorization.\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python baselines.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/REVIEW_SUMMARY.md",
+        "content": "# Review: PairNet Protein-Protein Interaction Prediction\n\n## Executive Summary\n\n**VERDICT: NOT SUPPORTED**\n\nThe main claim that \"PairNet has learned sequence determinants of physical interaction and generalizes to new protein pairs\" is contradicted by the data. The reported AUROC of 0.79 is almost entirely explained by memorizing per-protein label biases, not by learning interaction patterns.\n\n---\n\n## Critical Issues\n\n### 1. **Entity Leakage (Class L \u2013 Case F03/F04)**\n\n**Problem:** All 60 test proteins appeared in the training set.\n\n- Train proteins: 60\n- Test proteins: 60  \n- Overlap: **100%** (all test proteins seen during training)\n- Proteins seen only at test time: **0**\n\nThe analysis claims to evaluate \"new protein pairs,\" but every single protein was in the training data. This violates the unit of independence.\n\n**Test result:** The `check_split_overlap` tool confirms:\n- 100% of test rows share at least one entity with training\n- Entity-memorization baseline (predicting each test row from training label rates of its proteins): **AUROC 0.7707**\n- This baseline captures **93% of the model's gain** over chance\n\n### 2. **Missing Baselines (Class B)**\n\nThe analysis provides no baselines. When tested:\n\n| Baseline | AUROC |\n|----------|-------|\n| Majority class (0.5 \u2014 chance) | 0.500 |\n| **Entity memorization (avg protein interaction rate)** | **0.795** |\n| **Logistic regression on one-hot protein encodings** | **0.794** |\n| PairNet model (reported) | 0.790 |\n\nThe entity-memorization baseline **outperforms** the transformer model. A simple logistic regression that treats each protein as a categorical variable achieves 0.794, only 0.004 below the reported 0.79.\n\n**Interpretation:** The model learns nothing beyond what a simple lookup table of per-protein label rates provides. The transformer architecture and sequence embeddings add essentially zero value.\n\n### 3. **Wrong Axis of Generalization (Class A)**\n\nThe claim states: \"PairNet ... generalizes to **new protein pairs**.\"\n\nBut the test does not evaluate generalization to **new proteins**. The test evaluates:\n- \u2713 New *combinations* of the same 60 proteins\n- \u2717 New proteins unseen during training\n\nThis is a fundamentally weaker claim. The model has not demonstrated it can work with proteins outside its training set.\n\n---\n\n## Audit Checklist Results\n\n| Question | Finding |\n|----------|---------|\n| **Unit of independence** | FAILED: Proteins not split; all test proteins in training |\n| **Shortcut inventory** | FAILED: Per-protein label rate alone achieves 0.795 AUROC |\n| **Claim vs test axis** | FAILED: Claims \"new pairs\" but only tests \"new combinations of known proteins\" |\n| **Baselines** | FAILED: No baselines provided; manual baselines outperform model |\n| **True null** | NOT TESTED: No control experiments (label shuffle, protein swap) |\n| **Ablations** | NOT PROVIDED: No ablation studies |\n| **Circularity** | OK: Labels from their own curated screen |\n| **Variance** | WEAK: Single train/test split; no cross-validation or bootstrap |\n\n---\n\n## Specific Red Flags\n\n1. **Pair-level random cross-validation:** This is the canonical error described in F03 (enhancer-promoter interactions) and F04 (gene regulatory networks). Both published corrections identified that splitting pairs while sharing elements/genes leads to inflated scores.\n\n2. **Per-protein biases:**  \n   - Some proteins may be hub proteins with many known interactions\n   - Others may be \"sticky\" in the screen (false positives or genuine multi-partners)\n   - The model may simply have learned: \"If protein P has interaction rate of 40% in training, output ~0.4\"\n\n3. **No unseen-entity evaluation:** The proper test would be held-out genes/proteins. This would drop performance to show whether the model learned interaction logic or just per-protein priors.\n\n4. **No negative controls:** What happens if you:\n   - Permute labels at the protein level?\n   - Swap one protein's embedding for another?\n   - Shuffle the pair order?\n\n---\n\n## What Would Be Needed to Support the Claim\n\nTo demonstrate that PairNet learned *interaction* determinants:\n\n1. **Entity-level split:** Evaluate on protein pairs where at least one protein is completely unseen at test time\n2. **Baseline comparison:** Report performance of:\n   - Per-protein label rate (done here: 0.795)\n   - Logistic regression on one-hot proteins (done here: 0.794)\n   - k-mer composition baseline if sequences available\n3. **Ablation:** Show that the transformer architecture beats a simple linear model on the same sequence embeddings\n4. **Generalization:** Report separate AUROC for:\n   - Both proteins seen in training\n   - Exactly one protein new\n   - Both proteins new\n5. **Negative control:** Label permutation at the protein level should drop to ~0.5\n\n---\n\n## Conclusion\n\nThe model has not learned sequence-based or pair-based determinants of interaction. It has learned that certain proteins are more likely to interact (or to be scored high by the transformer) based on their training prevalence. A simple per-protein lookup table would do nearly as well.\n\nThe claimed AUROC of 0.79 is not evidence of learning; it is evidence of entity-level memorization.\n\n**Do not use this model to predict interaction partners for uncharacterized proteins.** The claim of generalization is unsupported and dangerous: if an uncharacterized protein happens to have high sequence similarity to a known \"sticky\" protein, the model will predict high interaction propensity regardless of actual biology.\n"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-nb4ds5t3/analysis/proper_split_demo.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score\n\n\"\"\"\nDemonstration: What would entity-level evaluation look like?\n\"\"\"\n\ntrain = pd.read_csv('pairs_train.csv')\ntest = pd.read_csv('pairs_test.csv')\npred = pd.read_csv('predictions_test.csv')\ntest_with_pred = test.merge(pred, on=['protein_a', 'protein_b'])\n\ntrain_proteins = set(train['protein_a'].unique()) | set(train['protein_b'].unique())\n\nprint(\"=\" * 70)\nprint(\"STRATIFIED EVALUATION: What if we properly split by entity?\")\nprint(\"=\" * 70)\n\n# Categorize test pairs by whether proteins are seen in training\ntest_with_pred['a_seen'] = test_with_pred['protein_a'].isin(train_proteins)\ntest_with_pred['b_seen'] = test_with_pred['protein_b'].isin(train_proteins)\ntest_with_pred['status'] = test_with_pred.apply(\n    lambda r: 'Both seen' if r['a_seen'] and r['b_seen']\n              else ('One new' if r['a_seen'] or r['b_seen']\n              else 'Both new'), axis=1\n)\n\ny_true = test_with_pred['label'].values\ny_score = test_with_pred['score'].values\n\nprint(f\"\\nCURRENT EVALUATION (all pairs):\")\nprint(f\"  AUROC: {roc_auc_score(y_true, y_score):.3f}\")\n\n# Subset: only pairs with both proteins seen (current scenario)\nboth_seen = test_with_pred['status'] == 'Both seen'\nprint(f\"\\n'Both proteins seen in training' ({both_seen.sum()} pairs):\")\nprint(f\"  AUROC: {roc_auc_score(test_with_pred.loc[both_seen, 'label'], test_with_pred.loc[both_seen, 'score']):.3f}\")\n\n# Subset: at least one protein new (proper test)\nat_least_one_new = test_with_pred['status'].isin(['One new', 'Both new'])\nif at_least_one_new.sum() > 0:\n    print(f\"\\n'At least one protein new' ({at_least_one_new.sum()} pairs):\")\n    print(f\"  AUROC: {roc_auc_score(test_with_pred.loc[at_least_one_new, 'label'], test_with_pred.loc[at_least_one_new, 'score']):.3f}\")\nelse:\n    print(f\"\\n'At least one protein new': 0 pairs \u2014 CANNOT EVALUATE GENERALIZATION\")\n    print(\"\\nThis is the core problem:\")\n    print(\"- The analysis claims the model 'generalizes to new protein pairs'\")\n    print(\"- But there are NO new proteins in the test set\")\n    print(\"- Only new COMBINATIONS of known proteins\")\n    print(\"- This is like testing a person recognizer only on new combinations\")\n    print(\"  of the same 60 people \u2014 it doesn't test person recognition.\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"WHAT SHOULD HAVE BEEN DONE\")\nprint(\"=\" * 70)\nprint(\"\"\"\nStandard approach (entity-level splitting):\n1. Hold out ~20% of proteins completely\n2. Train on pairs of the remaining 80% of proteins\n3. Test on pairs involving held-out proteins (and train proteins)\n4. Report AUROC on:\n   - Pairs with both proteins in training (in-distribution)\n   - Pairs with at least one held-out protein (out-of-distribution)\n\nThis would reveal whether the model learned generalizable interaction logic\nor just per-protein biases. Leakage typically causes >50% score drop on\nout-of-distribution evaluation.\n\"\"\")\n\n# Show what entity-level split WOULD look like\nnp.random.seed(42)\nall_proteins = sorted(train_proteins)\nn_hold = int(len(all_proteins) * 0.2)\nheld_out = set(np.random.choice(all_proteins, n_hold, replace=False))\ntrain_split = set(all_proteins) - held_out\n\nprint(f\"Example 80/20 protein-level split:\")\nprint(f\"  Training proteins: {len(train_split)}\")\nprint(f\"  Held-out proteins: {len(held_out)}\")\nprint(f\"  Held-out proteins: {sorted(list(held_out))[:10]}... (showing first 10)\")\n\n# Check if proper split is possible with current data\nproper_test = test_with_pred[~test_with_pred['a_seen'] | ~test_with_pred['b_seen']]\nprint(f\"\\n  Test pairs involving new proteins: {len(proper_test)}\")\nprint(f\"  Test pairs with both proteins in training: {(~proper_test).sum()}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python proper_split_demo.py"
+      }
+    }
+  ]
+}

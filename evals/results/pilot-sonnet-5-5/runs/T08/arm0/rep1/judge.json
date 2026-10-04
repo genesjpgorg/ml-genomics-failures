@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer identified that SelectKBest ran on all 60 samples before CV and showed that the leaky procedure scores about 0.99 even on shuffled labels. They measured the nested-CV AUROC at 0.583 (one seed, about 0.51 averaged), which matches the key's ~0.58, and recommended nested selection or a held-out cohort. Their other points are generic caveats, not separate substantive flaws.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

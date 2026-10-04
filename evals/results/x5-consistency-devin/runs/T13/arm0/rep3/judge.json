@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent identified both flaws. It showed that batch is confounded with the label (batch alone gives AUROC 0.771) and that every test protein also appears in training because the split was by pair. It recommended a protein-disjoint split with batch handled explicitly, and it declined to treat the 0.79 score as meaningful.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

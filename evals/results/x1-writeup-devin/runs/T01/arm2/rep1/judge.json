@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the random pair split left every test protein in training (100% of test pairs fully seen). It showed that a per-protein label-rate baseline with no sequence information reaches AUROC 0.795, matching PairNet's 0.79. It proposed a protein-disjoint split with comparison against the per-protein baseline, which is the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

@@ -1,0 +1,71 @@
+{
+  "task": "T04",
+  "arm": "0",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 27.2,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "I checked the 0.85 test accuracy against the sequences. It comes entirely from near-duplicates shared between the train and test sets, so the claim is not supported.\n\n**What I checked**\n- I recomputed the accuracy from `predictions_test.csv` and `labels.csv`. It is 0.85, so the number itself is correct.\n- There are no exact duplicate sequences or IDs across train and test.\n- I compared each test promoter to the training set by shared 20-mers. 70 of the 100 test promoters have a near-copy in the training set, sharing at least 50 of their 281 20-mers. The closest matches share up to 261 of 281, which is nearly the whole sequence.\n- Accuracy splits sharply by whether a near-copy exists:\n\n| Test promoters | n | PromoNet accuracy |\n|---|---|---|\n| With a near-copy in train | 70 | 1.00 |\n| Without one | 30 | 0.50 (chance) |\n\n- For the 70 with a near-copy, copying the label of the closest training sequence is also 100% correct. A lookup of nearest-neighbour labels would match PromoNet's score on those sequences.\n- A simple 3-mer logistic regression reaches only 0.57, both in 5-fold cross-validation on train and on test. So the sequences carry little signal that generalises. This baseline is weak, so it doesn't prove that no grammar exists. But no evidence of one is presented either.\n\n**Issues that matter most**\n1. **Train/test leakage.** The \"random\" split put near-identical sequences on both sides. This probably comes from variants or tiled versions of the same promoters, which is common in massively parallel reporter assays. Accuracy then measures memorisation, not generalisation to unseen promoters.\n2. **No evidence on new sequences.** On the 30 test promoters with no near-copy in train, PromoNet scores exactly chance (0.50). That is the only subset that tests the claim about new, unseen promoter sequences.\n3. **\"Regulatory grammar\" is untested.** There are no motif analyses, no attributions and no ablations. A leaked nearest-neighbour result cannot support a mechanistic claim.\n4. **Small sample.** With 100 test promoters, the 30-promoter clean subset has a wide confidence interval. Any re-evaluation needs a larger, properly split set.\n\n**Fix before it goes in a paper**\n- Re-split by sequence similarity or by promoter family, for example clustering at a set identity threshold or holding out whole loci.\n- Report accuracy on that split, with confidence intervals and nearest-neighbour and k-mer baselines.\n- Drop the \"regulatory grammar\" wording unless motif-level evidence is added.\n\nI added `chk.py` and `chk2.py` to this directory; they reproduce these checks.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0631902,
+  "duration_s": 26.4,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-dokv4_5x/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-dokv4_5x/analysis; head -4 labels.csv predictions_test.csv; head -c 400 train.fa; grep -c '>' train.fa test.fa"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-dokv4_5x/analysis; tail -3 labels.csv; cat > chk.py <<'E'\nimport pandas as pd,numpy as np\nfrom collections import defaultdict\ndef rd(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l.startswith('>'):k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr,te=rd('train.fa'),rd('test.fa')\nlab=pd.read_csv('labels.csv');pr=pd.read_csv('predictions_test.csv')\nprint(lab.split.value_counts(),lab.groupby('split').activity.value_counts())\nprint(len(set(tr)&set(te)), len(set(tr.values())&set(te.values())), len(set(tr.values())),len(set(te.values())))\nprint(lab.id.isin(te).sum(), lab.id.head(3).tolist(), [k for k in te][:3])\n# near duplicates via shared 20-mers\ndef km(s,k=20):return {s[i:i+k] for i in range(len(s)-k+1)}\nidx=defaultdict(set)\nfor k,s in tr.items():\n    for m in km(s):idx[m].add(k)\nbest={}\nfor k,s in te.items():\n    c=defaultdict(int)\n    for m in km(s):\n        for t in idx.get(m,()):c[t]+=1\n    best[k]=max(c.items(),key=lambda x:x[1]) if c else (None,0)\nprint(sum(v[1]>0 for v in best.values()), sorted(v[1] for v in best.values())[-10:])\nprint(lab[lab.id.str.startswith('test')].head())\nE\npython chk.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-dokv4_5x/analysis/chk.py",
+        "content": "import pandas as pd,numpy as np\nfrom collections import defaultdict\ndef rd(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l.startswith('>'):k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr,te=rd('train.fa'),rd('test.fa')\nlab=pd.read_csv('labels.csv');pr=pd.read_csv('predictions_test.csv')\nprint(lab.split.value_counts(),lab.groupby('split').activity.value_counts())\nprint(len(set(tr)&set(te)), len(set(tr.values())&set(te.values())), len(set(tr.values())),len(set(te.values())))\nprint(lab.id.isin(te).sum(), lab.id.head(3).tolist(), list(te)[:3])\ndef km(s,k=20):return {s[i:i+k] for i in range(len(s)-k+1)}\nidx=defaultdict(set)\nfor k,s in tr.items():\n    for m in km(s):idx[m].add(k)\nbest={}\nfor k,s in te.items():\n    c=defaultdict(int)\n    for m in km(s):\n        for t in idx.get(m,()):c[t]+=1\n    best[k]=max(c.items(),key=lambda x:x[1]) if c else (None,0)\nprint(sum(v[1]>0 for v in best.values()), sorted(v[1] for v in best.values())[-10:])\nprint(lab[lab.id.str.startswith('test')].head())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-dokv4_5x/analysis; python chk.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-dokv4_5x/analysis/chk2.py",
+        "content": "exec(open('chk.py').read().split(\"print(lab.split\")[0])\nfrom collections import defaultdict\ny=dict(zip(lab.id,lab.activity)); p=dict(zip(pr.id,pr.predicted))\nprint('acc',np.mean([y[k]==p[k] for k in te]))\ndef km(s,k=20):return {s[i:i+k] for i in range(len(s)-k+1)}\nidx=defaultdict(set)\nfor k,s in tr.items():\n    for m in km(s):idx[m].add(k)\nrows=[]\nfor k,s in te.items():\n    c=defaultdict(int)\n    for m in km(s):\n        for t in idx.get(m,()):c[t]+=1\n    t,n=max(c.items(),key=lambda x:x[1]) if c else (None,0)\n    rows.append((k,n,y[t] if t else None,y[k],p[k]))\nd=pd.DataFrame(rows,columns=['id','n','nnlab','y','p'])\nd['hi']=d.n>=50\nprint(d.hi.sum())\nfor h,g in d.groupby('hi'):\n    print(h,len(g),'model acc',(g.y==g.p).mean(), 'nn-label acc',(g.y==g.nnlab).mean() if h else None)\n# GC / simple baseline\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\nimport itertools\ndef feat(s,k=3):\n    ks=[''.join(x) for x in itertools.product('ACGT',repeat=k)]\n    return [sum(s[i:i+k]==m for i in range(len(s)-k+1)) for m in ks]\nX=np.array([feat(s) for s in tr.values()]);Y=np.array([y[k] for k in tr])\nprint('cv 3mer LR on train',cross_val_score(LogisticRegression(max_iter=2000),X,Y,cv=5).mean())\nXt=np.array([feat(s) for s in te.values()]);Yt=np.array([y[k] for k in te])\nprint('test 3mer LR',LogisticRegression(max_iter=2000).fit(X,Y).score(Xt,Yt))\n# near-dup within train: label consistency\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-dokv4_5x/analysis; python chk2.py"
+      }
+    }
+  ]
+}

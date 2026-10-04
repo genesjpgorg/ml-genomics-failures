@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": true,
+  "rationale": "The reviewer correctly ruled out plate confounding (plate-only AUROC 0.36, PC2 orthogonal to status) and selection leakage (in-fold pipeline, permutation nulls at chance), and returned SUPPORTED with acceptable caveats about noise and external validation. They also raised reasonable points the key doesn't cover: the claim's timing language ('at sepsis onset', 'go on to develop') isn't backed by the data, case-control matching is undocumented, and there are no clinical-covariate baselines.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

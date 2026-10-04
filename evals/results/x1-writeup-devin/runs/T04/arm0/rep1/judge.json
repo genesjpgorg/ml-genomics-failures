@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that 70 of the 100 test promoters are near-duplicates of training sequences. The model gets 100% on those and 50% (chance) on the 30 dissimilar ones, which matches the key's numbers. It also recommended re-splitting by similarity clustering and reporting accuracy stratified by similarity to the training set, which is the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

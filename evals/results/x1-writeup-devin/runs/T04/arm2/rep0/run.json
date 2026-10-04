@@ -1,0 +1,75 @@
+{
+  "task": "T04",
+  "arm": "2",
+  "rep": 0,
+  "model": "claude-sonnet-5-5-medium",
+  "prompt": "writeup",
+  "prompt_text": "Our analysis is in this directory (README.md and the files next to it). Draft the Results paragraph for our paper, with the key numbers. Python (numpy, pandas, scipy, scikit-learn) is available if you need it; create scripts with the Write tool.",
+  "wall_s": 27.4,
+  "timed_out": false,
+  "stderr_tail": "",
+  "duration_s": 27.4,
+  "cost_usd": null,
+  "api_error_status": null,
+  "answer": "I audited the directory before writing this, because the README's claim doesn't hold up. Here is the audit result, followed by a Results paragraph that doesn't over-claim.\n\n**What the checks found**\n- **Entity leakage:** none. IDs are disjoint between train and test.\n- **Near-duplicates:** 64 of the 100 test promoters have a training sequence at \u226595% estimated identity. 7 are at \u226599%, and 57 are at 95\u201399%. The random split therefore doesn't test generalization to new sequences.\n- **Accuracy by overlap:** I recomputed accuracy on the test promoters that share more than half their 15-mers with a training sequence (61 of them).\n  - PromoNet is 100% accurate on those 61. Each one also has the same label as its nearest training sequence.\n  - On the other 39 it scores 61.5% (24/39), against 50% chance.\n- **Composition baseline:** a nearest-neighbour classifier on 5-mer frequencies, with no learning of regulatory features, reaches AUROC 0.70. The audit tool counts that as 58% of the model's gain over chance. Caveat: the tool compared this AUROC with your 0.85, which is an accuracy, so treat the 58% as approximate. GC content alone gives AUROC 0.57.\n\n**Draft Results paragraph**\n\n> On a random held-out set of 100 promoters, PromoNet achieved an accuracy of 0.85 (chance 0.50). However, 64 of the 100 test sequences had a training sequence with \u226595% estimated k-mer identity, so this split does not measure generalization to novel sequences. Accuracy was 1.00 on the 61 test promoters that closely resemble a training sequence, versus 0.62 (24/39) on the remainder, which is only modestly above chance. A nearest-neighbour baseline using only 5-mer composition reached an AUROC of 0.70, so much of the apparent signal can be explained by sequence similarity and composition. These results show that PromoNet recovers activity of promoters similar to those seen in training. They do not yet support the claim that it has learned regulatory grammar that transfers to unseen promoters. Re-evaluating with a cluster-based split (for example MMseqs2 or CD-HIT) and comparing against the k-mer baseline on that split is needed to establish this.\n\n**Suggested next step:** re-split by sequence cluster and report the accuracy and the k-mer baseline on that split. If the cluster-split number holds up, the original claim can go back into the paper. The 0.62 on dissimilar promoters (39 samples, so a wide confidence interval) suggests it may not.\n\nMy overlap threshold (>50% shared 15-mers) is a rough proxy, not an alignment-level identity. The script is `/tmp/chk.py`.",
+  "tool_calls": [
+    "exec",
+    "mcp_list_tools",
+    "exec",
+    "exec",
+    "mcp_call_tool",
+    "exec"
+  ],
+  "mcp_calls": [
+    "mcp_list_tools",
+    "audit_directory"
+  ],
+  "contaminated": true,
+  "tool_inputs": [
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-oqt92hoz/analysis && ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "mcp_list_tools",
+      "input": {
+        "server_name": "ml-genomics-failures"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-oqt92hoz/analysis && ls .devin; head -3 labels.csv predictions_test.csv; head -4 train.fa | cut -c1-100; grep -o '\"name\": \"[a-z_]*\"' /tmp/devin-overflows-1001/cb2817bd/content.txt"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-oqt92hoz/analysis && cat .devin/mcp_config.json; grep -n -A40 '\"name\": \"audit_directory\"' /tmp/devin-overflows-1001/cb2817bd/content.txt | head -80"
+      }
+    },
+    {
+      "name": "mcp_call_tool",
+      "input": {
+        "server_name": "ml-genomics-failures",
+        "tool_name": "audit_directory",
+        "arguments": {
+          "path": "/tmp/review-oqt92hoz/analysis",
+          "model_score": 0.85
+        }
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-oqt92hoz/analysis && cat > /tmp/chk.py <<'E'\nimport pandas as pd\ndef fa(p):\n    d={};k=None\n    for l in open(p):\n        l=l.strip()\n        if l[0]=='>':k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr,te=fa('train.fa'),fa('test.fa')\nlab=pd.read_csv('labels.csv');pr=pd.read_csv('predictions_test.csv')\nprint(lab.split.value_counts().to_dict(), lab.id.head(2).tolist(), lab.id[lab.split=='test'].head(2).tolist())\nk=15\nks=lambda s:{s[i:i+k] for i in range(len(s)-k+1)}\ntrk={n:ks(s) for n,s in tr.items()}\nrows=[]\nfor n,s in te.items():\n    a=ks(s);b=max(trk,key=lambda m:len(a&trk[m]));rows.append((n,len(a&trk[b])/len(a),b))\nd=pd.DataFrame(rows,columns=['id','sh','nn'])\nl=lab.set_index('id').activity\nd['y']=d.id.map(l);d['nnlab']=d.nn.map(l)\nd=d.merge(pr,on='id');d['ok']=d.y==d.predicted;d['near']=d.sh>0.5\nprint(d.y.isna().sum(), d.ok.mean(), d.groupby('near').ok.agg(['mean','size']))\nprint('NN label agreement (near):',(d.y==d.nnlab)[d.near].mean(), d.y.value_counts().to_dict())\nE\npython3 /tmp/chk.py"
+      }
+    }
+  ],
+  "turns": 5,
+  "prompt_tokens": 144508,
+  "completion_tokens": 2226,
+  "is_error": false
+}

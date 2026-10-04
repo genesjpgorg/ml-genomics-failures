@@ -1,0 +1,41 @@
+{
+  "task": "C04",
+  "arm": "0",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 19.2,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The headline number reproduces, and the claim is worded narrowly enough that I think it holds. Only the evaluation file is here, so I could not check the model or the training split.\n\n**What I checked** (on `gene_level_eval.csv`):\n- **Data integrity:** there are 2,000 unique genes on chr8, chr9 and chr10 only, with no missing values and no duplicate rows.\n- **Headline correlation:** Pearson r is 0.792, which matches the README's 0.79. Spearman is 0.774, so a few extreme values are not driving it.\n- **Consistency across chromosomes:** r is 0.82 on chr8, 0.78 on chr9 and 0.78 on chr10.\n- **Strength of the relationship:** r\u00b2 is about 0.63, so \"much of the variation between genes\" is a fair description. The scope limits (nothing about individuals or variants) are stated honestly and match what this evaluation tests.\n\n**Issues to fix before it goes into a paper:**\n1. **Predictions are biased upward in error.** Observed expression is on average 0.94 log TPM higher than predicted. The calibration slope is 0.80 and the intercept is 1.75. Pearson ignores this offset. Raw R\u00b2 on the unadjusted predictions is only 0.36, so don't describe the predictions as accurate expression levels. Report this, or recalibrate and say so.\n2. **No baseline.** A trivial predictor such as GC or CpG content, or promoter-only features, might already reach r around 0.5\u20130.6 for between-gene expression. Without that comparison, \"sequence explains much of the variation\" says little about what ExprNet adds.\n3. **Possible leakage that I can't rule out.** Splitting by chromosome is good practice. Paralogs and homologous genes across chromosomes could still leak, and so could the 100 kb windows if they overlap or are shared across the split. Please document whether training and test genes were filtered for homology.\n4. **Narrow test set.** Only three chromosomes, one cell type, and no description of how the 2,000 genes were chosen. If they were filtered, for example to expressed genes, r would be inflated. Add confidence intervals (a bootstrap over genes is enough) and ideally a second held-out fold.\n5. **Not reproducible from this directory.** The model, training code and split definition are absent. Only the predictions are provided, so the \"trained on all other chromosomes\" claim can't be audited.\n\nVERDICT: SUPPORTED\n\nThe claim is narrow, and the numbers it relies on reproduce. The main caveats are the missing baseline, the unreported calibration offset, and unverified homology leakage.",
+  "is_error": false,
+  "cost_usd": 0.03307360000000001,
+  "duration_s": 18.4,
+  "turns": 4,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wagve346/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wagve346/analysis; head -5 gene_level_eval.csv; python -c \"\nimport pandas as pd,numpy as np\nd=pd.read_csv('gene_level_eval.csv');print(d.describe(include='all'));print(d.isna().sum())\nn=d.select_dtypes('number');print(n.corr())\nfor c in d.columns:\n    if d[c].dtype==object: print(d[c].value_counts().head(15))\n\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wagve346/analysis; python -c \"\nimport pandas as pd,numpy as np\nfrom scipy import stats\nd=pd.read_csv('gene_level_eval.csv');p,o=d.predicted_log_tpm,d.observed_log_tpm\nfor c,g in d.groupby('test_chromosome'):print(c,len(g),g.predicted_log_tpm.corr(g.observed_log_tpm))\nprint(stats.spearmanr(p,o), 1-((o-p)**2).sum()/((o-o.mean())**2).sum(), (o-p).mean(), np.polyfit(p,o,1))\nprint(d.duplicated(['predicted_log_tpm','observed_log_tpm']).sum())\nr=o-p;print(r.describe());print(d[abs(r)>4].shape)\n\""
+      }
+    }
+  ]
+}

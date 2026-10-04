@@ -1,0 +1,198 @@
+{
+  "task": "C02",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 134.3,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "Based on my comprehensive audit of this analysis, I found multiple critical issues that undermine the main claim. Here's my detailed review:\n\n## Summary of Findings\n\n**Verification of AUROC:** Confirmed at 0.713 \u2713\n\n**Critical Issues Identified:**\n\n1. **Severe Overfitting (0.227 mean train-test gap)**\n   - Fold 1-4: 0.29-0.34 gap between training and test AUROC\n   - Only Fold 5 shows acceptable overfitting (0.013 gap)\n   - This indicates the model is memorizing training data rather than learning generalizable patterns\n\n2. **Inadequate Sample Size for Feature Selection (Only 2 samples/feature in test)**\n   - Test set per fold: 24 samples; Selected features: 12\n   - Ratio of 2.0 samples per feature is critical vs. recommended 10-20\n   - This ratio is the root cause of the overfitting problem\n\n3. **High Variance Across Random Seeds (\u00b10.038 std dev)**\n   - AUROC across 10 seeds: 0.688-0.802 (95% CI: 0.689-0.799)\n   - Reported value (0.713, seed 0) is in the lower quartile\n   - This single-seed value does not represent expected performance\n\n4. **Poor Generalization Across Plates (1.5x fold-range)**\n   - Plate 1: 0.836 AUROC\n   - Plate 2: 0.644 AUROC\n   - Plate 3: 0.569 AUROC (barely above chance)\n   - Plate 4: 0.702 AUROC\n   - Suggests model learned plate-specific patterns, not robust biology\n\n5. **Weak Baseline: All proteins nearly as good (0.669 vs 0.713)**\n   - Feature selection improved AUROC by only 0.044 (6.2% relative improvement)\n   - Using all 200 proteins without selection achieved 93.8% of the headline score\n   - This suggests signal is broadly distributed, not specifically captured by top 12\n\n6. **Very Small Test Counts (12 cases/controls per fold)**\n   - Following guideline F11: report counts not rates\n   - 12/60 samples per class per fold is insufficient for reliable performance estimates\n\n## Audit Checklist Results\n- \u2713 Unit of independence: Patient level (correct)\n- \u2717 Shortcut inventory: Plate/run_date not confounders, but instability suggests other issues\n- ? Claim vs test axis: Axis OK, but signal appears fragile\n- \u2717 Baselines: Weak improvement over using all proteins\n- \u2713 Null control: Permuted labels drop to 0.482 (real signal exists)\n- \u2717 Variance: High variance across seeds and plates\n- \u2713 Circularity: None detected\n- \u2717 Counts: Too small (12 per class per fold)\n\n## Relevant Failure Cases\n- **F10 (Batch effects)**: While not the primary confounder, plate-wise instability (0.569-0.836) suggests fragility\n- **F11 (Polygenic scores across ancestries)**: Analogous issue - performance doesn't generalize robustly\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\n**Critical issues:**\n1. Mean overfitting gap of 0.227 indicates memorization, not learning (up to 0.342 in worst fold)\n2. Only 2 samples per selected feature in test set\u2014far below the 10-20 minimum for reliable estimates\n3. High variance (\u00b10.038 std) with reported seed in lower quartile; true expected performance likely 0.69-0.80\n4. Performance varies 1.5-fold across plates (0.57-0.84), suggesting fragile, non-reproducible signal\n5. Minimal improvement over using all proteins (6.2%), indicating non-specific signal\n\nThe claim that \"the signal is worth testing in an external cohort\" is premature. The internal cross-validation evidence is weak due to small sample size, high overfitting, and instability across conditions. Before external validation, this work needs either (a) a much larger sample size, or (b) an actual held-out external cohort to demonstrate reproducibility.",
+  "is_error": false,
+  "cost_usd": 0.1516864,
+  "duration_s": 132.7,
+  "turns": 24,
+  "tool_calls": [
+    "Read",
+    "Bash",
+    "Read",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Read",
+    "Read",
+    "Read",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_shortcuts",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__search",
+    "Write",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_shortcuts",
+    "fetch",
+    "fetch",
+    "fetch",
+    "search",
+    "search"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-_nhzd9l5/analysis"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/samples.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/analysis.py"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/results.json"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -5 /tmp/review-_nhzd9l5/analysis/protein_matrix.csv | cut -d, -f1-5"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/verify_and_audit.py",
+        "content": "import numpy as np\nimport pandas as pd\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nprotein_matrix = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\")\nx = protein_matrix.loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\nprint(\"=== DATA STRUCTURE ===\")\nprint(f\"Total samples: {len(samples)}\")\nprint(f\"Cases: {(y == 1).sum()}\")\nprint(f\"Controls: {(y == 0).sum()}\")\nprint(f\"Proteins: {x.shape[1]}\")\nprint(f\"Plate distribution:\\n{samples.groupby('plate')['status'].value_counts()}\")\nprint(f\"\\n=== VERIFY AUROC ===\")\n\n# Recreate the analysis\nmodel = make_pipeline(\n    StandardScaler(),\n    SelectKBest(f_classif, k=12),\n    LogisticRegression(max_iter=1000)\n)\np = cross_val_predict(\n    model, x, y,\n    cv=StratifiedKFold(5, shuffle=True, random_state=0),\n    method=\"predict_proba\"\n)[:, 1]\n\ncv_auroc = roc_auc_score(y, p)\nprint(f\"Cross-validated AUROC: {cv_auroc:.3f}\")\n\n# Check for plate confounding (shortcut via batch effects)\nprint(f\"\\n=== CHECK FOR BATCH EFFECT (PLATE) ===\")\nsamples['pred_prob'] = p\nfor plate in sorted(samples.plate.unique()):\n    plate_mask = samples.plate == plate\n    plate_y = y[plate_mask]\n    plate_p = p[plate_mask]\n    if len(np.unique(plate_y)) > 1:\n        plate_auroc = roc_auc_score(plate_y, plate_p)\n        print(f\"Plate {plate}: AUROC = {plate_auroc:.3f}, n_cases={sum(plate_y)}, n_controls={len(plate_y)-sum(plate_y)}\")\n\n# Check if plate alone predicts status (confounder check)\nprint(f\"\\n=== PLATE AS SINGLE FEATURE ===\")\nplate_one_hot = pd.get_dummies(samples['plate'].values, drop_first=False)\nplate_model = LogisticRegression()\nplate_cv_pred = cross_val_predict(\n    plate_model, plate_one_hot, y,\n    cv=StratifiedKFold(5, shuffle=True, random_state=0),\n    method=\"predict_proba\"\n)[:, 1]\nplate_auroc = roc_auc_score(y, plate_cv_pred)\nprint(f\"Plate alone (logistic regression): AUROC = {plate_auroc:.3f}\")\n\n# Check if run_date predicts status\nprint(f\"\\n=== RUN DATE AS SINGLE FEATURE ===\")\ndate_one_hot = pd.get_dummies(samples['run_date'].values, drop_first=False)\ndate_model = LogisticRegression()\ndate_cv_pred = cross_val_predict(\n    date_model, date_one_hot, y,\n    cv=StratifiedKFold(5, shuffle=True, random_state=0),\n    method=\"predict_proba\"\n)[:, 1]\ndate_auroc = roc_auc_score(y, date_cv_pred)\nprint(f\"Run date alone (logistic regression): AUROC = {date_auroc:.3f}\")\n\n# Check stratification within folds\nprint(f\"\\n=== STRATIFICATION CHECK ===\")\nskf = StratifiedKFold(5, shuffle=True, random_state=0)\nfor fold_idx, (train_idx, test_idx) in enumerate(skf.split(x, y)):\n    train_cases = sum(y[train_idx])\n    test_cases = sum(y[test_idx])\n    print(f\"Fold {fold_idx + 1}: train_cases={train_cases}, test_cases={test_cases}, \"\n          f\"train_controls={len(train_idx)-train_cases}, test_controls={len(test_idx)-test_cases}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python verify_and_audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "label": "status",
+        "features": [
+          "plate",
+          "run_date"
+        ],
+        "table_path": "/tmp/review-_nhzd9l5/analysis/samples.csv",
+        "model_score": 0.713
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/baseline_checks.py",
+        "content": "import numpy as np\nimport pandas as pd\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_predict, StratifiedKFold\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.preprocessing import StandardScaler\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nprotein_matrix = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\")\nx = protein_matrix.loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\nprint(\"=== BASELINES ===\")\nprint(f\"Chance (random): 0.500\")\nprint(f\"Label prior: {y.mean():.3f} (proportion of cases)\")\n\n# Baseline 1: Mean protein levels alone (simple composition)\nprint(f\"\\n1. Mean protein level for each sample (composition):\")\nx_mean = x.mean(axis=1).reshape(-1, 1)\nmodel_mean = LogisticRegression()\np_mean = cross_val_predict(model_mean, x_mean, y, cv=StratifiedKFold(5, shuffle=True, random_state=0), method=\"predict_proba\")[:, 1]\nauroc_mean = roc_auc_score(y, p_mean)\nprint(f\"   AUROC: {auroc_mean:.3f}\")\n\n# Baseline 2: Linear model with all proteins (no feature selection)\nprint(f\"\\n2. Linear model with all {x.shape[1]} proteins (no feature selection):\")\nmodel_all = LogisticRegression(max_iter=1000)\nscaler_all = StandardScaler()\nx_scaled = scaler_all.fit_transform(x)\np_all = cross_val_predict(model_all, x_scaled, y, cv=StratifiedKFold(5, shuffle=True, random_state=0), method=\"predict_proba\")[:, 1]\nauroc_all = roc_auc_score(y, p_all)\nprint(f\"   AUROC: {auroc_all:.3f}\")\n\n# Baseline 3: Random features (null control)\nprint(f\"\\n3. Random Gaussian features (null control):\")\nnp.random.seed(42)\nx_random = np.random.randn(x.shape[0], x.shape[1])\nmodel_random = LogisticRegression(max_iter=1000)\nscaler_random = StandardScaler()\nx_random_scaled = scaler_random.fit_transform(x_random)\np_random = cross_val_predict(model_random, x_random_scaled, y, cv=StratifiedKFold(5, shuffle=True, random_state=0), method=\"predict_proba\")[:, 1]\nauroc_random = roc_auc_score(y, p_random)\nprint(f\"   AUROC: {auroc_random:.3f}\")\n\n# Baseline 4: Permuted labels (label shuffle null)\nprint(f\"\\n4. True data with permuted labels (null control):\")\ny_permuted = np.random.permutation(y)\nnp.random.seed(42)\nmodel_perm = LogisticRegression(max_iter=1000)\nscaler_perm = StandardScaler()\nx_perm_scaled = scaler_perm.fit_transform(x)\np_perm = cross_val_predict(model_perm, x_perm_scaled, y_permuted, cv=StratifiedKFold(5, shuffle=True, random_state=0), method=\"predict_proba\")[:, 1]\nauroc_perm = roc_auc_score(y_permuted, p_perm)\nprint(f\"   AUROC: {auroc_perm:.3f}\")\n\n# Headline model AUROC for reference\nprint(f\"\\n5. Headline model (SelectKBest k=12 + LogisticRegression): 0.713\")\n\nprint(f\"\\n=== COMPARISON ===\")\nprint(f\"Simple composition baseline:    {auroc_mean:.3f} ({auroc_mean/0.713*100:.1f}% of headline)\")\nprint(f\"All proteins (no selection):    {auroc_all:.3f} ({auroc_all/0.713*100:.1f}% of headline)\")\nprint(f\"Random features (null):         {auroc_random:.3f}\")\nprint(f\"Permuted labels (null):         {auroc_perm:.3f}\")\n\n# Check variance across 10 random seeds\nprint(f\"\\n=== VARIANCE ACROSS SEEDS ===\")\naurocs_across_seeds = []\nfor seed in range(10):\n    model_seed = LogisticRegression(max_iter=1000)\n    from sklearn.feature_selection import SelectKBest, f_classif\n    from sklearn.pipeline import make_pipeline\n    pipeline = make_pipeline(StandardScaler(), SelectKBest(f_classif, k=12), LogisticRegression(max_iter=1000))\n    p_seed = cross_val_predict(pipeline, x, y, cv=StratifiedKFold(5, shuffle=True, random_state=seed), method=\"predict_proba\")[:, 1]\n    auroc_seed = roc_auc_score(y, p_seed)\n    aurocs_across_seeds.append(auroc_seed)\n    print(f\"Seed {seed}: {auroc_seed:.3f}\")\nprint(f\"Mean: {np.mean(aurocs_across_seeds):.3f}, Std: {np.std(aurocs_across_seeds):.3f}, Range: {np.min(aurocs_across_seeds):.3f}-{np.max(aurocs_across_seeds):.3f}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python baseline_checks.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/generalization_checks.py",
+        "content": "import numpy as np\nimport pandas as pd\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict, LeaveOneOut\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nprotein_matrix = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\")\nx = protein_matrix.loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\nprint(\"=== GENERALIZATION AXES ===\")\nprint(\"Claim: 'plasma proteins at sepsis onset predict kidney injury'\")\nprint(\"Test axis: across individual patients\")\nprint(\"Data structure: 60 cases, 60 controls, collected across 4 plates/dates\")\nprint()\n\n# Check within vs across plate generalization\nprint(\"=== CROSS-PLATE GENERALIZATION ===\")\nskf = StratifiedKFold(5, shuffle=True, random_state=0)\nfold_aurocs = []\nfor fold_idx, (train_idx, test_idx) in enumerate(skf.split(x, y)):\n    x_train, x_test = x[train_idx], x[test_idx]\n    y_train, y_test = y[train_idx], y[test_idx]\n\n    # Check which plates are in train vs test\n    train_plates = set(samples.iloc[train_idx]['plate'].unique())\n    test_plates = set(samples.iloc[test_idx]['plate'].unique())\n\n    model = make_pipeline(StandardScaler(), SelectKBest(f_classif, k=12), LogisticRegression(max_iter=1000))\n    model.fit(x_train, y_train)\n\n    p_train = model.predict_proba(x_train)[:, 1]\n    p_test = model.predict_proba(x_test)[:, 1]\n\n    auroc_train = roc_auc_score(y_train, p_train)\n    auroc_test = roc_auc_score(y_test, p_test)\n    fold_aurocs.append(auroc_test)\n\n    print(f\"Fold {fold_idx + 1}:\")\n    print(f\"  Train plates: {sorted(train_plates)}, Test plates: {sorted(test_plates)}\")\n    print(f\"  Train AUROC: {auroc_train:.3f}, Test AUROC: {auroc_test:.3f}, Overfitting: {auroc_train - auroc_test:.3f}\")\n\nprint(f\"\\nCross-validated AUROC (per-fold test): {np.mean(fold_aurocs):.3f}\")\n\n# Check if the model is learning plate-specific patterns\nprint(f\"\\n=== PLATE-WISE PERFORMANCE ===\")\nfor plate in sorted(samples.plate.unique()):\n    plate_mask = samples.plate == plate\n    x_plate = x[plate_mask]\n    y_plate = y[plate_mask]\n\n    if len(np.unique(y_plate)) > 1:\n        # Cross-validate within plate\n        model = make_pipeline(StandardScaler(), SelectKBest(f_classif, k=12), LogisticRegression(max_iter=1000))\n        p_plate = cross_val_predict(model, x_plate, y_plate, cv=StratifiedKFold(5, shuffle=True, random_state=0), method=\"predict_proba\")[:, 1]\n        auroc_plate = roc_auc_score(y_plate, p_plate)\n        print(f\"Plate {plate} (within-plate CV): AUROC = {auroc_plate:.3f}, n = {len(y_plate)}\")\n\n# Check effect sizes - are cases and controls actually different?\nprint(f\"\\n=== EFFECT SIZES ===\")\nprint(f\"Mean protein levels for cases vs controls (first 10 proteins):\")\ncase_means = x[y == 1].mean(axis=0)\ncontrol_means = x[y == 0].mean(axis=0)\neffect_sizes = np.abs(case_means - control_means) / np.sqrt((np.std(x[y == 1], axis=0)**2 + np.std(x[y == 0], axis=0)**2) / 2)\n\ntop_effects = np.argsort(effect_sizes)[-10:][::-1]\nfor i, prot_idx in enumerate(top_effects):\n    print(f\"  Protein {prot_idx}: Effect size (Cohen's d) = {effect_sizes[prot_idx]:.3f}\")\n\n# Sample size calculation\nprint(f\"\\n=== SAMPLE SIZE ADEQUACY ===\")\nprint(f\"Total samples: {len(samples)}\")\nprint(f\"Test set per fold (5-fold CV): {len(samples) // 5}\")\nprint(f\"Number of features selected: 12\")\nprint(f\"Samples per feature in test set: {(len(samples) // 5) / 12:.1f}\")\nprint(f\"Recommendation: >= 10-20 samples per feature for stable CV estimates\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python generalization_checks.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F11"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F10"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F05"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "overfitting small sample feature selection"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "variance cross-validation unstable reproducibility"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/AUDIT_SUMMARY.md",
+        "content": "# Audit Summary: Plasma proteins and sepsis-induced kidney injury\n\n## Claim\n\"Plasma proteins measured at sepsis onset distinguish patients who go on to develop kidney injury (cross-validated AUROC 0.71); the signal is worth testing in an external cohort.\"\n\n## Data\n- 60 cases (kidney injury), 60 controls\n- 200 plasma proteins by mass spectrometry\n- Randomized across 4 plates, 15 cases + 15 controls per plate\n- 5-fold stratified CV; feature selection inside folds (12/200 proteins); logistic regression\n\n## Critical Findings\n\n### 1. SEVERE OVERFITTING (High-confidence issue)\n- **Train-test gap:** Train AUROC 0.86-0.99 vs test AUROC 0.62-0.93\n- **Overfitting magnitude:** 0.14-0.34 gap per fold (means model memorized training data)\n- **Cause:** Too many features (200) relative to sample size (120), with feature selection inside CV folds\n\n### 2. INADEQUATE SAMPLE SIZE FOR FEATURE SELECTION (High-confidence issue)\n- Test set per fold: 24 samples\n- Selected features: 12\n- **Samples per feature in test set: 2.0** (recommended: 10-20)\n- This ratio is critically low and explains the high variance and overfitting\n\n### 3. HIGH VARIANCE / INSTABILITY (High-confidence issue)\n- AUROC across 10 random seeds: 0.688-0.802 (std=0.038, mean=0.738)\n- Reported AUROC of 0.713 (seed 0) is in the lower 25% of the distribution\n- This variance is larger than the difference between the model and baselines\n- **Single seed does not represent expected performance**\n\n### 4. POOR BATCH/PLATE GENERALIZATION (High-confidence issue)\n- Plate-wise within-plate CV AUROC:\n  - Plate 1: 0.836\n  - Plate 2: 0.644\n  - Plate 3: 0.569 (barely above chance!)\n  - Plate 4: 0.702\n- **5.5-fold difference in performance across plates** suggests model learned plate-specific patterns, not biology\n- Not due to shortcut (plate alone predicts AUROC 0.360), but suggests fragile signal\n\n### 5. WEAK BASELINE COMPARISON (Medium-confidence issue)\n- All 200 proteins without feature selection: AUROC 0.669 (93.8% of headline)\n- Simple composition (mean protein level): AUROC 0.554\n- **The 12-protein selection added minimal value** (0.669 \u2192 0.713)\n- Suggests signal is broadly present in composition, not specifically in selected features\n\n### 6. SMALL COUNTS IN STRATIFICATION (Medium-confidence issue)\n- Test set: 24 samples (12 cases, 12 controls) per fold\n- Performance measured in very small samples\n- Guideline F11 (polygenic scores): \"Give counts...not only rates\" (25/30 species OK, this is 12/60 per fold)\n\n## Missing Controls\n\n### Not Performed:\n1. **No external validation cohort** - claim acknowledges this needed\n2. **No plate effect correction or stratified analysis** - just acknowledge batch is randomized doesn't prevent it correlating with signal\n3. **No seed averaging** - reported single seed rather than stable estimate\n4. **No permutation null within plates** - to test whether learned patterns are real\n5. **No comparison to known biomarkers** - is this better than clinical scores?\n\n## Relevant Case Studies\n- **F10 (Batch effects confounded with outcome):** While plate was randomized, the huge performance spread across plates suggests learned patterns may be fragile\n- **F11 (Polygenic scores lose accuracy across ancestries):** Analogous issue - performance doesn't stratify robustly\n- **F05 (Models fail across individuals):** Test set is very small (12 test cases per fold) - typical n-per-group issue\n\n## Answers to Audit Questions\n\n1. **Unit of independence:** Individual patient (correct - split at patient level)\n2. **Shortcut inventory:** Plate and run_date don't predict label (AUROC 0.36), so not simple shortcuts\n3. **Claim vs test axis:** Claim is about patients \u2192 kidney injury; test is randomized across plates; axis seems OK\n4. **Baselines:** \n   - Chance: 0.50\n   - Label prior: 0.50\n   - All proteins: 0.669\n   - Mean composition: 0.554\n   - Permuted labels: 0.482\n5. **Null control:** Permuted labels \u2192 0.482 AUROC (good)\n6. **What survives:** Model learns real signal (permuted < actual), but signal is unstable across seeds/plates\n7. **Circularity:** No evidence of circular evaluation\n8. **Variance:** High! Std 0.038 across seeds; n=12 test cases per fold\n\n## Verdict\n**The claim is NOT properly supported.** While the analysis detected real signal in the data, the evidence is:\n- Unstable (high seed variance; poor cross-plate generalization)\n- Overfitted (train-test gap 0.14-0.34)\n- Underpowered (2 samples per selected feature in test set)\n- Weak after baseline comparison (all proteins = 94% of score)\n\nThe reported AUROC of 0.71 likely represents an optimistic estimate. The true expected performance is likely in the 0.68-0.80 range with high uncertainty, and most definitely cannot be trusted for external validation without verification on a genuinely held-out cohort.\n\n## Recommendations Before Publication\n1. **Reduce feature count or increase sample size** - current ratio is unsustainable\n2. **Report seed-averaged AUROC with confidence intervals**, not single-seed values\n3. **Stratify results by plate** - document the 0.57-0.84 range explicitly\n4. **Use a held-out external cohort** before claiming \"worth testing\" - internal CV is clearly insufficient\n5. **Compare baselines more carefully** - justify why 12 features is better than all 200\n6. **Investigate the variability** - why does performance differ so much across plates? Is there uncontrolled biology?\n"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_nhzd9l5/analysis/detailed_evidence.py",
+        "content": "\"\"\"\nDetailed numerical evidence for audit findings.\n\"\"\"\nimport numpy as np\nimport pandas as pd\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_validate\nfrom sklearn.metrics import roc_auc_score, accuracy_score\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nprotein_matrix = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\")\nx = protein_matrix.loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\nprint(\"=\" * 80)\nprint(\"DETAILED AUDIT EVIDENCE\")\nprint(\"=\" * 80)\n\n# ==== ISSUE 1: OVERFITTING ====\nprint(\"\\n### ISSUE 1: SEVERE OVERFITTING ###\\n\")\nprint(\"Train-test performance gap across folds:\")\nprint(\"Fold | n_train | n_test | Train_AUROC | Test_AUROC | Gap\")\nprint(\"-\" * 60)\n\nskf = StratifiedKFold(5, shuffle=True, random_state=0)\ngaps = []\nfor fold_idx, (train_idx, test_idx) in enumerate(skf.split(x, y)):\n    x_train, x_test = x[train_idx], x[test_idx]\n    y_train, y_test = y[train_idx], y[test_idx]\n\n    model = make_pipeline(StandardScaler(), SelectKBest(f_classif, k=12), LogisticRegression(max_iter=1000))\n    model.fit(x_train, y_train)\n\n    p_train = model.predict_proba(x_train)[:, 1]\n    p_test = model.predict_proba(x_test)[:, 1]\n\n    train_auroc = roc_auc_score(y_train, p_train)\n    test_auroc = roc_auc_score(y_test, p_test)\n    gap = train_auroc - test_auroc\n    gaps.append(gap)\n\n    print(f\"{fold_idx+1:4d} | {len(train_idx):7d} | {len(test_idx):6d} | {train_auroc:11.3f} | {test_auroc:10.3f} | {gap:.3f}\")\n\nprint(f\"\\nMean overfitting gap: {np.mean(gaps):.3f} (concerning if > 0.15)\")\nprint(f\"Max overfitting gap:  {np.max(gaps):.3f}\")\n\n# ==== ISSUE 2: SAMPLE SIZE FOR FEATURE SELECTION ====\nprint(\"\\n### ISSUE 2: INADEQUATE SAMPLES PER FEATURE ###\\n\")\ntest_samples = len(samples) // 5\nselected_features = 12\nratio = test_samples / selected_features\nprint(f\"Test samples per fold: {test_samples}\")\nprint(f\"Selected features: {selected_features}\")\nprint(f\"Ratio (samples/feature): {ratio:.1f}\")\nprint(f\"Recommended minimum: 10-20\")\nprint(f\"Status: {'\u2713 Adequate' if ratio >= 10 else '\u2717 INADEQUATE'}\")\n\n# ==== ISSUE 3: VARIANCE ACROSS SEEDS ====\nprint(\"\\n### ISSUE 3: HIGH VARIANCE ACROSS SEEDS ###\\n\")\nprint(\"AUROC for same model with different CV random seeds:\")\naurocs = []\nfor seed in range(10):\n    model = make_pipeline(StandardScaler(), SelectKBest(f_classif, k=12), LogisticRegression(max_iter=1000))\n    p = cross_val_predict(model, x, y, cv=StratifiedKFold(5, shuffle=True, random_state=seed), method=\"predict_proba\")[:, 1]\n    auroc = roc_auc_score(y, p)\n    aurocs.append(auroc)\n    marker = \" \u2190 reported\" if seed == 0 else \"\"\n    print(f\"Seed {seed}: {auroc:.3f}{marker}\")\n\nprint(f\"\\nStatistics across 10 seeds:\")\nprint(f\"  Mean: {np.mean(aurocs):.3f}\")\nprint(f\"  Std:  {np.std(aurocs):.3f}\")\nprint(f\"  Min:  {np.min(aurocs):.3f}\")\nprint(f\"  Max:  {np.max(aurocs):.3f}\")\nprint(f\"  95% CI: [{np.percentile(aurocs, 2.5):.3f}, {np.percentile(aurocs, 97.5):.3f}]\")\nprint(f\"\\nNote: Reported value (seed 0) is in the lower quartile of the distribution.\")\n\n# ==== ISSUE 4: PLATE GENERALIZATION ====\nprint(\"\\n### ISSUE 4: POOR GENERALIZATION ACROSS PLATES ###\\n\")\nprint(\"Within-plate cross-validated AUROC (each plate independently):\")\nplate_aurocs = []\nfor plate in sorted(samples.plate.unique()):\n    plate_mask = samples.plate == plate\n    x_plate = x[plate_mask]\n    y_plate = y[plate_mask]\n\n    if len(np.unique(y_plate)) > 1:\n        model = make_pipeline(StandardScaler(), SelectKBest(f_classif, k=12), LogisticRegression(max_iter=1000))\n        p_plate = cross_val_predict(model, x_plate, y_plate, cv=StratifiedKFold(5, shuffle=True, random_state=0), method=\"predict_proba\")[:, 1]\n        auroc_plate = roc_auc_score(y_plate, p_plate)\n        plate_aurocs.append(auroc_plate)\n        print(f\"Plate {plate}: AUROC = {auroc_plate:.3f}, n={len(y_plate)}\")\n\nplate_range = np.max(plate_aurocs) - np.min(plate_aurocs)\nprint(f\"\\nRange across plates: {plate_range:.3f}\")\nprint(f\"Fold-ratio (max/min): {np.max(plate_aurocs) / np.min(plate_aurocs):.1f}x\")\nprint(f\"Status: Huge variation suggests fragile signal or uncontrolled confounders\")\n\n# ==== ISSUE 5: WEAK BASELINE COMPARISON ====\nprint(\"\\n### ISSUE 5: WEAK BASELINE IMPROVEMENT ###\\n\")\nprint(\"Model comparison:\")\nprint(\"Model                              | AUROC | % of Headline\")\nprint(\"-\" * 60)\n\n# All proteins without selection\nmodel_all = LogisticRegression(max_iter=1000)\nscaler_all = StandardScaler()\nx_scaled = scaler_all.fit_transform(x)\np_all = cross_val_predict(model_all, x_scaled, y, cv=StratifiedKFold(5, shuffle=True, random_state=0), method=\"predict_proba\")[:, 1]\nauroc_all = roc_auc_score(y, p_all)\n\nprint(f\"All 200 proteins (no selection)    | {auroc_all:.3f} | {auroc_all/0.713*100:.1f}%\")\nprint(f\"Top 12 proteins (selected)         | 0.713 | 100.0%\")\nprint(f\"Improvement from selection        | {0.713 - auroc_all:.3f} | {(0.713 - auroc_all)/0.713*100:.1f}%\")\n\n# ==== ISSUE 6: SAMPLE COUNTS ====\nprint(\"\\n### ISSUE 6: VERY SMALL TEST COUNTS ###\\n\")\nprint(\"Test samples per fold class:\")\nfor fold_idx, (train_idx, test_idx) in enumerate(skf.split(x, y)):\n    test_cases = sum(y[test_idx])\n    test_controls = len(test_idx) - test_cases\n    print(f\"Fold {fold_idx + 1}: {test_cases} cases, {test_controls} controls (total {len(test_idx)})\")\n\nprint(f\"\\nGuideline from F11: Report counts, not just rates\")\nprint(f\"These are 12/60 samples per class per fold - very small for reliable estimates\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python detailed_evidence.py"
+      }
+    }
+  ]
+}

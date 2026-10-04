@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that case/control status is confounded with plate and run date (54/60 cases on plates 1\u20132 vs 8/60 controls, and plate alone gives AUROC ~0.92), so the classifier mostly learns batch rather than disease. It declined to report the claim as stated and proposed a batch-balanced re-run or an independent cohort, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

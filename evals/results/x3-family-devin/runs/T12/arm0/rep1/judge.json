@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the split is gene-disjoint but not family-disjoint (all 26 test Pfam families appear in training), and that the model mostly memorizes per-family label rates. It ran family-held-out cross-validation, where AUROC fell to about 0.52, and concluded that the 0.905 test score does not carry over to unseen families.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

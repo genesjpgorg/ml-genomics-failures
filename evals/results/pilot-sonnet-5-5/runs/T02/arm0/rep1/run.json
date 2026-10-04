@@ -1,0 +1,64 @@
+{
+  "task": "T02",
+  "arm": "0",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 24.9,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim is not supported. The 0.94 AUROC comes from gene identity, not from variant-level signal.\n\n**What I checked** (scripts `a.py` and `b.py` in this directory):\n- The reported number reproduces. Test AUROC from `model_score` is 0.941, and train AUROC is 0.970.\n- Labels are heavily clustered by gene. The data has 80 genes with 8\u201319 variants each. 35 of the 80 genes (44%) have every variant labelled the same way. The per-gene splice-disruption rate is spread across 0 to 1.\n- The split is random by variant. 73 of the 80 genes appear in both train and test, and every test variant's gene appears in train.\n- A baseline that ignores the variant entirely and scores each test variant by its gene's training-set label mean gets AUROC 0.926. That is almost the full 0.94.\n- `model_score` is almost a function of gene. The correlation between gene-mean score and gene-mean label is 0.996.\n- Within genes the model has almost no signal. In the 45 genes with mixed labels (636 variants), the gene-centered AUROC is 0.514. The mean per-gene AUROC is 0.529.\n- The one visible feature, `conservation`, has test AUROC 0.547 overall and 0.534 within genes, so it carries essentially no signal either.\n\n**Issues that matter most**\n1. **Gene leakage inflates the result.** The model can score well just by recognising the gene and recalling its label rate. The README says the model \"learns variant-level determinants of splice disruption\". The data shows the opposite: within a gene, it separates disrupting from non-disrupting variants at chance level (about 0.52).\n2. **The validation design is wrong for the claim.** A random variant split cannot test generalisation to new genes or to genuinely uncertain variants. A gene-grouped split (leave-genes-out) is needed. I expect the AUROC to drop sharply, but I can't run it because the 140-feature matrix isn't shared.\n3. **The diagnostic-use recommendation doesn't follow.** Prioritizing variants of uncertain significance means ranking variants within a gene, or in genes with few labelled variants. That is the setting where the model shows no ability. Reporting the gene-mean baseline and within-gene AUROC alongside the headline number would show this.\n4. **Minor.** There are no confidence intervals. The test set is 215 variants, and only 13 test genes have both classes. The features can't be audited from what is shared. Possible leakage through the other 139 features is untested.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0565224,
+  "duration_s": 23.9,
+  "turns": 7,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-bcuttibw/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-bcuttibw/analysis; head -5 variants.csv; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd=pd.read_csv('variants.csv');print(d.describe(include='all').T)\nprint(d.split.value_counts(),d.groupby('split').label.mean())\nt=d[d.split=='test'];tr=d[d.split=='train']\nprint('test auc',A(t.label,t.score) if 'score' in d else d.columns)\nsc=[c for c in d.columns if 'score' in c][0]\nprint(sc,A(t.label,t[sc]),A(tr.label,tr[sc]),A(t.label,t.conservation))\ng=d.groupby('gene').agg(n=('label','size'),m=('label','mean'),ntest=('split',lambda s:(s=='test').sum()))\nprint(g.describe());print(g.sort_values('n').tail(5))\ngs=d.groupby('gene').split.nunique();print('genes in both',(gs>1).sum(),len(gs))\n# gene-mean baseline\ntrm=tr.groupby('gene').label.mean();p=t.gene.map(trm);print('gene-mean auc',A(t.label[p.notna()],p.dropna()),p.notna().mean())\nprint(d.id.duplicated().sum() if 'id' in d else d.columns)\n# per-gene auc\nr=[]\nfor k,x in t.groupby('gene'):\n  if x.label.nunique()>1:r.append((k,len(x),A(x.label,x[sc])))\nr=pd.DataFrame(r,columns=['g','n','auc']);print(r.auc.describe(),np.average(r.auc,weights=r.n))\nE\npython3 a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-bcuttibw/analysis/a.py",
+        "content": "import pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd=pd.read_csv('variants.csv');print(d.head());print(d.describe(include='all').T)\nprint(d.split.value_counts(),d.groupby('split').label.mean())\nsc=[c for c in d.columns if 'score' in c][0]\nt=d[d.split=='test'];tr=d[d.split=='train']\nprint(sc,'test',A(t.label,t[sc]),'train',A(tr.label,tr[sc]),'cons',A(t.label,t.conservation))\ng=d.groupby('gene').agg(n=('label','size'),m=('label','mean'),ntest=('split',lambda s:(s=='test').sum()))\nprint(g.describe());print(g.sort_values('n').tail(5))\ngs=d.groupby('gene').split.nunique();print('genes in both',(gs>1).sum(),len(gs))\ntrm=tr.groupby('gene').label.mean();p=t.gene.map(trm);ok=p.notna()\nprint('gene-mean auc',A(t.label[ok],p[ok]),ok.mean())\nprint('dups',d.duplicated().sum(), d.iloc[:,0].duplicated().sum())\nr=[]\nfor k,x in t.groupby('gene'):\n  if x.label.nunique()>1:r.append((k,len(x),A(x.label,x[sc])))\nr=pd.DataFrame(r,columns=['g','n','auc']);print(r.auc.describe(),np.average(r.auc,weights=r.n))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-bcuttibw/analysis; python3 a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-bcuttibw/analysis/b.py",
+        "content": "import pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd=pd.read_csv('variants.csv')\n# within-gene AUC on all variants (mixed-label genes), pooled after centering by gene\nm=d.groupby('gene').label.transform('mean');mix=d[(m>0)&(m<1)].copy()\nprint('mixed genes',mix.gene.nunique(),len(mix))\nmix['sc']=mix.model_score-mix.groupby('gene').model_score.transform('mean')\nmix['lb']=mix.label-mix.groupby('gene').label.transform('mean')\nprint('centered auc',A(mix.label,mix.sc))\nw=[A(x.label,x.model_score) for _,x in mix.groupby('gene') if x.label.nunique()>1]\nprint('mean per-gene auc',np.mean(w),len(w))\ng=d.groupby('gene').agg(m=('label','mean'),s=('model_score','mean'))\nprint('gene-level corr',g.corr().iloc[0,1],'frac genes pure',((g.m==0)|(g.m==1)).mean())\n# leave-gene-out gene-mean-free check: score vs conservation within gene\nprint('cons within-gene auc',np.mean([A(x.label,x.conservation) for _,x in mix.groupby('gene') if x.label.nunique()>1]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-bcuttibw/analysis; python3 b.py"
+      }
+    }
+  ]
+}

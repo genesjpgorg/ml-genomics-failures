@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found that every test pair shares a protein with training, and that a per-protein training label-rate baseline reaches AUROC 0.771 against the model's 0.79. Both match the key, and they proposed a protein-disjoint split plus a degree/rate baseline. Their extra points (small test set, missing CIs, label provenance) are generic or speculative rather than distinct important flaws.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

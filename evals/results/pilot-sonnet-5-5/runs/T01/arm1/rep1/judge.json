@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found that the random pair split puts every test protein in training (140/140 pairs) and that a per-protein label-rate baseline with no sequence information reaches AUROC 0.795 against the model's 0.790. Their remedy was a protein-disjoint split plus a degree baseline. Their other points (homology, small test set, no permutation null, possible artifacts in the negatives) are generic or speculative, not separately established important flaws.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

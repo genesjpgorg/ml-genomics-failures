@@ -1,0 +1,56 @@
+{
+  "task": "C04",
+  "arm": "0",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 27.7,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim holds up on the data provided. The caveats below are about what the data can't show.\n\n**What I checked** (`chk.py`, run on `gene_level_eval.csv`):\n- **Reproduction:** Pearson r is 0.792 on 2,000 unique genes with no missing values. That matches the README's 0.79.\n- **Uncertainty:** the bootstrap 95% CI is about 0.776 to 0.810.\n- **Rank correlation:** Spearman is 0.774, so a few extreme values aren't driving the result.\n- **Per chromosome:** chr8 is 0.82, chr9 is 0.78 and chr10 is 0.78. The result is consistent across all three held-out chromosomes.\n- **Low-expression genes:** dropping the lowest 5% of observed expression leaves r at 0.76.\n- **Variance explained:** r\u00b2 is about 0.63, so \"much of the variation between genes\" is a fair description.\n\n**Caveats to address before publication:**\n1. **Calibration is poor.** Predictions are biased low by about 0.94 log TPM on average, and the standard R\u00b2 (1 \u2212 SSE/SST) is only 0.36, against r\u00b2 of 0.63. Pearson r ignores this offset. The README should say that r measures ranking and linear association, not accurate absolute prediction. Report the bias and fit a recalibration, or report MSE.\n2. **Low-expression genes are predicted badly.** Among genes with observed log TPM of 1 or below (about 5% of the test set), most are predicted in the wrong range. The model is mostly separating high from moderate expression.\n3. **Nothing in the directory shows the held-out split is clean.** Only the evaluation CSV is here, with no training code, no split definition and no baseline.\n   - Paralogs or homologous genes on the training chromosomes could inflate the score.\n   - Check sequence similarity between train and test genes.\n   - It is also not stated how the 2,000 test genes were chosen from chr8\u201310.\n4. **No baseline is given.** Gene-level expression is strongly predicted by simple features such as promoter GC content, CpG islands and gene type. A simple model built on those features would show how much the 100 kb deep model adds. \"Reference sequence explains much of the variation\" holds with or without the baseline, but any claim about what ExprNet adds needs one.\n5. **Scope is appropriately limited.** The README already disclaims individual-level and variant-effect prediction, and it should keep that wording. It is also a single cell type and a single train/test split. Repeating the evaluation with different held-out chromosomes would show how stable the result is.\n\nVERDICT: SUPPORTED\n\nThe issues that matter most are the calibration bias (1), the unchecked train/test homology leakage (3) and the missing baseline (4).",
+  "is_error": false,
+  "cost_usd": 0.0497916,
+  "duration_s": 26.9,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-67dhc23u/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-67dhc23u/analysis; head -5 gene_level_eval.csv; python -c \"\nimport pandas as pd,numpy as np\nd=pd.read_csv('gene_level_eval.csv');print(d.describe(include='all').T);print(d.nunique())\n\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-67dhc23u/analysis; cat > chk.py <<'E'\nimport pandas as pd,numpy as np\nfrom scipy import stats\nd=pd.read_csv('gene_level_eval.csv')\np,o=d.predicted_log_tpm,d.observed_log_tpm\nprint(stats.pearsonr(p,o),stats.spearmanr(p,o))\nfor c,g in d.groupby('test_chromosome'):print(c,len(g),g.predicted_log_tpm.corr(g.observed_log_tpm))\nprint(d.isna().sum().sum(), (o<=0).sum(), (p<0).sum())\nr=np.random.default_rng(0);b=[d.sample(len(d),replace=True,random_state=i).pipe(lambda x:x.predicted_log_tpm.corr(x.observed_log_tpm)) for i in range(500)]\nprint(np.percentile(b,[2.5,97.5]))\nprint('resid mean',(o-p).mean(), 'R2',1-((o-p)**2).sum()/((o-o.mean())**2).sum())\n# outliers/ trimmed\nprint(o.describe(),p.describe())\nm=(o>np.percentile(o,5))\nprint(d[m].predicted_log_tpm.corr(d[m].observed_log_tpm))\nprint(d[(o<0.5)].shape)\nprint(pd.crosstab(pd.cut(o,[-20,0,1,2,4,20]),pd.cut(p,[-20,0,1,2,4,20])))\nE\npython chk.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-67dhc23u/analysis/chk.py",
+        "content": "import pandas as pd,numpy as np\nfrom scipy import stats\nd=pd.read_csv('gene_level_eval.csv')\np,o=d.predicted_log_tpm,d.observed_log_tpm\nprint(stats.pearsonr(p,o),stats.spearmanr(p,o))\nfor c,g in d.groupby('test_chromosome'):print(c,len(g),g.predicted_log_tpm.corr(g.observed_log_tpm))\nprint(d.isna().sum().sum(), (o<=0).sum(), (p<0).sum())\nb=[d.sample(len(d),replace=True,random_state=i).pipe(lambda x:x.predicted_log_tpm.corr(x.observed_log_tpm)) for i in range(500)]\nprint(np.percentile(b,[2.5,97.5]))\nprint('resid mean',(o-p).mean(), 'R2',1-((o-p)**2).sum()/((o-o.mean())**2).sum())\nprint(o.describe(),p.describe())\nm=(o>np.percentile(o,5))\nprint(d[m].predicted_log_tpm.corr(d[m].observed_log_tpm))\nprint(pd.crosstab(pd.cut(o,[-20,0,1,2,4,20]),pd.cut(p,[-20,0,1,2,4,20])))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-67dhc23u/analysis; python chk.py"
+      }
+    }
+  ]
+}

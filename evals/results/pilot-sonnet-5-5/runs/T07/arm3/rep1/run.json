@@ -1,0 +1,72 @@
+{
+  "task": "T07",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 22.2,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. The r = 0.80 is real, but it measures a different thing from what the claim needs.\n\n**What I checked**\n- `gene_level_eval.csv` has 2,000 unique genes on chr8\u201310. Pearson r between predicted and observed expression is 0.798, so the headline number reproduces.\n- That correlation is across genes, on the reference genome. It reflects which genes are highly or lowly expressed, which is largely set by promoter and sequence composition. The claim is about something else: the effect of a patient's personal regulatory variants on expression, which is variation across individuals within a gene.\n- This is the known failure in case F05 (pitfall class A, wrong axis of generalization). Huang et al. and Sasse et al., both Nat Genet 2023, found that sequence-to-expression models explain little personal expression variation and often get the sign of cis-variant effects wrong.\n- `variant_eval.csv` is the only evidence on the right axis, and it is weak:\n\n| Metric | Value |\n|---|---|\n| Pearson r, predicted effect vs eQTL beta (300 variants) | 0.12 (p = 0.04) |\n| Spearman rho | 0.10 (p = 0.08) |\n| Sign agreement | 53% (chance is 50%) |\n| Sign agreement, larger-|beta| half | 51% |\n\n- The model's variant effects are also tiny: the predicted effect has SD 0.05, against 0.39 for the observed betas. It explains about 1.4% of the variance in eQTL betas and gets the direction right about as often as a coin flip.\n\n**Issues that matter most**\n1. **Wrong axis (F05).** The across-gene r = 0.80 does not support a claim about personal variant effects. The variant data, which does test that axis, shows near-chance performance.\n2. **The README leaves out the negative result.** It lists the variant comparison but never reports the numbers, and the claim ignores them.\n3. **No baselines (class B).** There is no mean-expression, GC or promoter-composition, k-mer, or linear baseline. Across-gene r is likely largely reproducible by simple features, and I did not test this because the files contain no sequences.\n4. **Variant evaluation limits.**\n   - There are only 300 variants with no per-gene, across-individual analysis.\n   - The eQTL betas are likely from the same cohort type that the model would be applied to, but this isn't documented.\n   - Variants were selected as \"common\" and are probably tagging variants, not causal ones.\n   - Common eQTLs also say little about rare-disease variants.\n5. **Calibration.** Predicted expression is shifted by about 1 log TPM relative to observed (mean 3.94 vs 4.92). This doesn't affect r, but it shows the level of prediction is off.\n\nI did not run the MCP check tools (split overlap, k-mer baseline). The data has no sequences, and the split is by chromosome, so shared-gene leakage is not evident (class L).\n\n**Needed before this goes in a paper:** evaluate per gene across individuals on paired genotype and expression data, including sign accuracy. Add simple baselines. Restrict the claim to across-gene prediction on the reference genome.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.06384540000000001,
+  "duration_s": 20.8,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1n4rpp9z/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1n4rpp9z/analysis; head -5 gene_level_eval.csv variant_eval.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F05"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1n4rpp9z/analysis; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom scipy.stats import pearsonr,spearmanr\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(g.describe(),g.gene.duplicated().sum(),g.test_chromosome.value_counts())\nprint(pearsonr(g.predicted_log_tpm,g.observed_log_tpm))\nprint(v.describe(),v.gene.nunique(),len(v))\nprint(pearsonr(v.predicted_effect,v.observed_eqtl_beta),spearmanr(v.predicted_effect,v.observed_eqtl_beta))\nprint('sign agree',(np.sign(v.predicted_effect)==np.sign(v.observed_eqtl_beta)).mean())\nbig=v[v.observed_eqtl_beta.abs()>v.observed_eqtl_beta.abs().median()]\nprint('sign agree big',(np.sign(big.predicted_effect)==np.sign(big.observed_eqtl_beta)).mean())\nprint(v.gene.isin(g.gene).mean())\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-1n4rpp9z/analysis/a.py",
+        "content": "import pandas as pd,numpy as np\nfrom scipy.stats import pearsonr,spearmanr\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(g.describe(),g.gene.duplicated().sum(),g.test_chromosome.value_counts())\nprint(pearsonr(g.predicted_log_tpm,g.observed_log_tpm))\nprint(v.describe(),v.gene.nunique(),len(v))\nprint(pearsonr(v.predicted_effect,v.observed_eqtl_beta),spearmanr(v.predicted_effect,v.observed_eqtl_beta))\nprint('sign agree',(np.sign(v.predicted_effect)==np.sign(v.observed_eqtl_beta)).mean())\nbig=v[v.observed_eqtl_beta.abs()>v.observed_eqtl_beta.abs().median()]\nprint('sign agree big',(np.sign(big.predicted_effect)==np.sign(big.observed_eqtl_beta)).mean())\nprint(v.gene.isin(g.gene).mean())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1n4rpp9z/analysis; python a.py"
+      }
+    }
+  ]
+}

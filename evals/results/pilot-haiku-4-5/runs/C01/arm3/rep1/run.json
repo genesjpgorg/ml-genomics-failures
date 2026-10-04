@@ -1,0 +1,158 @@
+{
+  "task": "C01",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 83.4,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "## Review Complete\n\nI've audited this analysis against the ML-in-genomics failures framework. Here are my findings:\n\n**What I verified:**\n- \u2713 Split is protein-disjoint (no protein overlap)\n- \u2713 AUROC 0.8127 is correctly calculated  \n- \u2713 No entity-level leakage\n- \u2713 Data quality is clean\n\n**Critical issues found:**\n\n### Issue 1: Model Underperforms Baseline (Pitfall F06)\nSimple logistic regression on coexpression_z alone achieves **0.8545 AUROC**, while the reported model gets **0.8127**\u2014the model is 4.18% *worse*. Any proper analysis should benchmark against logistic regression, not claim a model that loses to it.\n\n### Issue 2: Feature is a Shortcut (Pitfall S)  \nCross-validated testing shows coexpression_z alone reaches **118% of the model's gain** over chance. This means the feature itself outperforms the model. The result isn't evidence the model learned anything; it's evidence that co-expression has signal, which the model then dilutes.\n\n### Issue 3: Prediction Inconsistency\nThe predictions_test.csv scores don't match what logistic regression produces (mean difference 0.062, max 0.381). The stated model and reported results are inconsistent\u2014raising questions about what was actually tested.\n\n### What's still true (but overstated)\n- Co-expression *does* predict interaction across novel proteins (~0.85 AUROC)\n- The split is clean\n- The generalization to new proteins is real\n\n### What the paper can claim vs. cannot claim\n- \u2713 **CAN say:** \"Co-expression is a useful predictor of interaction\" (true at 0.85 AUROC)\n- \u2717 **CANNOT say:** \"Our logistic regression model predicts interaction\" (it's worse than the baseline)\n- \u2717 **CANNOT claim** this model is useful for ranking partners (use the raw feature instead)\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\n**Top issues:**\n1. Model (0.8127 AUROC) underperforms baseline logistic regression (0.8545 AUROC) by 4.18%\u2014directly contradicts the utility claim (F06)\n2. Feature accounts for 118% of model's gain over chance\u2014coexpression is the shortcut, not the model (S)\n3. Reported predictions inconsistent with stated logistic regression model\u2014raises credibility concerns about what was actually evaluated",
+  "is_error": false,
+  "cost_usd": 0.0960822,
+  "duration_s": 82.0,
+  "turns": 17,
+  "tool_calls": [
+    "Read",
+    "Glob",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Read",
+    "Read",
+    "Read",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "mcp__ml-genomics-failures__check_shortcuts",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "Write",
+    "Write"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_split_overlap",
+    "check_shortcuts",
+    "fetch",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/README.md"
+      }
+    },
+    {
+      "name": "Glob",
+      "input": {
+        "pattern": "*",
+        "path": "/tmp/review-l571scdx/analysis"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/pairs_train.csv",
+        "limit": 20
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/pairs_test.csv",
+        "limit": 20
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/predictions_test.csv",
+        "limit": 20
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/verify_analysis.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, roc_curve\nfrom sklearn.linear_model import LogisticRegression\n\n# Load data\ntrain = pd.read_csv('pairs_train.csv')\ntest = pd.read_csv('pairs_test.csv')\npreds = pd.read_csv('predictions_test.csv')\n\nprint(\"=\" * 60)\nprint(\"1. SPLIT VERIFICATION: Protein-disjoint check\")\nprint(\"=\" * 60)\n\ntrain_proteins = set(train['protein_a'].unique()) | set(train['protein_b'].unique())\ntest_proteins = set(test['protein_a'].unique()) | set(test['protein_b'].unique())\n\nprint(f\"Train set: {len(train)} pairs from {len(train_proteins)} proteins\")\nprint(f\"Test set: {len(test)} pairs from {len(test_proteins)} proteins\")\n\noverlap = train_proteins & test_proteins\nprint(f\"Protein overlap: {len(overlap)} proteins\")\nif overlap:\n    print(f\"  Overlapping proteins: {overlap}\")\n    print(\"  \u26a0\ufe0f LEAKAGE DETECTED: Train and test share proteins!\")\nelse:\n    print(\"  \u2713 No protein overlap (split is protein-disjoint)\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"2. AUROC VERIFICATION\")\nprint(\"=\" * 60)\n\n# Merge predictions with test labels\nmerged = test.merge(preds, on=['protein_a', 'protein_b'])\nprint(f\"Predictions shape: {merged.shape}\")\nprint(f\"Score range: [{merged['score'].min():.4f}, {merged['score'].max():.4f}]\")\n\n# Calculate AUROC\nauroc = roc_auc_score(merged['label'], merged['score'])\nprint(f\"Reported AUROC: 0.81\")\nprint(f\"Calculated AUROC: {auroc:.4f}\")\nprint(f\"Match: {abs(auroc - 0.81) < 0.01}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"3. LABEL DISTRIBUTION\")\nprint(\"=\" * 60)\nprint(f\"Train label distribution:\\n{train['label'].value_counts()}\")\nprint(f\"Train positive rate: {train['label'].mean():.3f}\")\nprint(f\"\\nTest label distribution:\\n{test['label'].value_counts()}\")\nprint(f\"Test positive rate: {test['label'].mean():.3f}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"4. COEXPRESSION BASELINE\")\nprint(\"=\" * 60)\n\n# Train logistic regression on coexpression\nX_train = train[['coexpression_z']].values\ny_train = train['label'].values\nX_test = test[['coexpression_z']].values\ny_test = test['label'].values\n\nlr = LogisticRegression()\nlr.fit(X_train, y_train)\nbaseline_pred = lr.predict_proba(X_test)[:, 1]\nbaseline_auroc = roc_auc_score(y_test, baseline_pred)\n\nprint(f\"Logistic regression on coexpression_z alone:\")\nprint(f\"  Train AUROC: {roc_auc_score(y_train, lr.predict_proba(X_train)[:, 1]):.4f}\")\nprint(f\"  Test AUROC: {baseline_auroc:.4f}\")\nprint(f\"  Reported model AUROC: 0.81\")\nprint(f\"  Improvement: {(auroc - baseline_auroc):.4f}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"5. CHANCE BASELINE\")\nprint(\"=\" * 60)\nprint(f\"Random predictions AUROC: 0.5000\")\nprint(f\"Always predict positive: {roc_auc_score(y_test, np.ones(len(y_test))):.4f}\")\nprint(f\"Always predict negative: {roc_auc_score(y_test, np.zeros(len(y_test))):.4f}\")\nprint(f\"Label prior (constant): {y_test.mean():.4f}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"6. CONFUSION MATRIX\")\nprint(\"=\" * 60)\nfrom sklearn.metrics import confusion_matrix\ny_pred_binary = (merged['score'] > 0.5).astype(int)\ncm = confusion_matrix(merged['label'], y_pred_binary)\nprint(f\"Threshold 0.5:\")\nprint(f\"  TN: {cm[0, 0]}, FP: {cm[0, 1]}\")\nprint(f\"  FN: {cm[1, 0]}, TP: {cm[1, 1]}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"7. CALIBRATION CHECK\")\nprint(\"=\" * 60)\nfrom sklearn.calibration import calibration_curve\nprob_true, prob_pred = calibration_curve(merged['label'], merged['score'], n_bins=5)\nprint(f\"Calibration bins (true positive rate vs predicted probability):\")\nfor i, (pt, pp) in enumerate(zip(prob_true, prob_pred)):\n    print(f\"  Bin {i+1}: true={pt:.3f}, pred={pp:.3f}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python verify_analysis.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/check_model_details.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.linear_model import LogisticRegression\n\n# Load data\ntrain = pd.read_csv('pairs_train.csv')\ntest = pd.read_csv('pairs_test.csv')\npreds = pd.read_csv('predictions_test.csv')\n\n# Merge predictions with test labels\nmerged = test.merge(preds, on=['protein_a', 'protein_b'])\n\nprint(\"=\" * 60)\nprint(\"INVESTIGATING MODEL DISCREPANCY\")\nprint(\"=\" * 60)\n\n# Check if the predictions match what logistic regression would produce\nX_train = train[['coexpression_z']].values\ny_train = train['label'].values\nX_test = test[['coexpression_z']].values\ny_test = test['label'].values\n\nlr = LogisticRegression(max_iter=1000)\nlr.fit(X_train, y_train)\nlr_preds = lr.predict_proba(X_test)[:, 1]\n\n# Compare predictions\nmerged['lr_pred'] = lr_preds\nmerged['diff'] = (merged['score'] - merged['lr_pred']).abs()\n\nprint(f\"\\nPrediction differences between reported model and logistic regression:\")\nprint(f\"  Mean absolute difference: {merged['diff'].mean():.6f}\")\nprint(f\"  Max difference: {merged['diff'].max():.6f}\")\nprint(f\"\\nFirst 20 predictions comparison:\")\nprint(merged[['protein_a', 'protein_b', 'label', 'score', 'lr_pred']].head(20).to_string())\n\n# Check correlation\ncorr = np.corrcoef(merged['score'], merged['lr_pred'])[0, 1]\nprint(f\"\\nCorrelation between predictions: {corr:.4f}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"FEATURE CHECK: Are there other features used?\")\nprint(\"=\" * 60)\n\n# Check what features might be in the data\nprint(f\"Train features: {list(train.columns)}\")\nprint(f\"Test features: {list(test.columns)}\")\n\n# Check if co-expression values differ between train and test\nprint(f\"\\nCoexpression z-score statistics:\")\nprint(f\"  Train: mean={train['coexpression_z'].mean():.4f}, std={train['coexpression_z'].std():.4f}\")\nprint(f\"  Test: mean={test['coexpression_z'].mean():.4f}, std={test['coexpression_z'].std():.4f}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"BASELINE COMPARISON\")\nprint(\"=\" * 60)\nprint(f\"Reported model AUROC: 0.8127\")\nprint(f\"Logistic regression baseline: {roc_auc_score(y_test, lr_preds):.4f}\")\nprint(f\"Constant prediction (label prior): {y_test.mean():.4f}\")\n\n# Check if maybe they used a different link function or regularization\nfor C in [0.01, 0.1, 1, 10, 100]:\n    lr_c = LogisticRegression(C=C, max_iter=1000)\n    lr_c.fit(X_train, y_train)\n    score = roc_auc_score(y_test, lr_c.predict_proba(X_test)[:, 1])\n    print(f\"  Logistic regression (C={C}): {score:.4f}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python check_model_details.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "columns": [
+          "protein_a",
+          "protein_b"
+        ],
+        "label": "label",
+        "train_path": "/tmp/review-l571scdx/analysis/pairs_train.csv",
+        "test_path": "/tmp/review-l571scdx/analysis/pairs_test.csv",
+        "model_score": 0.8127,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "table_path": "/tmp/review-l571scdx/analysis/pairs_train.csv",
+        "label": "label",
+        "features": [
+          "coexpression_z"
+        ],
+        "model_score": 0.8127,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F10"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F06"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/REVIEW.md",
+        "content": "# Peer Review: Co-expression predicts protein-protein interactions\n\n## Summary of Claim\n**Main claim:** Co-expression (measured as z-scored correlation) predicts physical protein interactions with AUROC 0.81, so it is a useful prior for ranking candidate partners of uncharacterized proteins.\n\n**Setup:** Logistic regression model trained on 600 pairs (60 proteins), tested on 150 pairs (20 other proteins with no overlap in protein identities).\n\n---\n\n## Audit Checklist Results\n\n### 1. Unit of Independence \u2713\n- **Split level:** Protein-disjoint (no test protein appears in training pairs)\n- **Verification:** Zero proteins shared between train (60) and test (20) sets\n- **Status:** Correctly designed\n\n### 2. Split Leakage Check \u2713\n- **Protein-level leakage:** NONE\n- **Entity memorization baseline:** 0.5 (chance), meaning no benefit from memorizing protein label rates\n- **Conclusion:** No direct entity leakage at the protein level\n\n### 3. Baseline Comparison \u2717 CRITICAL ISSUE\n- **Reported model AUROC:** 0.8127\n- **Logistic regression on coexpression_z alone:** 0.8545 \n- **Difference:** Model is 4.18% WORSE than the baseline feature\n- **Cross-validation check:** coexpression_z achieves 0.8698 AUROC (118% of model's gain over chance)\n- **Classification:** This is case **F06** (model doesn't beat simple baseline)\n\n### 4. Shortcut/Confounder Check \u2717 CRITICAL ISSUE\n- **Single feature test:** coexpression_z reaches 118% of the model's gain over chance\n- **Interpretation:** The feature alone outperforms the model\n- **Red flag:** The headline result (AUROC 0.81) is dominated by the feature itself, not model sophistication\n- **Classification:** This is case **S** (shortcut/confounder)\n\n---\n\n## Discrepancies and Inconsistencies\n\n### Issue 1: Model vs. Baseline Performance\n- README states the model is \"logistic regression\" using coexpression_z\n- But predictions_test.csv contains scores that **differ from logistic regression predictions**:\n  - Mean absolute difference: 0.062\n  - Maximum difference: 0.381 (e.g., P060-P064: model=0.9326 vs LR=0.8456)\n  - Correlation: 0.9576 (imperfect match)\n  \n### Issue 2: Model Underperformance\n- Any standard logistic regression configuration achieves **0.8545 AUROC**\n- The reported score of 0.8127 is lower\n- This suggests either:\n  - Wrong predictions were reported\n  - Different model architecture than stated\n  - Regularization or other changes not documented\n\n### Issue 3: Missing Baselines\n- No comparison to simple alternatives:\n  - Mean prediction: would score ~0.41 (label prior)\n  - Random: 0.50\n  - Logistic regression (0.8545) \u2190 should be the baseline\n  \n---\n\n## Label Distribution (Balanced)\n- Train: 227/600 positive (37.8%)\n- Test: 61/150 positive (40.7%)\n- Difference is minimal; unlikely to affect conclusions\n\n---\n\n## Claimed vs. Actual Generalization\n\n**Claim:** \"Co-expression predicts interaction for proteins never seen in training\"\n\n**Reality:** \n- \u2713 The proteins are indeed novel\n- \u2713 The split is clean at the protein level\n- \u2717 BUT: Co-expression predicts interaction mainly through the co-expression signal itself (the feature), not through learned model structure\n- \u2717 The model adds noise and actually performs worse than the raw feature\n\n---\n\n## Assessment Against ML-in-Genomics Pitfall Framework\n\n| Pitfall | Status | Notes |\n|---------|--------|-------|\n| **Leakage (L)** | \u2713 PASS | No protein overlap; entity-disjoint split |\n| **Shortcut/Confounder (S)** | \u2717 FAIL | Single feature (coexpression_z) achieves 118% of model's gain |\n| **Wrong axis (A)** | ? UNCLEAR | Test does generalize to new proteins, but confounded |\n| **Missing baseline (B)** | \u2717 FAIL | No comparison to logistic regression baseline; model is inferior |\n| **Circular evaluation (C)** | \u2713 PASS | Labels appear independent |\n| **Bad controls (K)** | - | Not discussed in README |\n\n---\n\n## Calibration Issue\nModel is poorly calibrated:\n- Predicted probs: 0.084 vs true: 0.127 (large discrepancy)\n- Suggests model is either miscalibrated or using a non-standard link function\n\n---\n\n## Conclusion\n\n**The analysis has fundamental methodological issues:**\n\n1. **The reported model performs worse than the simple baseline** (AUROC 0.8127 vs 0.8545). This violates the principle of comparing against appropriate baselines (F06).\n\n2. **The feature dominates performance, not the model** (coexpression_z reaches 118% of model gain). The result is about the signal in co-expression, not about the model's ability to extract it (S/F10).\n\n3. **Prediction inconsistencies** suggest the reported predictions may not be from the described logistic regression model.\n\n4. **The claim is overstated.** Saying \"co-expression predicts interaction\" is supported. But claiming this is useful *from a modeling perspective* is not supported, since the model adds no value and actually hurts the baseline signal.\n\n---\n\n## Recommendations for Revision\n\n1. **Report the logistic regression baseline prominently.** The baseline (0.8545) should be the main result, with the presented model as a failed attempt to improve it.\n\n2. **Explain the discrepancy** between the reported predictions and what logistic regression produces.\n\n3. **Reframe the claim:** \"Co-expression alone predicts physical interaction with AUROC 0.85\" is a valid conclusion. \"Our model predicts interaction at AUROC 0.81\" is not better and should be removed.\n\n4. **Add proper baselines** in any revised analysis: mean, logistic regression, and any competitors.\n\n5. **Verify the model** described in the methods actually produced the predictions shown in the results.\n"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-l571scdx/analysis/summary_findings.txt",
+        "content": "================================================================================\nPEER REVIEW SUMMARY: Protein-protein interaction prediction from co-expression\n================================================================================\n\nMAIN CLAIM (from README):\n\"Co-expression predicts physical interaction (AUROC 0.81) for proteins never\nseen in training, so it is useful for ranking candidate partners.\"\n\n================================================================================\nVERDICT: NOT SUPPORTED\n================================================================================\n\nCRITICAL ISSUES (in priority order):\n================================================================================\n\nISSUE #1: Model is WORSE than baseline [Pitfall Class B: Missing Baseline]\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  Reported model AUROC:               0.8127\n  Logistic regression baseline:       0.8545\n  Difference:                        -0.0418 (4.18% WORSE)\n\n  Status: FAILS (model underperforms simple baseline)\n  Reference: Case F06 \"Perturbation-effect models don't beat linear baselines\"\n\nISSUE #2: Feature dominates, not the model [Pitfall Class S: Shortcut]\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  Coexpression z-score alone:        0.8698 AUROC\n  Model gain contribution:           118% (exceeds 100%)\n\n  Interpretation: The coexpression feature is a shortcut that outperforms the\n  model. The result is about the signal in co-expression, not the model's ability\n  to leverage it.\n\n  Status: FAILS (feature achieves more gain than model)\n  Reference: Case F10 \"Batch effects confounded with outcome\" (general S pattern)\n\nISSUE #3: Prediction inconsistency\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  Predictions in predictions_test.csv do NOT match logistic regression:\n  - Mean absolute difference: 0.062\n  - Max difference: 0.381 (e.g., P060-P064 differs by 0.087)\n  - Correlation: 0.9576 (imperfect)\n\n  Questions:\n  - What model actually produced these predictions?\n  - Why do they differ from the stated \"logistic regression\"?\n  - Is this a reporting error or a different architecture?\n\n================================================================================\nWHAT WAS VERIFIED \u2713\n================================================================================\n  \u2713 Split is protein-disjoint (no test protein in training set)\n  \u2713 No entity-level leakage (protein memorization baseline = chance)\n  \u2713 AUROC 0.8127 calculation is correct\n  \u2713 Label distribution is balanced and comparable\n  \u2713 Data quality appears clean\n\n================================================================================\nWHAT WAS NOT VERIFIED / PROBLEMATIC \u2717\n================================================================================\n  \u2717 Model description doesn't match predictions (possible LR, but different scores)\n  \u2717 No baseline comparison in README (should report LR as competitor)\n  \u2717 Model underperforms baseline (4.18% worse)\n  \u2717 Feature accounts for 118% of model's advantage (confounder)\n  \u2717 Claim conflates \"feature signal exists\" with \"model works well\"\n  \u2717 Missing ablations, sensitivity analysis, or controls\n\n================================================================================\nBOTTOM LINE\n================================================================================\n\nThe analysis shows that:\n\n1. Co-expression HAS predictive power for interaction (TRUE \u2713)\n   - AUROC 0.85+ is real and reproducible\n\n2. The reported model (AUROC 0.81) adds NO VALUE (FALSE \u2717)\n   - It performs worse than just using the feature\n   - The feature alone is the shortcut that drives the result\n\n3. The claim that this model is \"useful for ranking\" is UNSUPPORTED (FALSE \u2717)\n   - A practitioner should use the feature directly (AUROC 0.85)\n   - Using this model instead (AUROC 0.81) would be worse\n\n4. The model description and results are INCONSISTENT (UNVERIFIED \u2717)\n   - Stated model (logistic regression) doesn't produce the reported predictions\n   - Raises questions about what was actually tested\n\nThe paper would support saying: \"Co-expression is a useful predictor of\nphysical interaction across novel proteins (AUROC 0.85).\"\n\nIt CANNOT support saying: \"Our logistic regression model predicts interaction\nwith AUROC 0.81 as a useful prior.\"\n"
+      }
+    }
+  ]
+}

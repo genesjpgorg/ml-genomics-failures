@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": true,
+  "other_valid_issue": true,
+  "rationale": "This is a clean control: the reviewer reproduced r = 0.79, confirmed it holds on each held-out chromosome, and agreed the claim matches the tested axis, yet still rejected it. The rejection rests on acceptable caveats (no baselines, possible paralog leakage, one cell type), which counts as a false alarm. The miscalibration finding (a 0.94 log TPM offset, with R\u00b2 = 0.36 against r\u00b2 = 0.63) is a real, measured point the key doesn't mention, but it doesn't invalidate a claim about explaining between-gene variation.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": false,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

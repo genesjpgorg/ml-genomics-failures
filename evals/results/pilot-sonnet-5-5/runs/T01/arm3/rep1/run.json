@@ -1,0 +1,86 @@
+{
+  "task": "T01",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 22.9,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. The 0.79 AUROC is explained by protein identity, not by sequence determinants of interaction.\n\n**Evidence (checked with my own script, `audit.py`, and the server's `check_split_overlap`):**\n- **Shared proteins (class L; F03, F04):** The pairs were split at random, but the proteins are the independent unit and there are only 60 of them. All 140 test pairs contain a protein seen in training. 99% have both proteins seen in training. The proteins are also heavily reused (about 14\u201324 training pairs each).\n- **Per-protein baseline (class S/B):** A baseline with no sequence features, no embeddings and no learning reaches AUROC 0.77 (server check) to 0.79 (my script). It scores each pair by summing its two proteins' training interaction rates. That matches PairNet's 0.79 and accounts for about 93% of its gain over chance.\n- **Why the baseline works:** Per-protein interaction rates vary a lot. Some proteins never interact in training (P001, P002 and P007 have 0 positives in 15\u201321 pairs). Others interact in more than half their pairs (P013 at 67% over 24 pairs). A model can score well just by learning which proteins are \"sticky\".\n- **Wrong axis (class A):** The claim is that the model predicts partners for uncharacterized proteins. That is generalization to unseen proteins, and this test never measures it.\n- **Variance and baselines (checklist items 4 and 8):** There is only one split, with 140 test pairs, about 32 of them positive. No baselines or null control are reported. I did not have the embeddings, so I could not check whether PairNet's scores carry any signal beyond protein identity.\n\n**What would make it publishable:**\n1. Re-split so that no protein appears on both sides, and report the unseen-protein case, where neither protein is in training.\n2. Report the per-protein-rate baseline next to PairNet, along with k-mer or composition baselines.\n3. Add a null control, such as permuting labels at the protein level.\n4. Report variance across several splits, with counts.\n\nVERDICT: NOT SUPPORTED\n\nIssues that matter most:\n1. The random pair split leaks protein identity: all 140 test pairs share a protein with training.\n2. A per-protein label-rate baseline with no sequence information gets 0.77\u20130.79 AUROC, about the same as PairNet's 0.79.\n3. The claim is about uncharacterized proteins, but no unseen-protein evaluation was done.\n4. There are no baselines or null controls, and the evaluation is a single split of 140 pairs.",
+  "is_error": false,
+  "cost_usd": 0.0724616,
+  "duration_s": 21.5,
+  "turns": 9,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__check_split_overlap"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch",
+    "check_split_overlap"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_tfwjye2/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_tfwjye2/analysis; head -4 pairs_train.csv pairs_test.csv predictions_test.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_tfwjye2/analysis; cat > audit.py <<'E'\nimport pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(len(tr),len(te),len(p),tr.label.mean(),te.label.mean())\nm=te.merge(p,on=['protein_a','protein_b']);print(len(m),roc_auc_score(m.label,m.score))\ntrp=set(tr.protein_a)|set(tr.protein_b)\nprint('test prots in train',[(r.protein_a in trp, r.protein_b in trp) for r in te.itertuples()].count((True,True)),len(te))\n# per-protein rate baseline\nlong=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})])\nr=long.groupby('p').label.agg(['mean','count']);g=tr.label.mean()\ndef f(x): return r['mean'].get(x,g)\ns=[f(a)+f(b) for a,b in zip(te.protein_a,te.protein_b)]\nprint('entity baseline AUC',roc_auc_score(te.label,s))\nprint(r.sort_values('mean').iloc[[0,1,2,-3,-2,-1]]); print(r['mean'].describe())\nprint('dups',tr.duplicated(['protein_a','protein_b']).sum())\nE\npython audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_tfwjye2/analysis/audit.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score\ntr = pd.read_csv('pairs_train.csv'); te = pd.read_csv('pairs_test.csv'); p = pd.read_csv('predictions_test.csv')\nprint(len(tr), len(te), len(p), tr.label.mean(), te.label.mean())\nm = te.merge(p, on=['protein_a', 'protein_b']); print(len(m), roc_auc_score(m.label, m.score))\ntrp = set(tr.protein_a) | set(tr.protein_b)\nboth = sum((a in trp) and (b in trp) for a, b in zip(te.protein_a, te.protein_b))\nprint('test pairs with both proteins in train', both, len(te))\nlong = pd.concat([tr[['protein_a', 'label']].rename(columns={'protein_a': 'p'}),\n                  tr[['protein_b', 'label']].rename(columns={'protein_b': 'p'})])\nr = long.groupby('p').label.agg(['mean', 'count']); g = tr.label.mean()\nf = lambda x: r['mean'].get(x, g)\ns = [f(a) + f(b) for a, b in zip(te.protein_a, te.protein_b)]\nprint('entity baseline AUC', roc_auc_score(te.label, s))\nprint(r['mean'].describe())\nprint(r.sort_values('mean').iloc[[0, 1, 2, -3, -2, -1]])\nprint('dups', tr.duplicated(['protein_a', 'protein_b']).sum())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_tfwjye2/analysis; python audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "columns": [
+          "protein_a",
+          "protein_b"
+        ],
+        "train_path": "/tmp/review-_tfwjye2/analysis/pairs_train.csv",
+        "test_path": "/tmp/review-_tfwjye2/analysis/pairs_test.csv",
+        "label": "label",
+        "model_score": 0.79
+      }
+    }
+  ]
+}

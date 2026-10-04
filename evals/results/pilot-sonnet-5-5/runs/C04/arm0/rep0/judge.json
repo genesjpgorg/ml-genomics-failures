@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": true,
+  "rationale": "The reviewer correctly reached SUPPORTED and did not reject the claim for failing to predict variant effects. Their concerns about paralog leakage, one cell type and the missing GC/CpG baseline are all acceptable caveats. They also measured a real calibration offset the key doesn't mention: observed expression averages 0.94 log TPM above predicted, and raw R\u00b2 is 0.36. That doesn't undermine the correlation-based claim, but it is a genuine reporting issue.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

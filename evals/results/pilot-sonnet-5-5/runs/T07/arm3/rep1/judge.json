@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer pinpointed the across-gene vs across-individual axis mismatch and backed it with r = 0.12 and 53% sign agreement from the variant table, matching the key. They proposed per-gene, across-individual validation with sign accuracy, which is the key's fix; their other points (missing baselines, calibration offset) are speculative or minor rather than important new problems.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

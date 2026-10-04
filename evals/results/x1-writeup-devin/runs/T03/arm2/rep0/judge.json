@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that plate and run date are confounded with case status (54/60 cases vs 8/60 controls on plates 1\u20132, which is about 90% vs 13%). It measured that plate alone gives an AUROC of 0.88 and named the batch confound as what drives the classifier, so the claim is rejected. Its fixes were to balance samples across plates, analyse within plate, and use a new cohort. It argued against selection leakage being the cause, which differs from the key's side note, but this does not take away from the main mechanism it identified.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

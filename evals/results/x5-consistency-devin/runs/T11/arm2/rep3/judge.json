@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the 0.82 AUROC is driven by plate. It measured a plate-only baseline AUROC of 0.78 and found 51/60 cases on plates 1-2 (85%) versus 12/60 controls (20%), both close to the key's figures. It also recommended randomizing cases and controls across plates and using bridging samples, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

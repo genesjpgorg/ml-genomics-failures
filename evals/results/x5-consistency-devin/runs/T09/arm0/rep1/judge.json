@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent called the identity-based AUROC of 0.85 inflated. Every test pair contains proteins seen in training, so the model can learn per-protein hub propensities. The agent backed this with the measured overlap (all test pairs, 59 of 60 proteins appear in the test set) and recommended holding test proteins out of training. It reported the co-expression-only AUROC of about 0.65 as the headline instead of 0.85.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

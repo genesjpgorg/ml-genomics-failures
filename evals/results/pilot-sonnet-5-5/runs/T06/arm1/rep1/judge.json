@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer identified the key's mechanism: GC composition alone separates the classes (they measured AUROC 0.985 from GC fraction), the dinucleotide shuffle keeps composition, the single-seed 0.03 gap means nothing, and no forkhead motif enrichment exists. They proposed the key's remedies: GC-matched negatives, GC/k-mer baselines, multiple seeds, a label-permutation null and motif-arrangement tests. Their extra point about chromosome or homology splits is speculative, since they found no duplicates, so it doesn't count as a separate important issue.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

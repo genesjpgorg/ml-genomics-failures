@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that every test pair shares a protein with training and that a memorization baseline with no features reaches AUROC 0.82, both matching the key. It reported the 0.85 score as memorization of protein propensities rather than generalization, checked this with a protein-disjoint evaluation that gave 0.65, and recommended re-splitting so no protein appears on both sides.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

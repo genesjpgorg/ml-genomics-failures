@@ -1,0 +1,62 @@
+{
+  "task": "T13",
+  "arm": "2",
+  "rep": 4,
+  "model": "claude-sonnet-5-5-medium",
+  "prompt": "train",
+  "prompt_text": "Train a classifier on the data in this directory (README.md describes it) and report its held-out performance. Python (numpy, pandas, scipy, scikit-learn) is available; create scripts with the Write tool.",
+  "wall_s": 21.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "duration_s": 21.5,
+  "cost_usd": null,
+  "api_error_status": null,
+  "answer": "Proteins are shared entities; check overlap and baselines.A logistic regression on `coexpression_z` and `batch` gets a held-out AUROC of 0.794 on the test pairs. That number mostly reflects the assay batch and the proteins involved, not the biology of the interaction.\n\nThe script is `/tmp/review-pbptzmb_/analysis/run.py`.\n\n| Model | Test AUROC |\n|---|---|\n| `coexpression_z` only | 0.576 |\n| `batch` only | 0.771 |\n| `coexpression_z` + `batch` | 0.794 |\n| Per-protein label-rate baseline, no features | 0.827 |\n\n- **Batch confound:** the interaction rate is about 5% in batch 1 and about 39% in batch 2 in the training data. The test set shows the same split (4% and 33%). A model can score well just by knowing the batch.\n- **Protein overlap:** every test pair has both proteins in the training set. A baseline that scores each pair from its two proteins' training label rates, with no features, gets 0.827. That beats the model, so the model may be partly memorizing which proteins tend to interact.\n- **Coexpression signal:** within a batch, `coexpression_z` is weak. Test AUROC is 0.66 in batch 1 and 0.51 (about chance) in batch 2.\n\nI wouldn't claim the model learned anything about protein interactions. To measure that, you would need a test split that holds out whole proteins, and ideally one that balances batches.\n\nI didn't run that split or the MCP server's checks (`check_split_overlap` etc.). I wrote my own versions of the overlap and batch checks in `run.py`.",
+  "tool_calls": [
+    "exec",
+    "mcp_list_tools",
+    "exec",
+    "exec",
+    "exec"
+  ],
+  "mcp_calls": [
+    "mcp_list_tools"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-pbptzmb_/analysis && ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "mcp_list_tools",
+      "input": {
+        "server_name": "ml-genomics-failures"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-pbptzmb_/analysis && head -5 pairs_train.csv pairs_test.csv; ls .devin; wc -l *.csv"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-pbptzmb_/analysis && cat > run.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.ensemble import GradientBoostingClassifier\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv')\nprint(tr.label.mean(),te.label.mean())\nprint(tr.groupby('batch').label.agg(['mean','count']),te.groupby('batch').label.agg(['mean','count']))\ntrp=set(tr.protein_a)|set(tr.protein_b)\nprint('test rows w/ protein seen:',te.apply(lambda r:r.protein_a in trp and r.protein_b in trp,axis=1).mean())\nfor f in (['coexpression_z'],['batch'],['coexpression_z','batch']):\n    m=LogisticRegression().fit(tr[f],tr.label);print(f,A(te.label,m.predict_proba(te[f])[:,1]))\n# protein label-rate baseline\ns=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})]).groupby('p').label.mean()\ng=tr.label.mean()\nsc=te.apply(lambda r:s.get(r.protein_a,g)+s.get(r.protein_b,g),axis=1);print('entity baseline',A(te.label,sc))\nE\npython run.py"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-pbptzmb_/analysis && cat >> run.py <<'E'\nfor b in (1,2):\n    t=te[te.batch==b];print('batch',b,'coexp AUROC',A(t.label,t.coexpression_z))\nE\npython run.py | tail -2"
+      }
+    }
+  ],
+  "turns": 4,
+  "prompt_tokens": 113792,
+  "completion_tokens": 1584,
+  "is_error": false
+}

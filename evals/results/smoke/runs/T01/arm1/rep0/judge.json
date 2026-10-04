@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found that every test pair's proteins appear in training. They showed a sequence-free per-protein training-rate baseline reaching AUROC 0.795\u20130.812, close to the key's ~0.77 and matching PairNet's 0.79. They proposed a protein-disjoint split, results reported by seen/unseen status, and a degree-prior baseline. Their other points (possible homology, no CI, single seed) are speculative or generic, so they don't count as important issues the key misses.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

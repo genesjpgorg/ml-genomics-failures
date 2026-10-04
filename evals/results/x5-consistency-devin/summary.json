@@ -1,0 +1,88 @@
+{
+  "config": {
+    "tasks": [
+      "T09",
+      "T11",
+      "T13"
+    ],
+    "arms": [
+      "0",
+      "2"
+    ],
+    "reps": 6,
+    "model": "claude-sonnet-5-5-medium",
+    "git": "622d896",
+    "prompt": "train",
+    "backend": "devin"
+  },
+  "n_runs": 36,
+  "arms": {
+    "0": {
+      "n": 18,
+      "verdict_correct": 0.9444444444444444,
+      "verdict_correct_flawed": 0.9444444444444444,
+      "verdict_correct_clean": null,
+      "detected": 0.8333333333333334,
+      "quantified": 0.9444444444444444,
+      "fix": 0.6666666666666666,
+      "false_alarm": null,
+      "used_mcp": 0.0,
+      "mcp_calls_per_run": 0.0,
+      "cost_per_run": 0.0,
+      "time_per_run_s": 20.727777777777778,
+      "contaminated": 0,
+      "errors": 0
+    },
+    "2": {
+      "n": 18,
+      "verdict_correct": 1.0,
+      "verdict_correct_flawed": 1.0,
+      "verdict_correct_clean": null,
+      "detected": 1.0,
+      "quantified": 1.0,
+      "fix": 0.9444444444444444,
+      "false_alarm": null,
+      "used_mcp": 1.0,
+      "mcp_calls_per_run": 1.2222222222222223,
+      "cost_per_run": 0.0,
+      "time_per_run_s": 20.61111111111111,
+      "contaminated": 0,
+      "errors": 0
+    }
+  },
+  "vs_baseline": {
+    "verdict_correct": {
+      "2": {
+        "diff": 0.056,
+        "ci95": [
+          0.0,
+          0.167
+        ],
+        "n_tasks": 3
+      }
+    },
+    "detected": {
+      "2": {
+        "diff": 0.167,
+        "ci95": [
+          0.0,
+          0.5
+        ],
+        "n_tasks": 3
+      }
+    },
+    "quantified": {
+      "2": {
+        "diff": 0.056,
+        "ci95": [
+          0.0,
+          0.167
+        ],
+        "n_tasks": 3
+      }
+    },
+    "false_alarm": {
+      "2": null
+    }
+  }
+}

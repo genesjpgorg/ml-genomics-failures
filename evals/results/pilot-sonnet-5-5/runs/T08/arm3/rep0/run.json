@@ -1,0 +1,72 @@
+{
+  "task": "T08",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 28.0,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "**The claim is not supported.** The 0.99 AUROC comes from selection leakage. With feature selection redone inside each fold, the data show no signal.\n\n**Evidence**\n- `analysis.py` picks the 20 genes with `SelectKBest` on all 60 patients, labels included. It then cross-validates only the logistic regression on those genes. The test folds have already influenced which genes were chosen. That is circular evaluation (class C in the audit checklist). No case in the failure book matches it exactly, so I'm applying checklist question 5, the true null, directly.\n- I reproduced the leaky pipeline in `audit.py` and got AUROC 0.988, which matches `results.json`.\n- **Nested CV:** I put selection inside the pipeline so it is refit on each training fold. Across 5 CV seeds, AUROC is 0.42\u20130.58 (mean about 0.51), which is chance.\n- **Permuted-label null:** I shuffled the labels, so there is no true signal. The leaky pipeline still gets AUROC 0.95\u20131.00. The nested pipeline gets 0.39\u20130.59. The leaky protocol therefore produces a near-perfect score from pure noise, because 20 of 5,000 genes can always be fitted to 60 labels.\n\n**Other issues**\n- The data are 60 patients and 5,000 features, with no independent validation cohort.\n- The README doesn't describe the cohort, so I couldn't check batch, site or prior-treatment confounding (class S). The shape of the data (patient \u00d7 gene, z-scored) also doesn't let me check whether z-scoring was done on all samples together.\n- There are no baselines such as all-gene regularised models or published signatures.\n- The README doesn't state whether the \"5,000 most variable genes\" were chosen using all samples. That step uses no labels, so it is a minor concern.\n- The recommendation to run a prospective trial to select patients has no basis.\n\nI did not run the MCP `check_*` tools. They need entity or sequence columns that this data doesn't have. Searching the failure book returned only F09 and F03, which don't fit this problem.\n\nVERDICT: NOT SUPPORTED\n\nMost important issues:\n1. Feature selection used all labels before CV, which is leakage. Nested CV gives AUROC about 0.51.\n2. The permuted-label null scores 0.95\u20131.00 under the authors' pipeline, so the pipeline cannot show that any signal exists.\n3. There is no independent validation, the sample is small (n=60 against 5,000 genes), and nothing in the write-up addresses confounders or baselines.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.06882060000000001,
+  "duration_s": 26.5,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "Write",
+    "mcp__ml-genomics-failures__search",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "search"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-9uynf2k7/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-9uynf2k7/analysis; cat analysis.py results.json response.csv; head -c 300 expression.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-9uynf2k7/analysis; cat > audit.py <<'E'\nimport pandas as pd, numpy as np\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nx=pd.read_csv(\"expression.csv\").set_index(\"patient\")\ny=pd.read_csv(\"response.csv\").set_index(\"patient\").loc[x.index,\"responder\"].values\nX=x.values; print(X.shape, y.mean())\ndef nested(X,y,seed):\n    cv=StratifiedKFold(5,shuffle=True,random_state=seed)\n    m=make_pipeline(SelectKBest(f_classif,k=20),LogisticRegression(max_iter=1000))\n    return roc_auc_score(y,cross_val_predict(m,X,y,cv=cv,method=\"predict_proba\")[:,1])\ndef leaky(X,y,seed):\n    Xs=SelectKBest(f_classif,k=20).fit_transform(X,y)\n    cv=StratifiedKFold(5,shuffle=True,random_state=seed)\n    return roc_auc_score(y,cross_val_predict(LogisticRegression(max_iter=1000),Xs,y,cv=cv,method=\"predict_proba\")[:,1])\nprint(\"leaky\",leaky(X,y,0),\"nested\",[round(nested(X,y,s),3) for s in range(5)])\nrng=np.random.default_rng(0)\nprint(\"perm leaky\",[round(leaky(X,rng.permutation(y),s),3) for s in range(5)])\nprint(\"perm nested\",[round(nested(X,rng.permutation(y),s),3) for s in range(5)])\nE\npython audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-9uynf2k7/analysis/audit.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nx=pd.read_csv(\"expression.csv\").set_index(\"patient\")\ny=pd.read_csv(\"response.csv\").set_index(\"patient\").loc[x.index,\"responder\"].values\nX=x.values; print(X.shape, y.mean())\ndef nested(X,y,seed):\n    cv=StratifiedKFold(5,shuffle=True,random_state=seed)\n    m=make_pipeline(SelectKBest(f_classif,k=20),LogisticRegression(max_iter=1000))\n    return roc_auc_score(y,cross_val_predict(m,X,y,cv=cv,method=\"predict_proba\")[:,1])\ndef leaky(X,y,seed):\n    Xs=SelectKBest(f_classif,k=20).fit_transform(X,y)\n    cv=StratifiedKFold(5,shuffle=True,random_state=seed)\n    return roc_auc_score(y,cross_val_predict(LogisticRegression(max_iter=1000),Xs,y,cv=cv,method=\"predict_proba\")[:,1])\nprint(\"leaky\",leaky(X,y,0),\"nested\",[round(nested(X,y,s),3) for s in range(5)])\nrng=np.random.default_rng(0)\nprint(\"perm leaky\",[round(leaky(X,rng.permutation(y),s),3) for s in range(5)])\nprint(\"perm nested\",[round(nested(X,rng.permutation(y),s),3) for s in range(5)])\n"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "feature selection before cross-validation circular"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-9uynf2k7/analysis; python audit.py"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": true,
+  "rationale": "The agent found that plate is confounded with status: 51 of 60 cases (85%) were on plates 1-2, against 12 of 60 controls (20%). It showed that plate alone gives an AUROC of 0.82, declined to report the 0.85 as a real disease signal, and proposed balancing cases and controls across plates. It also raised a separate valid point: centering each protein within its plate when classes are unbalanced creates its own artifact (it pushed AUROC below chance).",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

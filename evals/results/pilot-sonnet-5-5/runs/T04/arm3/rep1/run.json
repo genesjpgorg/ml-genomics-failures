@@ -1,0 +1,99 @@
+{
+  "task": "T04",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 29.7,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim is not supported. The 0.85 test accuracy comes from test promoters that are near-copies of training promoters. On the 30 test promoters with no close training relative, PromoNet scores at chance.\n\nI reproduced the 0.85 from `predictions_test.csv` and `labels.csv`. The scripts are `prep.py` and `nn.py` in this directory. I used the audit checklist and the F12 homology case (class L, homologous sequences on both sides of the split), and ran the server's similarity and k-mer baseline tools.\n\n**1. Near-duplicate leakage (L, F12).**\n- The README says only that promoters were \"randomly sampled\", and a random split does not guard against related sequences.\n- 64 of 100 test promoters have a training promoter at \u226595% estimated identity, and 7 are at \u226599%. A further 6 are at 90\u201395%.\n- The remaining 30 have no related training sequence (<80% identity).\n\n**2. Accuracy by whether a close relative is in training.**\n\n| Test promoters | n | PromoNet accuracy | Accuracy from copying the nearest training label |\n|---|---|---|---|\n| Close training relative (k-mer containment >0.3) | 70 | 1.00 | 1.00 |\n| No close relative | 30 | 0.50 | 0.37 |\n\n- The 70 near-copy promoters give 70 correct predictions, and the remaining 15 errors all fall in the 30 novel promoters.\n- Copying the label of the nearest training sequence scores 0.81 overall, with no model at all. PromoNet's 0.85 adds almost nothing to that.\n- The \"unseen sequences\" half of the claim is therefore tested only on the 30 novel promoters, where the result is chance. With n=30 and 15 correct, the 95% interval is wide, but it includes 0.50 and gives no evidence of generalisation.\n\n**3. Baselines (B).** The README reports no baselines. A nearest-neighbour baseline on 4-mer composition reaches AUROC 0.67, and GC content alone reaches 0.57. The tool puts k-mer composition at about 49% of the model's gain over chance. The AUROC is not the same metric as the accuracy headline, so treat that share as indicative. Mean GC is nearly identical for active and inactive promoters (0.502 vs 0.500), so GC is not a strong shortcut by itself.\n\n**4. Claim and test mismatch (A) and missing controls (K).**\n- \"Learned regulatory grammar\" is a mechanistic claim, and the evidence is one accuracy number on one split. No motif analysis, ablation, or null control is reported.\n- There is a single run with no seeds, and only 100 test sequences.\n\n**Needed before the claim can go into a paper:**\n- Cluster all 400 sequences by identity with MMseqs2 or CD-HIT and re-split by cluster.\n- Report the baselines and the accuracy on the novel subset, with confidence intervals.\n- Add a null control, such as shuffled labels at the cluster level.\n- Drop the \"regulatory grammar\" wording unless motif or ablation analysis supports it.\n\nVERDICT: NOT SUPPORTED\n\nIssues that matter most:\n1. 64% of test promoters have a \u226595%-identity copy in training, so the split leaks.\n2. PromoNet is 100% correct on near-copy test promoters and 50% (chance) on the 30 novel ones.\n3. A plain nearest-neighbour label copy scores 0.81, and no baselines are reported.\n4. \"Regulatory grammar\" is not tested at all, and the evidence is one run on 100 test sequences.",
+  "is_error": false,
+  "cost_usd": 0.0935404,
+  "duration_s": 28.3,
+  "turns": 11,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_sequence_similarity",
+    "mcp__ml-genomics-failures__kmer_baseline",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_sequence_similarity",
+    "kmer_baseline"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wit6pltg/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wit6pltg/analysis; head -5 labels.csv predictions_test.csv; head -4 train.fa; grep -c '>' train.fa test.fa"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wit6pltg/analysis; cat > prep.py <<'E'\nimport pandas as pd\ndef rd(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l.startswith('>'):k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr=rd('train.fa');te=rd('test.fa')\nlab=pd.read_csv('labels.csv');print(lab.split.value_counts());print(lab.head(),lab.tail(3))\nprint(lab.groupby('split').activity.value_counts())\npr=pd.read_csv('predictions_test.csv')\nprint(pr.id.head(2).tolist(),list(te)[:2])\nE\npython prep.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-wit6pltg/analysis/prep.py",
+        "content": "import pandas as pd, numpy as np\ndef rd(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l.startswith('>'):k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr=rd('train.fa');te=rd('test.fa')\nlab=pd.read_csv('labels.csv')\nprint(lab.split.value_counts())\nprint(lab.groupby('split').activity.value_counts())\npr=pd.read_csv('predictions_test.csv')\nprint(pr.id.head(2).tolist(),list(te)[:2], lab[lab.split=='test'].id.head(2).tolist())\nlab=lab.set_index('id')\ndef gc(s): return (s.count('G')+s.count('C'))/len(s)\nrows=[]\nfor d,sp in((tr,'train'),(te,'test')):\n    for k,s in d.items():\n        rows.append(dict(id=k,split=sp,sequence=s,label=lab.activity.get(k),gc=gc(s)))\ndf=pd.DataFrame(rows)\nprint(df.label.isna().sum())\ndf.to_csv('all.csv',index=False)\ndf[df.split=='train'].to_csv('tr.csv',index=False)\nt=df[df.split=='test'].copy()\nif t.label.isna().all():\n    print('test labels missing by id; trying order')\nt.to_csv('te.csv',index=False)\nm=t.merge(pr,on='id',how='left')\nprint(m.predicted.isna().sum(), (m.predicted==m.label).mean())\nprint(df.groupby('label').gc.mean())\nprint(df.sequence.str.len().describe())\nprint('dup seqs across', len(set(tr.values())&set(te.values())), len(tr), len(set(tr.values())))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wit6pltg/analysis; python prep.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_sequence_similarity",
+      "input": {
+        "train_fasta_path": "/tmp/review-wit6pltg/analysis/train.fa",
+        "test_fasta_path": "/tmp/review-wit6pltg/analysis/test.fa",
+        "k": 12
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__kmer_baseline",
+      "input": {
+        "train_path": "/tmp/review-wit6pltg/analysis/tr.csv",
+        "test_path": "/tmp/review-wit6pltg/analysis/te.csv",
+        "model_score": 0.85,
+        "k": 4
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-wit6pltg/analysis/nn.py",
+        "content": "import pandas as pd, numpy as np\ndf=pd.read_csv('all.csv'); pr=pd.read_csv('predictions_test.csv').set_index('id').predicted\ntr=df[df.split=='train'];te=df[df.split=='test']\nK=12\nks=lambda s:{s[i:i+K] for i in range(len(s)-K+1)}\ntrk=[ks(s) for s in tr.sequence]\nres=[]\nfor _,r in te.iterrows():\n    k=ks(r.sequence); c=[len(k&t)/len(k) for t in trk]; j=int(np.argmax(c))\n    res.append((r.id,c[j],tr.label.iloc[j],r.label,pr[r.id]))\nd=pd.DataFrame(res,columns=['id','cont','nnlab','label','pred'])\nd['near']=d.cont>0.3\nd['model_ok']=d.pred==d.label; d['nn_ok']=d.nnlab==d.label\nprint(d.cont.describe())\nprint(d.groupby('near')[['model_ok','nn_ok']].agg(['mean','count']))\nprint('nn acc overall',d.nn_ok.mean())\n# within train: are near-duplicate pairs label-consistent?\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-wit6pltg/analysis; python nn.py"
+      }
+    }
+  ]
+}

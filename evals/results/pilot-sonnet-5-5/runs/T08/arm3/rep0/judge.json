@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found that SelectKBest was run on all 60 samples before CV, and showed with a permuted-label null that this leakage alone gives near-perfect AUROC. Moving selection inside the CV folds gave AUROC 0.42\u20130.58 (mean about 0.51), which roughly matches the key's ~0.58, and they also flagged the missing independent cohort. Their other points (missing baselines, possible confounding) are generic rather than new substantive flaws.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

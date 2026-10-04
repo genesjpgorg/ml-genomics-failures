@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": true,
+  "rationale": "The reviewer identified plate/run-date confounding as the cause of the AUROC. They backed it with measured numbers that match the key: a plate-only AUROC of about 0.89, and 54/60 cases on plates 1\u20132 versus 8/60 controls. They proposed randomizing across plates, within-plate analysis, selection inside CV and a new balanced cohort. They also raised a valid extra point the key omits: a 1:1 case-control design with no prevalence or early-stage breakdown cannot support screening claims.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

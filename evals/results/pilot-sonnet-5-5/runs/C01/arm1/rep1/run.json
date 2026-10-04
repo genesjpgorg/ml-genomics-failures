@@ -1,0 +1,78 @@
+{
+  "task": "C01",
+  "arm": "1",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 38.2,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim holds up. I found no leakage or shortcut that explains the 0.81 AUROC.\n\n**What I checked**\n- **Split:** it really is protein-disjoint. Train and test share 0 of their proteins (60 in train, 20 in test).\n- **Reproduction:** the shipped `predictions_test.csv` gives AUROC 0.8127, matching the README. Refitting the logistic regression myself gives 0.854, and raw `coexpression_z` alone gives 0.854. The shipped scores correlate with `coexpression_z` at Spearman 0.96 but are not exactly the refit's output. The README doesn't say how they were made, so that should be documented. The difference doesn't weaken the claim.\n- **Per-protein shortcut (F04, F09):** this is not what drives the result. A leave-one-out per-protein positive-rate prior gets AUROC 0.51 on train and 0.42 on test, so about chance. Mean co-expression per protein gets only 0.58\u20130.61.\n- **Within-protein signal:** co-expression ranks partners well even within a single protein. The mean per-protein AUROC is 0.84 on test (20 proteins) and 0.87 on train (60 proteins). That is the kind of signal the claim is about, ranking partners for a given protein.\n- **Baselines (F06\u2013F08):** the model has one feature, so the model and the baseline are the same thing. No simpler baseline is needed.\n- **Uncertainty (F12 variance point):** the pair-level bootstrap 95% CI is 0.79\u20130.91. A bootstrap over proteins, which is more honest because pairs share proteins, gives 0.79\u20130.93. The claim is still supported.\n\n**Issues that matter for the paper**\n1. The README doesn't say where the labels come from (for example BioGRID or a curated set) or how negatives were sampled. I can't audit circularity (F09/C), such as co-expression being used to curate the positives. Negative selection also matters, because about 38\u201341% positives is not a realistic interaction rate.\n2. There is no homology filtering (F12). A protein-disjoint split doesn't exclude paralogs or complex members on both sides. With only 20 test proteins, a few shared families could move the result.\n3. The sample is tiny: 150 test pairs among 20 proteins. These pairs are dense and non-independent, so report the protein-level CI above.\n4. \"Useful prior for uncharacterized proteins\" is a slightly stronger claim than the data show. It would need evidence at a realistic positive rate with candidate ranking, such as precision at k, and against a co-expression-only baseline that is already well known.\n\nVERDICT: SUPPORTED\n\nIssues that matter most: undocumented label and negative provenance, no homology check, and a small, dependent test set.",
+  "is_error": false,
+  "cost_usd": 0.0847692,
+  "duration_s": 37.4,
+  "turns": 9,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-b5etmj5r/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-b5etmj5r/analysis; head -4 pairs_train.csv pairs_test.csv predictions_test.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-b5etmj5r/analysis; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nfrom sklearn.linear_model import LogisticRegression as LR\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(set(tr.protein_a)|set(tr.protein_b)>=set(), len((set(tr.protein_a)|set(tr.protein_b))&(set(te.protein_a)|set(te.protein_b))))\nprint(tr.label.mean(),te.label.mean(),len(tr),len(te))\nm=LR().fit(tr[['coexpression_z']],tr.label)\nprint('auc',A(te.label,m.predict_proba(te[['coexpression_z']])[:,1]),A(te.label,p.score),(te.protein_a+te.protein_b==p.protein_a+p.protein_b).all())\n# per-protein degree baseline\nfor d,n in((tr,'tr'),(te,'te')):\n  long=pd.concat([d[['protein_a','label']].rename(columns={'protein_a':'p'}),d[['protein_b','label']].rename(columns={'protein_b':'p'})])\n  print(n,long.groupby('p').label.agg(['mean','count']).describe().loc[['mean','std','min','max']])\n# within-test: protein prior from test labels (oracle) and per-protein mean coexpr\nfor d in(tr,te):\n  print(A(d.label,d.coexpression_z))\n  long=pd.concat([d[['protein_a','coexpression_z','label']].rename(columns={'protein_a':'p'}),d[['protein_b','coexpression_z','label']].rename(columns={'protein_b':'p'})])\n  g=long.groupby('p').agg(z=('coexpression_z','mean'),l=('label','mean'));print(np.corrcoef(g.z,g.l)[0,1])\n  # pair-level protein-mean z\n  mz=g.z; print('protmean z auc',A(d.label,mz[d.protein_a].values+mz[d.protein_b].values))\n  # label rate by protein within-protein auc\n  r=[]\n  for p_,s in long.groupby('p'):\n    if s.label.nunique()>1:r.append(A(s.label,s.coexpression_z))\n  print('within-protein auc',np.mean(r),len(r))\nprint(te.groupby('protein_a').size().head(),tr.duplicated(['protein_a','protein_b']).sum())\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-b5etmj5r/analysis/a.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nfrom sklearn.linear_model import LogisticRegression as LR\n\ntr = pd.read_csv('pairs_train.csv'); te = pd.read_csv('pairs_test.csv'); p = pd.read_csv('predictions_test.csv')\nS = lambda d: set(d.protein_a) | set(d.protein_b)\nprint('overlap', len(S(tr) & S(te)), len(S(tr)), len(S(te)))\nprint('pos rate', tr.label.mean(), te.label.mean(), len(tr), len(te))\nm = LR().fit(tr[['coexpression_z']], tr.label)\nprint('auc', A(te.label, m.predict_proba(te[['coexpression_z']])[:, 1]), A(te.label, p.score),\n      (te.protein_a + te.protein_b == p.protein_a + p.protein_b).all())\nfor n, d in (('tr', tr), ('te', te)):\n    long = pd.concat([d[['protein_a', 'coexpression_z', 'label']].rename(columns={'protein_a': 'p'}),\n                      d[['protein_b', 'coexpression_z', 'label']].rename(columns={'protein_b': 'p'})])\n    g = long.groupby('p').agg(z=('coexpression_z', 'mean'), l=('label', 'mean'), n=('label', 'size'))\n    print(n, 'raw auc', A(d.label, d.coexpression_z))\n    print(g.describe().loc[['mean', 'std', 'min', 'max']])\n    print('corr protein mean z vs label rate', np.corrcoef(g.z, g.l)[0, 1])\n    print('protmean z auc', A(d.label, g.z[d.protein_a].values + g.z[d.protein_b].values))\n    # leave-pair-out protein label rate prior\n    pr = []\n    for _, r in d.iterrows():\n        s = 0\n        for q in (r.protein_a, r.protein_b):\n            sub = long[(long.p == q)]\n            s += (sub.label.sum() - r.label) / (len(sub) - 1)\n        pr.append(s)\n    print('LOO protein-degree prior auc', A(d.label, pr))\n    w = [A(s.label, s.coexpression_z) for _, s in long.groupby('p') if s.label.nunique() > 1]\n    print('within-protein auc', np.mean(w), len(w))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-b5etmj5r/analysis; python a.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-b5etmj5r/analysis; cat > b.py <<'E'\nimport pandas as pd,numpy as np\nfrom scipy.stats import spearmanr\nte=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(spearmanr(te.coexpression_z,p.score))\nfrom sklearn.metrics import roc_auc_score as A\nrng=np.random.default_rng(0);b=[]\nfor _ in range(2000):\n    i=rng.integers(0,150,150);b.append(A(te.label[i],te.coexpression_z[i]))\nprint(np.percentile(b,[2.5,97.5]))\nE\npython b.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-b5etmj5r/analysis/b.py",
+        "content": "import pandas as pd, numpy as np\nfrom scipy.stats import spearmanr\nfrom sklearn.metrics import roc_auc_score as A\nte = pd.read_csv('pairs_test.csv'); p = pd.read_csv('predictions_test.csv')\nprint(spearmanr(te.coexpression_z, p.score))\nrng = np.random.default_rng(0); b = []\nfor _ in range(2000):\n    i = rng.integers(0, 150, 150); b.append(A(te.label[i], te.coexpression_z[i]))\nprint(np.percentile(b, [2.5, 97.5]))\n# cluster bootstrap over proteins\nS = sorted(set(te.protein_a) | set(te.protein_b)); c = []\nfor _ in range(1000):\n    ch = set(rng.choice(S, 20))\n    d = te[te.protein_a.isin(ch) & te.protein_b.isin(ch)]\n    if d.label.nunique() > 1: c.append(A(d.label, d.coexpression_z))\nprint(np.percentile(c, [2.5, 97.5]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-b5etmj5r/analysis; python b.py"
+      }
+    }
+  ]
+}

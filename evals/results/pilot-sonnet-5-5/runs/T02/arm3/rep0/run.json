@@ -1,0 +1,105 @@
+{
+  "task": "T02",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 33.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. The AUROC of 0.94 mostly reflects gene identity, not variant-level splice determinants.\n\n**Evidence (my script `a.py` and the MCP checks):**\n- **Gene leakage (class L, cases F03/F04):** The split is a random 80/20 split of variants. All 215 test variants come from genes that also appear in training (73 test genes, all present in the 80 training genes). Variants within a gene are not independent.\n- **Gene-level baseline:** Gene labels are very polarized. 44% of genes have all variants with the same label, and the median gene has 13% positives. A feature-free baseline that predicts each test variant from its gene's training label rate gets AUROC 0.926. The model gets 0.941, so the baseline accounts for about 97% of the model's gain over chance (`check_split_overlap`).\n- **Within-gene performance:** Within a gene, the model's AUROC on test is about 0.60. That is the mean over the 13 test genes that contain both labels. It is not much better than the single `conservation` column, which gets about 0.66 on the same genes. These are small counts and noisy. Still, the variant-level signal is weak, which is what the claim is about.\n- **Shortcut check (class S):** `conservation` alone gets about 0.52\u20130.55 AUROC, and gene identity alone gets 0.50 under gene-grouped CV. So gene identity does not predict labels across genes. The model's score can come from per-gene label rates only because genes are shared between train and test. The shortcut only works when genes are shared.\n- **Axis of generalization (class A):** Prioritizing variants of uncertain significance means scoring variants in new genes or new contexts. A random variant split does not test that. The claim is \"predicts across variants, with gene held fixed\", which is a different question.\n- **Baselines (class B):** The README reports no baselines and no null control, such as a gene-mean baseline or a conservation-only model. It also gives no seeds or confidence intervals.\n- **Possible circularity (class C):** The labels come from a minigene assay compendium. The README does not say whether any features, such as predicted splice-site strength, come from tools that were tuned on those assays. This needs checking.\n- **Not verifiable:** I could not check the 140 features because the full feature matrix is not shared. I only checked the one representative column and the model scores.\n\n**Needed before publication:**\n- Re-split by gene (grouped CV or by chromosome).\n- Report the gene-mean baseline and within-gene AUROC.\n- Add confidence intervals.\n- Check where the labels and features came from.\n- Do not recommend diagnostic use until performance is shown on held-out genes.\n\nVERDICT: NOT SUPPORTED\n\nMost important issues:\n1. Random variant split with 100% gene overlap between train and test (L).\n2. Gene-label-rate baseline reaches 0.926 AUROC, about 97% of the model's gain over chance.\n3. Within-gene discrimination is weak (about 0.60 AUROC over 13 genes), which undercuts \"learns variant-level determinants\".\n4. The diagnostic-use claim needs held-out-gene evaluation, which was not done.\n5. No baselines, null controls or variance are reported, and possible circularity between labels and features is unchecked.",
+  "is_error": false,
+  "cost_usd": 0.0763356,
+  "duration_s": 32.2,
+  "turns": 10,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "mcp__ml-genomics-failures__check_shortcuts"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_split_overlap",
+    "check_split_overlap",
+    "check_shortcuts"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbfqohft/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbfqohft/analysis; head -5 variants.csv; python -c \"\nimport pandas as pd;d=pd.read_csv('variants.csv');print(d.describe(include='all'));print(d.split.value_counts())\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbfqohft/analysis; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd=pd.read_csv('variants.csv');t=d[d.split=='test'];tr=d[d.split=='train']\nprint('model',A(t.label,t.model_score),'cons',A(t.label,t.conservation))\ng=tr.groupby('gene').label.agg(['mean','size'])\nprint('genes test in train',t.gene.isin(g.index).mean(), t.gene.nunique())\nm=t.gene.map(g['mean']).fillna(tr.label.mean());print('gene-mean AUC',A(t.label,m))\ngl=d.groupby('gene').label.mean();print(gl.describe());print((gl.isin([0,1])).mean())\nprint(d.groupby('gene').size().describe())\n# within-gene model AUC\nr=[A(x.label,x.model_score) for _,x in t.groupby('gene') if x.label.nunique()==2];print('within gene',np.mean(r),len(r))\nE\npython a.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "train_path": "/tmp/review-fbfqohft/analysis/variants.csv",
+        "columns": [
+          "gene"
+        ],
+        "label": "label",
+        "model_score": 0.94
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-fbfqohft/analysis/a.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd = pd.read_csv('variants.csv')\nt = d[d.split == 'test']; tr = d[d.split == 'train']\ntr.to_csv('/tmp/train.csv', index=False); t.to_csv('/tmp/test.csv', index=False)\nprint('model', A(t.label, t.model_score), 'cons', A(t.label, t.conservation))\ng = tr.groupby('gene').label.agg(['mean', 'size'])\nprint('test genes in train', t.gene.isin(g.index).mean(), t.gene.nunique())\nm = t.gene.map(g['mean']).fillna(tr.label.mean())\nprint('gene-mean AUC', A(t.label, m))\ngl = d.groupby('gene').label.mean()\nprint(gl.describe()); print('pure genes', gl.isin([0, 1]).mean())\nprint(d.groupby('gene').size().describe())\nr = [A(x.label, x.model_score) for _, x in t.groupby('gene') if x.label.nunique() == 2]\nprint('within gene model AUC', np.mean(r), len(r))\nr = [A(x.label, x.conservation) for _, x in t.groupby('gene') if x.label.nunique() == 2]\nprint('within gene cons AUC', np.mean(r))\n# gene-held-out baseline: leave-gene-out mean\ngenes = d.gene.unique(); rng = np.random.default_rng(0); rng.shuffle(genes)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbfqohft/analysis; python a.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "train_path": "/tmp/train.csv",
+        "test_path": "/tmp/test.csv",
+        "columns": [
+          "gene"
+        ],
+        "label": "label",
+        "model_score": 0.94
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "table_path": "/tmp/review-fbfqohft/analysis/variants.csv",
+        "label": "label",
+        "features": [
+          "gene",
+          "conservation"
+        ],
+        "group_column": "gene",
+        "model_score": 0.94
+      }
+    }
+  ]
+}

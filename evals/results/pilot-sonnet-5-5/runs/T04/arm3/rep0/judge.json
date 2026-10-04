@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found that 70 of 100 test promoters are near-copies of training sequences. On those the model scores 100%, versus 50% (chance) on the 30 unrelated ones, which matches the key's mechanism and numbers. They proposed an identity-cluster split with MMseqs2/CD-HIT and reported accuracy by relatedness. Their other points (no baselines, no null control, one seed) are generic and mostly follow from the same leakage issue.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

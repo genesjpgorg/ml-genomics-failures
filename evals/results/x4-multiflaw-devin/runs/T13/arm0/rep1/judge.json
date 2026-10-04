@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent rejected the 0.79 headline because batch is confounded with the label (batch alone gives AUROC 0.771). It also found that every test pair shares its proteins with training, which could inflate scores through per-protein tendencies, though it raised this as an untested caveat. Its proposed fix covers both flaws: split by protein and handle batch explicitly, matching the key.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

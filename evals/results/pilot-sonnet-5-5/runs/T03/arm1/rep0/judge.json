@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": true,
+  "rationale": "The reviewer identified the plate and run-date confound and showed that a plate-only model reaches AUROC 0.887 (key: ~0.91). They also found 54/60 cases versus 8/60 controls on plates 1-2 (90% vs 13%, key: ~85% vs ~15%), and proposed randomizing across plates, leave-plate-out evaluation and an independent cohort. They also correctly flagged that a 120-sample case-control study can't support a screening-test claim without realistic prevalence and early-stage analysis, which the key doesn't mention.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

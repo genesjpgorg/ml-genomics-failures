@@ -1,0 +1,56 @@
+{
+  "task": "T01",
+  "arm": "0",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 28.6,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. The 0.79 AUROC is reproducible, but a lookup of how often each protein interacted in training does as well, and PairNet's scores track that lookup almost exactly. I ran this in `chk.py` in this directory.\n\n**What I checked**\n- **AUROC:** Recomputed from `predictions_test.csv`, it is 0.790 on 140 test pairs (22.9% positive, against 17.9% in train). This matches the README.\n- **Protein overlap:** All 60 proteins appear in both train and test. Every test pair has both of its proteins seen in training, and no pair is duplicated across the two sets. The random pair-level split therefore tests interpolation among known proteins, not generalization to new ones.\n- **Identity baseline:** I scored each test pair as the sum of its two proteins' positive rates in the training pairs. This uses no sequence information and gets AUROC **0.795**, slightly above PairNet.\n- **Agreement with PairNet:** The correlation between PairNet's scores and this baseline is **0.978**. PairNet is almost certainly learning per-protein \"stickiness\" (hub-like behavior) from the labels.\n- **Skewed protein rates:** The per-protein positive rate ranges from 0% (for example P001, P002 and P007, each with 15\u201321 training pairs) to 67% (P013). That spread is what lets the shortcut work.\n\n**Issues that matter most**\n1. **The split leaks protein identity.** The claim is about \"new protein pairs\" and \"uncharacterized proteins\", but the test set contains no new proteins. A fair test holds out proteins: either both proteins unseen, or at least one unseen, with the two cases reported separately.\n2. **No baseline in the write-up.** The README doesn't report a protein-identity or degree baseline, and one such baseline already matches the result. Any paper needs that comparison, plus a shuffled-embedding or sequence-ablation control.\n3. **Nothing tests that the model uses sequence.** The README doesn't include the embeddings or the model, so I couldn't check this directly. The 0.98 correlation with the identity baseline suggests it doesn't.\n4. **The planned use is untested.** Predicting partners for uncharacterized proteins is the cold-start case, and the evidence says nothing about it. Expect performance near chance there, since the model has no per-protein history to lean on.\n5. **Small data and one split.** There are 700 pairs over 60 proteins and a single split, with no confidence interval or repeats. With 140 test pairs, the AUROC has a wide interval.\n6. **Unclear negatives.** The README describes label 0 as \"tested, no interaction\". Pair selection and any class-balance effects aren't documented, and these could also feed the per-protein rate skew.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.048459,
+  "duration_s": 27.8,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -4 *.csv && wc -l *.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cat > chk.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nm=te.merge(p,on=['protein_a','protein_b']);print(len(m),m.label.mean(),tr.label.mean())\nprint('auc',roc_auc_score(m.label,m.score))\nst=set(tr.protein_a)|set(tr.protein_b);se=set(te.protein_a)|set(te.protein_b)\nprint(len(st),len(se),len(se-st))\nprint('test pairs both seen',np.mean([a in st and b in st for a,b in zip(te.protein_a,te.protein_b)]))\n# duplicates\nk=lambda d:set(map(lambda x:frozenset(x),zip(d.protein_a,d.protein_b)))\nprint('dup pairs',len(k(tr)&k(te)))\n# protein-identity baseline: per-protein positive rate from train\nlong=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})])\nr=long.groupby('p').label.agg(['mean','count']);print(r.sort_values('mean').iloc[[0,1,2,-3,-2,-1]]);print(r['mean'].describe())\ng=tr.label.mean()\nf=lambda x:r['mean'].get(x,g)\nm['b']=[f(a)+f(b) for a,b in zip(m.protein_a,m.protein_b)]\nprint('baseline auc',roc_auc_score(m.label,m.b))\nprint('corr score,b',np.corrcoef(m.score,m.b)[0,1])\nE\npython chk.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-4i9kadz0/analysis/chk.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score\n\ntr = pd.read_csv('pairs_train.csv'); te = pd.read_csv('pairs_test.csv'); p = pd.read_csv('predictions_test.csv')\nm = te.merge(p, on=['protein_a', 'protein_b'])\nprint(len(m), m.label.mean(), tr.label.mean())\nprint('auc', roc_auc_score(m.label, m.score))\nst = set(tr.protein_a) | set(tr.protein_b); se = set(te.protein_a) | set(te.protein_b)\nprint(len(st), len(se), len(se - st))\nprint('test pairs both seen', np.mean([a in st and b in st for a, b in zip(te.protein_a, te.protein_b)]))\nk = lambda d: set(frozenset(x) for x in zip(d.protein_a, d.protein_b))\nprint('dup pairs', len(k(tr) & k(te)))\nlong = pd.concat([tr[['protein_a', 'label']].rename(columns={'protein_a': 'p'}),\n                  tr[['protein_b', 'label']].rename(columns={'protein_b': 'p'})])\nr = long.groupby('p').label.agg(['mean', 'count'])\nprint(r.sort_values('mean').iloc[[0, 1, 2, -3, -2, -1]])\nprint(r['mean'].describe())\ng = tr.label.mean()\nf = lambda x: r['mean'].get(x, g)\nm['b'] = [f(a) + f(b) for a, b in zip(m.protein_a, m.protein_b)]\nprint('baseline auc', roc_auc_score(m.label, m.b))\nprint('corr score,b', np.corrcoef(m.score, m.b)[0, 1])\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python chk.py"
+      }
+    }
+  ]
+}

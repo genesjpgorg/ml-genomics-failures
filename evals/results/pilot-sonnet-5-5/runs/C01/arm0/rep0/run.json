@@ -1,0 +1,56 @@
+{
+  "task": "C01",
+  "arm": "0",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 35.7,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The data support the claim, but the write-up has a reproducibility gap and some overreach.\n\n**What I checked**\n- **Split:** the train and test protein sets are disjoint (0 shared proteins, no duplicate pairs). The protein-disjoint claim holds.\n- **Refit:** logistic regression on `coexpression_z` trained on the training file gives test AUROC **0.854** (slope about 2.0). The same feature alone gives 0.873 on train, so there's no sign of overfitting or leakage.\n- **Within-protein ranking:** this is the use case the claim names, ranking partners for one protein. Mean per-protein AUROC is 0.84 across the 20 test proteins.\n- **Uncertainty:** a bootstrap that resamples test proteins gives a 95% CI of roughly **0.75\u20130.93** for AUROC. The 150 test pairs come from only 20 proteins, so they aren't independent.\n\n**Issues, most important first**\n1. **`predictions_test.csv` doesn't come from the described model.** Its AUROC is 0.813, which matches the README. But its scores are the model's logits plus noise: the slope is the same, the residual SD is about 0.56 logits, and the correlation with a fresh fit is 0.96. Either the file was produced by a different pipeline or it was perturbed. The README's 0.81 isn't reproducible from the stated method, which gives 0.85. The direction of the claim holds, but the reported number needs a provenance explanation before it goes into a paper.\n2. **Prevalence is unrealistic.** About 38\u201341% of pairs are positives. Real yeast PPI prevalence is far lower. AUROC doesn't depend on prevalence, but the claim of a \"useful prior for ranking candidates\" does. Precision and enrichment at realistic base rates (PR curve, top-k) would be much worse and aren't reported. It's also unclear how negatives were chosen.\n3. **Wide uncertainty and a small sample.** Only 20 test proteins, and no CI is given. The README should report the protein-level interval rather than a bare 0.81.\n4. **No baselines or confounds.** There's no comparison to a degree or protein-level baseline. Per-protein positive rate correlates with mean co-expression (r\u22480.41 in test, 0.66 in train), so part of the signal may be per-protein effects such as hub proteins. Within-protein AUROC of 0.84 suggests the pair-level signal is real.\n5. **Overreach for uncharacterized proteins.** The claim extends to uncharacterized proteins in general. The evidence covers 20 proteins in what looks like a curated or synthetic setup, and the README doesn't say where the data came from.\n\nVERDICT: SUPPORTED. The qualitative claim holds, but the reported 0.81 isn't reproducible (my refit gives 0.85) and the usefulness claim isn't shown at realistic base rates.",
+  "is_error": false,
+  "cost_usd": 0.0548026,
+  "duration_s": 35.0,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-reo4d98i/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-reo4d98i/analysis; head -4 pairs_train.csv pairs_test.csv predictions_test.csv"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-reo4d98i/analysis/check.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');pr=pd.read_csv('predictions_test.csv')\nprint(tr.label.mean(),te.label.mean())\nprint('overlap',set(tr.protein_a)|set(tr.protein_b) & (set(te.protein_a)|set(te.protein_b)))\nprint(len((set(tr.protein_a)|set(tr.protein_b))&(set(te.protein_a)|set(te.protein_b))))\nm=LogisticRegression().fit(tr[['coexpression_z']],tr.label)\ns=m.predict_proba(te[['coexpression_z']])[:,1]\nprint('auc',roc_auc_score(te.label,s),m.coef_,m.intercept_)\nprint('pred file auc',roc_auc_score(te.label,pr.score),np.corrcoef(s,pr.score)[0,1])\nprint('train auc',roc_auc_score(tr.label,tr.coexpression_z))\nprint(te.coexpression_z.describe(),tr.coexpression_z.describe())\n# per-protein structure\nfor d,n in((tr,'tr'),(te,'te')):\n    print(n,'dups',d.duplicated(['protein_a','protein_b']).sum())\n    p=pd.concat([d.rename(columns={'protein_a':'p','protein_b':'q'}),d.rename(columns={'protein_b':'p','protein_a':'q'})])\n    g=p.groupby('p').agg(n=('label','size'),rate=('label','mean'),z=('coexpression_z','mean'))\n    print(g.describe()); print(g[['rate','z']].corr())\n# per-protein-ish: within-protein auc\n    aucs=[]\n    for k,x in p.groupby('p'):\n        if x.label.nunique()>1: aucs.append(roc_auc_score(x.label,x.coexpression_z))\n    print('mean within-protein auc',np.mean(aucs),len(aucs))\n# bootstrap by protein on test\nrng=np.random.default_rng(0)\nprots=sorted(set(te.protein_a)|set(te.protein_b));b=[]\nfor _ in range(2000):\n    c=rng.choice(prots,len(prots));cnt=pd.Series(c).value_counts()\n    w=te.protein_a.map(cnt).fillna(0)*te.protein_b.map(cnt).fillna(0)\n    if w.sum()==0 or te.label[w>0].nunique()<2: continue\n    b.append(roc_auc_score(te.label,s,sample_weight=w))\nprint(np.percentile(b,[2.5,50,97.5]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-reo4d98i/analysis; python check.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-reo4d98i/analysis; python -c \"\nimport pandas as pd,numpy as np\nfrom scipy.stats import spearmanr\nte=pd.read_csv('pairs_test.csv');pr=pd.read_csv('predictions_test.csv')\nprint((te.protein_a==pr.protein_a).all(),(te.protein_b==pr.protein_b).all(),spearmanr(te.coexpression_z,pr.score))\nl=np.log(pr.score/(1-pr.score));print(np.polyfit(te.coexpression_z,l,1),np.std(l-np.polyval(np.polyfit(te.coexpression_z,l,1),te.coexpression_z)))\n\""
+      }
+    }
+  ]
+}

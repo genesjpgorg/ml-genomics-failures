@@ -1,0 +1,65 @@
+{
+  "task": "T07",
+  "arm": "1",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 28.8,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim isn't supported. The r = 0.80 is real, but it measures the wrong thing for the stated use.\n\n**What I checked**\n- **Gene-level result reproduces.** Pearson r is 0.798 across 2,000 genes. It is consistent across chr8 (0.79), chr9 (0.79) and chr10 (0.81).\n- **Variant-level result is near chance.** On the 300 variants, predicted effect against eQTL beta gives Pearson r = 0.12 (p = 0.04, r\u00b2 \u2248 1.4%). Spearman is 0.10 (p = 0.08).\n- **Direction is a coin flip.** Sign agreement is 53% overall. It is 51% for the 154 variants with |beta| > 0.25, so even strong eQTLs are no better.\n\n**Issues**\n1. **Wrong axis of generalization (F05).** The claim is about the effect of a patient's personal variants, which varies across individuals within a gene. The r = 0.80 comes from variation across genes on the reference genome. It mostly reflects which genes are highly or lowly expressed, and it says nothing about variant effects. The authors' own variant table (r = 0.12, sign 53%) shows the model doesn't carry over. This is the pattern in Huang et al. 2023 and Sasse et al. 2023.\n2. **No baselines (B).** There is no comparison for the gene-level number against simple predictors. Candidates are a promoter k-mer or GC model, a one-hot CNN, or a gene-family or neighbour-mean model. Across-gene r values like this are often reached by simple models. There is also no baseline for the variant-level number.\n3. **Split leakage is not ruled out (L).** The chromosome holdout doesn't remove paralogs or repeat families, which span chromosomes (F12). The README doesn't say whether the 300 variants or their genes were in training. The variant genes are G1319 and similar, so they probably sit in the 2,000-gene evaluation set. The variant evaluation is also small: 300 variants, with some genes appearing more than once.\n4. **The README doesn't report the variant result.** It mentions the comparison but not the r = 0.12 or the 53% sign agreement. Those numbers contradict the conclusion.\n5. **Weak evidence for rare-disease use.** The eQTLs come from common variants, and rare or patient-specific variants are harder. Even on common variants the model is not predictive, and there's no per-gene across-individual evaluation. A fair test would use paired genomes and transcriptomes (Geuvadis or GTEx), score each gene across individuals, and include the sign of the effect.\n\n**Suggested rewrite:** \"ExprNet predicts across-gene expression from reference sequence (r = 0.80 on held-out chromosomes). It shows little ability to predict eQTL effects (r = 0.12, sign agreement 53%) and shouldn't be used for personal variant interpretation.\"\n\nI wrote `a.py` and `b.py` in the analysis directory to run these checks.\n\nVERDICT: NOT SUPPORTED\n1. The test varies genes, but the claim is about variants within individuals (F05).\n2. Variant-level performance is near chance (r = 0.12, sign agreement 53%) and goes unreported in the README.\n3. No simple baselines (F06, F08).\n4. Homolog or split leakage is not excluded (F12).",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.056694,
+  "duration_s": 27.8,
+  "turns": 7,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_w089iu8/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_w089iu8/analysis; head -4 *.csv; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom scipy.stats import pearsonr,spearmanr\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(g.describe(include='all'));print(v.describe(include='all'))\nn=g.select_dtypes('number').columns\nprint(g[n].corr())\nprint(v[v.select_dtypes('number').columns].corr())\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_w089iu8/analysis/a.py",
+        "content": "import pandas as pd,numpy as np\nfrom scipy.stats import pearsonr,spearmanr\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(g.head());print(v.head())\nprint(g.describe(include='all'));print(v.describe(include='all'))\nprint(g[g.select_dtypes('number').columns].corr())\nprint(v[v.select_dtypes('number').columns].corr())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_w089iu8/analysis; python a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_w089iu8/analysis/b.py",
+        "content": "import pandas as pd,numpy as np\nfrom scipy.stats import pearsonr,spearmanr\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nfor c,d in g.groupby('test_chromosome'):print(c,len(d),pearsonr(d.predicted_log_tpm,d.observed_log_tpm)[0])\nprint(pearsonr(v.predicted_effect,v.observed_eqtl_beta),spearmanr(v.predicted_effect,v.observed_eqtl_beta))\nprint('sign agree',(np.sign(v.predicted_effect)==np.sign(v.observed_eqtl_beta)).mean())\nbig=v[v.observed_eqtl_beta.abs()>0.25];print(len(big),(np.sign(big.predicted_effect)==np.sign(big.observed_eqtl_beta)).mean())\nprint('r2',pearsonr(v.predicted_effect,v.observed_eqtl_beta)[0]**2)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_w089iu8/analysis; python b.py"
+      }
+    }
+  ]
+}

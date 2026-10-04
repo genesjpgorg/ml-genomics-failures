@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found that the random variant split puts every test gene in training, and that labels are near-uniform within genes. They backed this with a gene-label-rate baseline AUROC of 0.926 vs the model's 0.941, and conservation-alone AUROC of 0.55, both matching the key, and proposed a gene-level split, within-gene AUROC and a gene-mean baseline. Their other points (no unseen-gene test, missing baselines, no null control, single seed, speculative circularity) either restate the key's mechanism or are generic or unverified.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

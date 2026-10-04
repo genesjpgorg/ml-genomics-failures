@@ -1,0 +1,82 @@
+{
+  "task": "T05",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 33.4,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "**Review of the PhageFormer claim**\n\nThe main claim is not supported. The 0.99 accuracy is real as a number, but it doesn't show that the model learned phage gene content.\n\n**What I checked**\n- **Data:** train has 200 contigs and test has 100. Classes are balanced, and every contig is 1500 bp.\n- **GC content alone separates the classes completely.** Bacterial contigs have mean GC 0.55 (SD 0.026) and phage contigs 0.41 (SD 0.027). The class means are about 5 SD apart. A single GC threshold of 0.479, fit on train only, gets **100% test accuracy** (`check.py`). That beats the model's 0.99.\n- **The `kmer_baseline` tool agrees.** GC-only nearest-neighbour and 5-mer nearest-neighbour both reach AUROC 1.0. That is 102% of the model's gain over chance. This matches the composition-shortcut pattern in F01, F02 and F08 (classes S and B).\n- **Train/test leakage is not the problem.** There are no duplicate sequences, and the maximum shared 12-mer fraction between a test contig and any train contig is about 0.5%. The `check_sequence_similarity` tool errored, so I did this check by hand with `check.py`.\n\n**Issues that matter most**\n1. **GC shortcut (S) and missing baseline (B).** The task is solvable with one scalar, so 0.99 says nothing about gene content or learned sequence features. The README reports no GC or k-mer baseline.\n2. **The novel-phage claim is untested (A).** The test set is the same kind of contig as train, with the same GC gap. Nothing in the evidence involves contigs that homology tools miss, and there is no comparison against any such tool. The claim that it works \"where homology-based tools fail\" has no support. Real gut phages often have GC close to their hosts, which is exactly where a GC shortcut would fail.\n3. **The attention-map claim is anecdotal.** The README gives no quantitative test that attention lands on phage genes. The maps could just track GC-rich or GC-poor regions. There are no gene annotations, no controls, and no null.\n4. **Weak evidence overall (variance).**\n   - The test set has only 100 contigs, from one seed.\n   - The sequences look synthetic or idealised, since the classes are cleanly separated by composition. The README doesn't say where they came from, so it doesn't establish that they are real metagenomic contigs.\n   - Because of this, 0.99 versus 1.0 can't be told apart.\n5. **No GC-matched evaluation.** To support the claim, evaluate on GC-matched phage and bacterial contigs. Use a split by genome or host family, and compare against a GC and k-mer baseline and a homology tool (for example geNomad or VirSorter2).\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0695558,
+  "duration_s": 32.2,
+  "turns": 9,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__check_sequence_similarity",
+    "mcp__ml-genomics-failures__kmer_baseline",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_sequence_similarity",
+    "kmer_baseline"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-r_660x9v/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-r_660x9v/analysis; cat results.json; head -c 600 train.csv; python3 -c \"\nimport pandas as pd\nfor f in ['train','test']:\n    d=pd.read_csv(f+'.csv');print(d.shape,d.columns.tolist(),d.iloc[:,1].value_counts().to_dict(), d.sequence.str.len().describe()[['min','max']].tolist())\n\""
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_sequence_similarity",
+      "input": {
+        "train_fasta_path": "/tmp/review-r_660x9v/analysis/train.csv",
+        "test_fasta_path": "/tmp/review-r_660x9v/analysis/test.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__kmer_baseline",
+      "input": {
+        "train_path": "/tmp/review-r_660x9v/analysis/train.csv",
+        "test_path": "/tmp/review-r_660x9v/analysis/test.csv",
+        "model_score": 0.99
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-r_660x9v/analysis; cat > check.py <<'E'\nimport pandas as pd,numpy as np\ntr=pd.read_csv('train.csv');te=pd.read_csv('test.csv')\ngc=lambda s:(s.count('G')+s.count('C'))/len(s)\nfor d in(tr,te):d['gc']=d.sequence.map(gc)\nprint(tr.groupby('label').gc.describe());print(te.groupby('label').gc.describe())\nt=tr.groupby('label').gc.mean();thr=t.mean()\nprint('thr',thr,'test acc GC threshold',((te.gc>thr)==(te.label==t.idxmax())).mean())\nk=12\ndef ks(s):return {s[i:i+k] for i in range(len(s)-k+1)}\nT=[ks(s) for s in tr.sequence]\nmx=[max(len(ks(s)&x)/1489 for x in T) for s in te.sequence]\nprint('max shared 12mer frac',np.percentile(mx,[0,50,90,100]))\nprint('dup seqs',te.sequence.isin(tr.sequence).sum())\nE\npython3 check.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-r_660x9v/analysis/check.py",
+        "content": "import pandas as pd, numpy as np\ntr = pd.read_csv('train.csv'); te = pd.read_csv('test.csv')\ngc = lambda s: (s.count('G') + s.count('C')) / len(s)\nfor d in (tr, te):\n    d['gc'] = d.sequence.map(gc)\nprint(tr.groupby('label').gc.describe())\nprint(te.groupby('label').gc.describe())\nt = tr.groupby('label').gc.mean(); thr = t.mean()\nprint('thr', thr, 'test acc GC threshold', ((te.gc > thr) == (te.label == t.idxmax())).mean())\nk = 12\ndef ks(s): return {s[i:i+k] for i in range(len(s) - k + 1)}\nT = [ks(s) for s in tr.sequence]\nmx = [max(len(ks(s) & x) / 1489 for x in T) for s in te.sequence]\nprint('max shared 12mer frac', np.percentile(mx, [0, 50, 90, 100]))\nprint('dup seqs', te.sequence.isin(tr.sequence).sum())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-r_660x9v/analysis; python3 check.py"
+      }
+    }
+  ]
+}

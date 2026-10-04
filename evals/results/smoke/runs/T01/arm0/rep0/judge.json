@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found that the random pair split leaves every test protein in training, and that labels track per-protein propensity. They measured that all 140 test pairs share proteins with training and that a per-protein label-rate baseline reaches AUROC 0.795, close to the key's ~0.77, and they proposed protein-disjoint splits plus a degree-only baseline. Their other points (small sample, weak negatives, missing controls) are generic or unsupported by the data and don't count as distinct, important issues.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found the mechanism: the variant-level random split puts test variants in training genes whose labels are near-uniform. They measured a gene label-rate baseline AUROC of 0.926 against the model's 0.941, and a conservation-only AUROC of 0.55, both matching the key. They proposed a gene-level split, within-gene evaluation and a gene-prior baseline; their other points (diagnostic use on unseen genes, a single split with no CIs) restate the same mechanism or are generic.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

@@ -1,0 +1,134 @@
+{
+  "task": "T02",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 93.8,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "---\n\n## Review Summary\n\nI've completed a comprehensive audit of the SpliceScore analysis using the ML-Genomics-Failures framework. The analysis reveals **critical flaws** that invalidate the main claim.\n\n### Key Findings:\n\n**1. Complete Gene-Level Leakage (100%)**\n- All 73 test genes appear in the training set\n- 82% of test genes have pure labels (100% positive or 100% negative)\n- Test variants are not independent from training\n\n**2. Gene Identity Dominates the Score**\n- Gene alone achieves **0.9353 AUROC** (99.4% of model's 0.94)\n- Per-gene label rates achieve **0.9259 AUROC** (98.4%)\n- These baselines show the model learns \"which gene\" not \"which variant features\"\n\n**3. Entity Memorization Reaches 106% of Model's Gain**\nThe MCP check_split_overlap tool confirms: memorizing per-gene label rates explains the entire model advantage over chance. The model adds zero signal beyond this.\n\n**4. No Unseen Genes = No Generalization Test**\n- 0% of test genes are novel (all 73 appear in training)\n- True diagnostic utility would require predicting on unknown genes\n- Under an unseen-gene split, performance would likely collapse\n\n**5. Matches Published Pitfalls Exactly**\n- **F04 (Per-gene label imbalance):** \"Models exploit gene-specific biases instead of learning mechanisms\"\n- **F03 (Entity leakage):** \"Same elements on both sides of split; models memorize element properties\"\n\n### What the Model Actually Does:\nThe model learned a classifier for \"which genes are splice-disrupting\" rather than \"what variant features matter.\" On any new gene not in training, it would have no information.\n\n### Audit Checklist Score: 3/8 questions pass\n- \u274c Unit of independence: variant-level split (should be gene-level)\n- \u274c Shortcut inventory: gene = 99.4% of score\n- \u274c Claim vs test axis: claims variant-level, tests within-gene\n- \u2713 Circularity: labels from independent minigene assay\n\nVERDICT: **NOT SUPPORTED**\n\n---\n\n**Critical issues:**\n1. **Gene-level leakage** \u2014 all test genes in training, violating independence\n2. **Gene confounder dominates** \u2014 gene identity alone reaches 99.4% of AUROC\n3. **Entity memorization** \u2014 per-gene label rate = 98.4% of score\n4. **No unseen-gene evaluation** \u2014 true generalization untested\n5. **Wrong axis** \u2014 tests within genes, claims variant-level learning\n\nThe reported 0.94 AUROC is inflated by learning per-gene label patterns, not variant-level features. This violates audit questions 1, 2, and 3 and matches published cases F03 and F04.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.1718703,
+  "duration_s": 92.5,
+  "turns": 15,
+  "tool_calls": [
+    "Read",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Read",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Write",
+    "Bash",
+    "Write"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "search",
+    "search",
+    "search",
+    "fetch",
+    "fetch",
+    "check_split_overlap"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-lnr1fje2/analysis/README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-lnr1fje2/analysis/variants.csv"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-lnr1fje2/analysis/audit.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.ensemble import RandomForestClassifier\nfrom sklearn.linear_model import LogisticRegression\n\n# Load data\ndf = pd.read_csv('variants.csv')\n\nprint(\"=== DATA OVERVIEW ===\")\nprint(f\"Total variants: {len(df)}\")\nprint(f\"Unique genes: {df['gene'].nunique()}\")\nprint(f\"Train/test split: {(df['split']=='train').sum()} train, {(df['split']=='test').sum()} test\")\nprint(f\"Label distribution (overall): {df['label'].value_counts().to_dict()}\")\nprint(f\"Label distribution (train): {df[df['split']=='train']['label'].value_counts().to_dict()}\")\nprint(f\"Label distribution (test): {df[df['split']=='test']['label'].value_counts().to_dict()}\")\n\nprint(\"\\n=== CRITICAL ISSUE 1: GENE-LEVEL LEAKAGE (Pitfall L) ===\")\n# Check if same genes appear in both train and test\ntrain_genes = set(df[df['split']=='train']['gene'].unique())\ntest_genes = set(df[df['split']=='test']['gene'].unique())\noverlapping_genes = train_genes & test_genes\nprint(f\"Genes in both train AND test: {len(overlapping_genes)}\")\nprint(f\"Percentage of test genes that appear in training: {100*len(overlapping_genes)/len(test_genes):.1f}%\")\n\n# Count variants per gene\nprint(\"\\nVariants per gene (sample):\")\ngene_counts = df.groupby(['gene', 'split']).size().unstack(fill_value=0)\nprint(gene_counts.head(10))\nprint(f\"\\nTotal genes with variants in both splits: {(gene_counts['test'] > 0).sum() & (gene_counts['train'] > 0).sum()}\")\ngenes_in_both = gene_counts[(gene_counts['train'] > 0) & (gene_counts['test'] > 0)]\nprint(f\"Genes with variants in both splits: {len(genes_in_both)}\")\nprint(f\"Example: {genes_in_both.head()}\")\n\nprint(\"\\n=== CRITICAL ISSUE 2: SHORTCUT/CONFOUNDER (Pitfall S) ===\")\n# Test if conservation alone can predict label\ntrain_df = df[df['split']=='train'].copy()\ntest_df = df[df['split']=='test'].copy()\n\nprint(\"\\nConservation feature analysis:\")\nprint(f\"Conservation correlation with label (train): {train_df[['conservation', 'label']].corr().iloc[0,1]:.3f}\")\n\n# Fit simple model on conservation alone\nX_train_cons = train_df[['conservation']].values\ny_train = train_df['label'].values\nX_test_cons = test_df[['conservation']].values\ny_test = test_df['label'].values\n\nlr_cons = LogisticRegression()\nlr_cons.fit(X_train_cons, y_train)\ncons_score = roc_auc_score(y_test, lr_cons.predict_proba(X_test_cons)[:, 1])\nprint(f\"AUROC on test using conservation alone: {cons_score:.4f}\")\n\n# Compare to model score\ny_model = test_df['model_score'].values\nmodel_auroc = roc_auc_score(y_test, y_model)\nprint(f\"Model's reported AUROC: {model_auroc:.4f}\")\nprint(f\"Conservation baseline reaches {100*cons_score/model_auroc:.1f}% of model's score\")\n\nprint(\"\\n=== CRITICAL ISSUE 3: GENE-LEVEL CONFOUNDER (Pitfall S) ===\")\n# Check if gene identity alone predicts label\ngene_label_rate = df[df['split']=='train'].groupby('gene')['label'].agg(['mean', 'count'])\ngene_label_rate = gene_label_rate.sort_values('mean', ascending=False)\n\nprint(f\"Gene label rates (train):\")\nprint(gene_label_rate.head(10))\nprint(f\"\\nGenes with near-pure labels (>80% of one class):\")\npure_genes = gene_label_rate[(gene_label_rate['mean'] > 0.8) | (gene_label_rate['mean'] < 0.2)]\nprint(f\"Count: {len(pure_genes)} out of {len(gene_label_rate)}\")\nprint(pure_genes)\n\n# Can gene identity alone predict label?\ntrain_with_genes = train_df.copy()\ntest_with_genes = test_df.copy()\n\n# Use one-hot encoding for genes\ntrain_genes_encoded = pd.get_dummies(train_with_genes['gene'], prefix='gene', drop_first=True)\ntest_genes_encoded = pd.get_dummies(test_with_genes['gene'], prefix='gene', drop_first=True)\n\n# Align test to train columns\ntest_genes_encoded = test_genes_encoded.reindex(columns=train_genes_encoded.columns, fill_value=0)\n\nlr_genes = LogisticRegression(max_iter=1000)\nlr_genes.fit(train_genes_encoded, y_train)\ngene_score = roc_auc_score(y_test, lr_genes.predict_proba(test_genes_encoded)[:, 1])\nprint(f\"\\nAUROC on test using gene identity alone: {gene_score:.4f}\")\nprint(f\"Gene baseline reaches {100*gene_score/model_auroc:.1f}% of model's score\")\n\nprint(\"\\n=== CRITICAL ISSUE 4: AXIS OF GENERALIZATION (Pitfall A) ===\")\n# Check if model generalizes across genes or within genes\ntest_genes_per_model = test_df.groupby('gene').size()\nprint(f\"Test genes: {len(test_genes_per_model)}\")\nprint(f\"Test variants per gene: mean={test_genes_per_model.mean():.1f}, min={test_genes_per_model.min()}, max={test_genes_per_model.max()}\")\n\n# Test performance by gene\ntest_df_eval = test_df.copy()\ntest_df_eval['correct'] = (test_df_eval['model_score'] > 0.5).astype(int) == test_df_eval['label']\nby_gene = test_df_eval.groupby('gene').agg({\n    'correct': ['sum', 'count', 'mean'],\n    'label': 'mean'\n}).round(3)\nby_gene.columns = ['correct_count', 'total', 'accuracy', 'label_rate']\nby_gene = by_gene.sort_values('accuracy', ascending=False)\n\nprint(\"\\nPerformance by gene (sample):\")\nprint(by_gene.head(15))\nprint(f\"\\nGenes where test accuracy is <50%: {(by_gene['accuracy'] < 0.5).sum()}\")\nprint(f\"Genes where test accuracy is >90%: {(by_gene['accuracy'] > 0.9).sum()}\")\n\nprint(\"\\n=== CRITICAL ISSUE 5: MEMORIZATION CHECK ===\")\n# Are test genes in train?\ntest_genes_list = test_df['gene'].unique()\ntrain_genes_list = train_df['gene'].unique()\nunseen_genes = [g for g in test_genes_list if g not in train_genes_list]\nprint(f\"Test genes completely unseen in training: {len(unseen_genes)}\")\nprint(f\"Percentage: {100*len(unseen_genes)/len(test_genes_list):.1f}%\")\n\n# For genes in both train and test, compute per-gene memorization baseline\nprint(\"\\n=== PER-GENE LABEL RATE AS BASELINE (Entity memorization) ===\")\nshared_genes = [g for g in test_genes_list if g in train_genes_list]\nprint(f\"Genes in both train and test: {len(shared_genes)}\")\n\nif len(shared_genes) > 0:\n    test_shared = test_df[test_df['gene'].isin(shared_genes)].copy()\n    pred_by_gene_rate = test_shared['gene'].map(\n        train_df.groupby('gene')['label'].mean()\n    )\n    memorization_auroc = roc_auc_score(\n        test_shared['label'].values,\n        pred_by_gene_rate.values\n    )\n    shared_model_auroc = roc_auc_score(\n        test_shared['label'].values,\n        test_shared['model_score'].values\n    )\n    print(f\"AUROC using per-gene label rate (memorization): {memorization_auroc:.4f}\")\n    print(f\"Model AUROC on same genes: {shared_model_auroc:.4f}\")\n    print(f\"Memorization reaches {100*memorization_auroc/shared_model_auroc:.1f}% of model's score\")\n\nprint(\"\\n=== SUMMARY TABLE ===\")\nsummary = pd.DataFrame({\n    'Method': ['Model (reported)', 'Conservation alone', 'Gene identity', 'Per-gene label rate'],\n    'AUROC': [f\"{model_auroc:.4f}\", f\"{cons_score:.4f}\", f\"{gene_score:.4f}\", f\"{memorization_auroc:.4f}\" if len(shared_genes) > 0 else \"N/A\"],\n    '% of model': [f\"100%\", f\"{100*cons_score/model_auroc:.1f}%\", f\"{100*gene_score/model_auroc:.1f}%\", f\"{100*memorization_auroc/shared_model_auroc:.1f}%\" if len(shared_genes) > 0 else \"N/A\"]\n})\nprint(summary)\n\nprint(\"\\n=== KEY FINDINGS ===\")\nprint(f\"1. Gene-level leakage: Test examples share genes with training ({len(overlapping_genes)}/{len(test_genes)} genes overlap)\")\nprint(f\"2. Strong gene-level confounder: Gene alone achieves {gene_score:.3f} AUROC (~{100*gene_score/model_auroc:.0f}% of model score)\")\nprint(f\"3. Conservation (one feature) achieves {cons_score:.3f} AUROC (~{100*cons_score/model_auroc:.0f}% of model score)\")\nif len(shared_genes) > 0:\n    print(f\"4. Per-gene memorization reaches {100*memorization_auroc/shared_model_auroc:.0f}% of model score\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "gene entity leakage splice variant"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "per-gene label memorization"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "train test gene overlap leakage"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F03"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "test_path": "/tmp/review-lnr1fje2/analysis/variants.csv",
+        "train_path": "/tmp/review-lnr1fje2/analysis/variants.csv",
+        "columns": [
+          "gene"
+        ],
+        "label": "label",
+        "model_score": 0.9412
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-lnr1fje2/analysis/unseen_genes_test.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, accuracy_score\nfrom sklearn.ensemble import RandomForestClassifier\n\n# Load data\ndf = pd.read_csv('variants.csv')\n\nprint(\"=== GENERALIZATION TEST: UNSEEN GENES ===\\n\")\n\n# Get train/test splits from the data\ntrain_df = df[df['split'] == 'train'].copy()\ntest_df = df[df['split'] == 'test'].copy()\n\n# Find genes that appear in training\ntrain_genes = set(train_df['gene'].unique())\ntest_genes = set(test_df['gene'].unique())\n\n# Genes that appear in test but NOT in training\nunseen_test_genes = test_genes - train_genes\n# Genes that appear in both\nseen_test_genes = test_genes & train_genes\n\nprint(f\"Genes in training: {len(train_genes)}\")\nprint(f\"Genes in test: {len(test_genes)}\")\nprint(f\"  - Genes in test that are NOT in training: {len(unseen_test_genes)}\")\nprint(f\"  - Genes in test that ARE in training: {len(seen_test_genes)}\")\n\n# Split test set\ntest_unseen = test_df[test_df['gene'].isin(unseen_test_genes)]\ntest_seen = test_df[test_df['gene'].isin(seen_test_genes)]\n\nprint(f\"\\nTest variants on unseen genes: {len(test_unseen)}\")\nprint(f\"Test variants on seen genes: {len(test_seen)}\")\n\n# Model performance on each\nmodel_auroc_all = roc_auc_score(test_df['label'], test_df['model_score'])\nif len(test_unseen) > 0:\n    model_auroc_unseen = roc_auc_score(test_unseen['label'], test_unseen['model_score'])\n    print(f\"\\nModel AUROC on unseen genes: {model_auroc_unseen:.4f}\")\nelse:\n    print(f\"\\nNo unseen genes to test (all test genes appear in training)\")\n\nif len(test_seen) > 0:\n    model_auroc_seen = roc_auc_score(test_seen['label'], test_seen['model_score'])\n    print(f\"Model AUROC on seen genes: {model_auroc_seen:.4f}\")\n    print(f\"Model AUROC on all genes: {model_auroc_all:.4f}\")\n\nprint(\"\\n=== ADDITIONAL FINDING ===\")\nprint(f\"The 0.94 AUROC is achieved only because test examples are NOT independent from training.\")\nprint(f\"The model can learn which genes have which labels instead of learning variant-level features.\")\n\n# Per-gene accuracy\nby_gene_test_seen = test_seen.groupby('gene').agg({\n    'label': lambda x: x.mean(),  # true label rate\n    'model_score': lambda x: roc_auc_score(x.index.map(test_seen['label'].to_dict()), x) if len(x.unique()) > 1 else 0.5\n})\nby_gene_test_seen.columns = ['true_label_rate', 'auroc_by_gene']\n\nprint(f\"\\nGenes with 100% positive or 100% negative labels in test: {((by_gene_test_seen['true_label_rate'] == 0) | (by_gene_test_seen['true_label_rate'] == 1)).sum()}\")\nprint(f\"This makes them trivial to predict once the model memorizes the gene label.\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python unseen_genes_test.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-lnr1fje2/analysis/AUDIT_SUMMARY.md",
+        "content": "# SpliceScore Audit Summary\n\n## The Claim\n\"SpliceScore learns variant-level determinants of splice disruption and should be used to prioritize variants of uncertain significance in diagnostic pipelines.\"\n\n## The Reported Evidence\n- Model: Gradient-boosted classifier with 140 variant-level features\n- Reported performance: **AUROC 0.94** on held-out test variants\n- Split: Random 80/20 train/test split\n\n## Critical Findings\n\n### 1. GENE-LEVEL LEAKAGE (Pitfall L/F03/F04)\n**Issue:** The test set is NOT independent from training.\n\n- **All 73 test genes appear in the training set (100% overlap)**\n- 60 out of 73 test genes (82%) have completely pure labels: 100% positive OR 100% negative\n- Test variants are not independent examples; they're additional variants from the same genes used in training\n\n**Impact:** The model can learn which genes are splice-disrupting rather than what makes individual variants splice-disrupting.\n\n**Evidence:**\n```\nGenes with 100% pure labels in training: 73 out of 80 (91%)\nTest genes with pure labels: 60 out of 73 (82%)\n```\n\nThis violates the independence requirement (question 1 of the audit checklist: \"Split at the unit of independence or above\").\n\n### 2. GENE-LEVEL CONFOUNDER (Pitfall S/F04)\n**Issue:** The model's score is dominated by learning per-gene label rates, not variant-level features.\n\n**Evidence from baseline tests:**\n\n| Method | AUROC | % of Model Score |\n|--------|-------|------------------|\n| **Model (reported)** | **0.9412** | **100%** |\n| Gene identity alone | 0.9353 | **99.4%** |\n| Per-gene label rate (memorization) | 0.9259 | **98.4%** |\n| Conservation feature alone | 0.5467 | 58.1% |\n\n**The smoking gun:** Gene identity achieves 99.4% of the model's performance using ONLY which gene a variant belongs to, with zero information about the variant's properties.\n\n**Implication:** The model is learning:\n- ~99% of its score from which gene the variant is in\n- ~1% from the actual variant-level features (if any)\n\n### 3. ENTITY MEMORIZATION BASELINE (Pitfall L)\nThe MCP check tool confirms:\n\n```\nEntity memorization baseline (per-gene label rate):\n  - AUROC: 0.9696\n  - Model gain over chance (50%): (0.9696 - 0.5) = 0.4696\n  - Entity memorization gain over chance: same\n  - Model gain attributable to entities: 106% of total gain\n```\n\n**Interpretation:** 100% of the model's advantage over chance comes from entity-level (gene-level) memorization. The model adds **nothing** on top of knowing which genes are splice-disrupting.\n\n### 4. SPLIT NOT AT INDEPENDENT UNIT\n**Issue:** Variants within the same gene are NOT independent observations.\n\n- Unit of independence should be: **gene** (or higher)\n- Split was at: **variant** (too fine-grained)\n- Result: Test genes leak into training\n\n**Per the audit checklist (F03, F04, F12):** \"Random splits of pairs, edges, windows or photos almost always leak.\"\n\n### 5. NO TRULY NOVEL TEST CASES\n**Issue:** There are zero unseen genes in the test set.\n\n- All 73 test genes appear in training\n- All 215 test variants are from genes where the model can memorize label patterns\n- True generalization (what matters for diagnostics) would require evaluating on **unseen genes**\n\n## Matching Cases from ML-Genomics-Failures\n\n### **F04: Supervised GRN inference learns per-gene label imbalance** (PERFECT MATCH)\n- \"Models can exploit gene-specific biases such as each gene's class imbalance instead of learning regulatory mechanisms\"\n- \"On interactions involving genes absent from training, the advantage shrinks\"\n- **Fix:** \"Evaluate on unseen genes, which is also the realistic use case\"\n\n### **F03: Enhancer\u2013promoter interaction prediction inflated by shared elements**\n- \"Pairs were split at random, so the same enhancers and promoters appeared in both training and test\"\n- \"Models could memorize element-level properties instead of learning interactions\"\n- \"Performance fell sharply under splits that keep elements apart\"\n\n## Audit Checklist Violations\n\n| Question | Status | Finding |\n|----------|--------|---------|\n| 1. Unit of independence | \u274c FAILED | Split at variant level, not gene level. All test genes appear in training. |\n| 2. Shortcut inventory | \u274c FAILED | Gene identity alone = 99.4% of model score. Per-gene label rate = 98.4%. |\n| 3. Claim vs test axis | \u274c FAILED | Claim: \"variant-level determinants\". Test: within same genes only (gene-level variation). |\n| 4. Baselines | \u26a0\ufe0f WEAK | No per-gene baseline reported. Baselines not compared in paper. |\n| 5. True null | \u274c NOT DONE | No ablation showing model drops to chance when gene information is removed. |\n| 6. What each control keeps | \u274c NOT DONE | No ablations reported. |\n| 7. Circularity | \u2713 PASS | Minigene assay labels are external (good). |\n| 8. Variance | \u274c FAILED | No per-gene statistics reported. High-variance claims based on ~3 variants per test gene. |\n\n## What Would Support the Claim\n\nFor the claim to be valid, the analysis would need:\n\n1. **Split at gene level:** Keep genes separate between train and test\n2. **Evaluate on unseen genes:** Test on genes completely absent from training\n3. **Show variant-level learning:** Demonstrate model learns features beyond gene identity\n4. **Per-gene baselines:** Show model beats per-gene label rate by significant margin\n5. **Ablations:** Verify model still works when gene identity is hidden\n\n## Conclusion\n\nThe reported 0.94 AUROC **does not support the claim** that \"SpliceScore learns variant-level determinants of splice disruption.\"\n\n**What actually happened:**\n- The model learned which genes have which labels (gene-level classification)\n- The test set was not independent (gene-level leakage)\n- Variant-level features contribute minimally to the score\n- Performance would likely collapse on unseen genes\n\nThis is a classic example of pitfalls **F03/F04 (leakage + confounder)** from the ML-Genomics-Failures catalog.\n\n---\n\n**References:**\n- F03: Cao & Fullwood (2019). Nat Genet 51:1196\u20131198. \"Inflated performance measures in enhancer\u2013promoter interaction-prediction methods\"\n- F04: Cui et al. (2025). ICML. \"InfoSEM: A deep generative model with informative priors for gene regulatory network inference\"\n"
+      }
+    }
+  ]
+}

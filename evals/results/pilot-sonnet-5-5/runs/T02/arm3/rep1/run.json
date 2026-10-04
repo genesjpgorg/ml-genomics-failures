@@ -1,0 +1,98 @@
+{
+  "task": "T02",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 29.3,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "I checked the claim against `variants.csv` and it isn't supported. The 0.94 AUROC comes almost entirely from gene identity, not from variant-level features.\n\n**Evidence**\n- **Gene leakage:** The split is a random split of variants, and every test variant has a gene that also appears in training (73 of 73 test genes). The unit of independence is the gene, not the variant. This matches F04 (per-gene label imbalance, leaky split) and F03.\n- **Gene-mean baseline:** A baseline with no features, which predicts each test variant from its gene's training label rate, gets AUROC 0.926. The model gets 0.941, so the baseline accounts for 97% of the model's gain over chance (the `check_split_overlap` tool reports this figure).\n- **Label structure:** Gene label rates are extreme. 35 of 80 genes have only one class, and the median gene rate is 0.13. A gene prior is therefore very predictive on its own.\n- **Within-gene performance:** Within a gene, the model's mean AUROC is only 0.60, over the 13 test genes that contain both classes. That is a small sample and a noisy estimate, but it is far from 0.94.\n- **Conservation feature:** `conservation` alone gives AUROC 0.55 on the test set and 0.56 on a random subset of 16 held-out genes. It carries little signal and doesn't explain the model's score.\n- **Axis of generalization (A):** The claim is that the model prioritizes variants of uncertain significance in diagnostic pipelines. Those variants often sit in genes with no training labels, but the test set never checks that case.\n\n**Other gaps**\n- **Missing baselines:** There are no linear, nearest-neighbour or other simple baselines.\n- **No null control:** There is no label-permutation or other control that should fall to chance.\n- **Single seed:** Only one seed and one split are reported.\n- **Possible circularity:** The labels come from a minigene assay compendium, and the README doesn't say whether any of the 140 features share an origin with it. Check this.\n- **Data not shareable:** The full feature matrix isn't shared, so I couldn't retrain the model or run a gene-held-out evaluation of it. I only had the saved test scores.\n\n**Fix:** Re-split by gene, or by chromosome, so no gene appears on both sides. Report the gene-mean baseline next to the model, and report within-gene AUROC and per-gene counts. Then re-evaluate the claim.\n\nI wrote the checks to `audit.py` in this directory. It also writes `/tmp/train.csv` and `/tmp/test.csv`.\n\nVERDICT: NOT SUPPORTED\n1. The random split leaks genes: 100% of test variants have a gene seen in training.\n2. A gene-label-rate baseline with no features gets AUROC 0.926, which is 97% of the model's gain.\n3. Within-gene AUROC is about 0.60, and `conservation` alone gets about 0.55, so there is little evidence of variant-level learning.\n4. The test never covers unseen genes, the case the diagnostic claim depends on. There are also no simple baselines and no null control.",
+  "is_error": false,
+  "cost_usd": 0.0760536,
+  "duration_s": 27.8,
+  "turns": 10,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__check_split_overlap"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_split_overlap",
+    "fetch",
+    "check_split_overlap"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qei9_wmx/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qei9_wmx/analysis; head -5 variants.csv; python -c \"\nimport pandas as pd;d=pd.read_csv('variants.csv');print(d.describe(include='all').T);print(d.groupby('split').label.agg(['mean','size']))\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qei9_wmx/analysis; python -c \"\nimport pandas as pd;from sklearn.metrics import roc_auc_score as A\nd=pd.read_csv('variants.csv');t=d[d.split=='test']\nprint(A(t.label,t.model_score),A(t.label,t.conservation))\nprint(t.gene.isin(d[d.split=='train'].gene).mean(), t.gene.nunique())\ng=d.groupby('gene').label.agg(['mean','size']);print(g['mean'].describe());print((g['mean'].isin([0,1])).sum())\n# gene-mean baseline\ntr=d[d.split=='train'];m=tr.groupby('gene').label.mean();print(A(t.label,t.gene.map(m).fillna(.46)))\n# leave-gene-out-ish: model score within gene\nimport numpy as np\nprint(np.mean([A(x.label,x.model_score) for _,x in t.groupby('gene') if x.label.nunique()==2]))\n\""
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "train_path": "/tmp/review-qei9_wmx/analysis/variants.csv",
+        "columns": [
+          "gene"
+        ],
+        "label": "label",
+        "model_score": 0.94
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-qei9_wmx/analysis/audit.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd = pd.read_csv('variants.csv')\ntr = d[d.split == 'train']; t = d[d.split == 'test']\ntr.to_csv('/tmp/train.csv', index=False); t.to_csv('/tmp/test.csv', index=False)\nprint('model AUROC', A(t.label, t.model_score), 'conservation AUROC', A(t.label, t.conservation))\nprint('test genes in train', t.gene.isin(tr.gene).mean(), 'n test genes', t.gene.nunique())\ng = d.groupby('gene').label.agg(['mean', 'size'])\nprint(g['mean'].describe()); print('pure genes', g['mean'].isin([0, 1]).sum(), 'of', len(g))\nm = tr.groupby('gene').label.mean()\nprint('gene-mean baseline AUROC', A(t.label, t.gene.map(m).fillna(tr.label.mean())))\nw = [A(x.label, x.model_score) for _, x in t.groupby('gene') if x.label.nunique() == 2]\nprint('within-gene mean AUROC', np.mean(w), len(w))\nw = [A(x.label, x.conservation) for _, x in t.groupby('gene') if x.label.nunique() == 2]\nprint('within-gene conservation AUROC', np.mean(w))\n# gene-grouped CV of conservation vs label; and gene-held-out gene-mean\ngenes = d.gene.unique(); rng = np.random.default_rng(0); rng.shuffle(genes)\nho = set(genes[:16]); a = d[~d.gene.isin(ho)]; b = d[d.gene.isin(ho)]\nprint('held-out-gene conservation AUROC', A(b.label, b.conservation))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qei9_wmx/analysis; python audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "train_path": "/tmp/train.csv",
+        "test_path": "/tmp/test.csv",
+        "columns": [
+          "gene"
+        ],
+        "label": "label",
+        "model_score": 0.94
+      }
+    }
+  ]
+}

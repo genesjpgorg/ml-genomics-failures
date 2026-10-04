@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that the random split leaked proteins: 100% of test pairs share a protein with training. It showed that a per-protein label-rate baseline with no features gets AUROC 0.825, so the 0.82 comes from memorization. It then evaluated on protein-disjoint splits (about 0.64) and declined to report 0.82 as the generalization estimate.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found both flaws: the batch confound (batch alone gives AUROC 0.771) and the protein overlap (every test pair shares proteins with training, and a per-protein label-rate baseline scores 0.83). It concluded the 0.78 doesn't show any learned biology. Its suggested remedy combines holding out whole proteins with batch stratification, which roughly matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

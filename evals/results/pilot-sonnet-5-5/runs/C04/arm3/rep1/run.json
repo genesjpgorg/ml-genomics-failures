@@ -1,0 +1,71 @@
+{
+  "task": "C04",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 23.9,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim holds up as written. The evidence supports \"across genes, on held-out chromosomes\", which is the only thing it asserts.\n\n**What I checked**\n- **Headline number:** I recomputed it from `gene_level_eval.csv`. Pearson r = 0.792, matching the reported 0.79. Spearman is 0.774.\n- **Data integrity:** There are 2,000 unique genes, no missing values, and no duplicates. All of them are on chr8, chr9 and chr10, which are the held-out chromosomes.\n- **Stability:** Per-chromosome r is 0.78 (chr10), 0.82 (chr8) and 0.78 (chr9). The result doesn't depend on one chromosome or on outliers. Restricting to expressed genes (observed log TPM above 0) gives r = 0.78.\n- **Scope (checklist question 3, case F05):** F05 is the pitfall where across-gene accuracy is read as accuracy across individuals or variant effects. The README explicitly disclaims that and says the evaluation doesn't test it. The claim's axis (between genes) matches the test axis.\n- **Split (question 1):** Splitting by chromosome is a reasonable split by gene. I couldn't run `check_split_overlap` or `check_sequence_similarity`, because the directory has only the evaluation table. It has no training gene list, no sequences, and no covariates for `check_shortcuts` or `kmer_baseline`.\n\n**Issues that matter, none of which break the claim**\n1. **No baselines (B).** \"Explains much of the variation\" is not calibrated without comparisons. Cheap predictors such as GC content, CpG density near the TSS, gene biotype, and a k-mer or one-hot CNN may reach a large share of r = 0.79. Add them before this goes into a paper.\n2. **Homology across the split (L, F12).** Chromosome holdout doesn't remove paralogs or other similar sequence on the training chromosomes. This can't be tested here, but it should be run (`check_sequence_similarity` or MMseqs2) or stated as a limitation.\n3. **Calibration offset.** Predictions are on average 0.94 log TPM below the observations (mean residual 0.94, residual SD 1.27). Pearson ignores this, so r = 0.79 hides a systematic bias. Report R\u00b2, RMSE, or the calibration slope too.\n4. **Variance and reporting.** There is one model, one seed, and no confidence interval. The 2,000 genes make the interval narrow, but a bootstrap CI would help. \"Much of the variation\" corresponds to r\u00b2 of about 0.63. The README should state that figure rather than leave readers to infer it.\n5. **Single cell type.** The README correctly says the claim is for lymphoblastoid cells, so don't generalize beyond that.\n\nVERDICT: SUPPORTED\n\nThe claim is limited to between-gene variation on held-out chromosomes, and my recomputation reproduces it. Before submission, add the baselines (issue 1) and a homology check (issue 2), because those are what would show how much of the r = 0.79 comes from the model rather than from simple sequence composition or paralogs.",
+  "is_error": false,
+  "cost_usd": 0.0632808,
+  "duration_s": 22.6,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbs3fucz/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbs3fucz/analysis; head -5 gene_level_eval.csv; wc -l gene_level_eval.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F05"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbs3fucz/analysis; cat > check.py <<'E'\nimport pandas as pd,numpy as np\nfrom scipy import stats\nd=pd.read_csv('gene_level_eval.csv')\nprint(d.describe(),d.test_chromosome.value_counts(),d.gene.duplicated().sum(),d.isna().sum().sum())\nprint(stats.pearsonr(d.predicted_log_tpm,d.observed_log_tpm),stats.spearmanr(d.predicted_log_tpm,d.observed_log_tpm))\nfor c,g in d.groupby('test_chromosome'):print(c,len(g),g.predicted_log_tpm.corr(g.observed_log_tpm))\nr=d.observed_log_tpm-d.predicted_log_tpm;print(r.describe())\n# bimodality / expressed vs not\nprint(np.histogram(d.observed_log_tpm,bins=10))\ne=d[d.observed_log_tpm>0];print(len(e),e.predicted_log_tpm.corr(e.observed_log_tpm))\nE\npython3 check.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-fbs3fucz/analysis/check.py",
+        "content": "import pandas as pd, numpy as np\nfrom scipy import stats\nd = pd.read_csv('gene_level_eval.csv')\nprint(d.describe(), d.test_chromosome.value_counts(), d.gene.duplicated().sum(), d.isna().sum().sum())\nprint(stats.pearsonr(d.predicted_log_tpm, d.observed_log_tpm), stats.spearmanr(d.predicted_log_tpm, d.observed_log_tpm))\nfor c, g in d.groupby('test_chromosome'):\n    print(c, len(g), g.predicted_log_tpm.corr(g.observed_log_tpm))\nr = d.observed_log_tpm - d.predicted_log_tpm\nprint(r.describe())\nprint(np.histogram(d.observed_log_tpm, bins=10))\ne = d[d.observed_log_tpm > 0]\nprint(len(e), e.predicted_log_tpm.corr(e.observed_log_tpm))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fbs3fucz/analysis; python3 check.py"
+      }
+    }
+  ]
+}

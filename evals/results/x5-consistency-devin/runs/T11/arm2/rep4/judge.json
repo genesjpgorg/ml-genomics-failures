@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that plate is confounded with status: 51/63 samples on plates 1\u20132 are cases and 48/57 on plates 3\u20134 are controls. It showed that plate ID alone gives an AUROC of 0.78, which roughly matches the key's ~0.82, and that leave-one-plate-out validation drops to chance. It recommended balancing cases and controls across plates and run dates, so it rejected the 0.83 AUROC as a cancer signature.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

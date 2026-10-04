@@ -1,0 +1,16 @@
+{
+  "tasks": [
+    "T01",
+    "T03",
+    "T05",
+    "C01"
+  ],
+  "arms": [
+    "0",
+    "2"
+  ],
+  "reps": 1,
+  "model": "claude-sonnet-5-5",
+  "git": "d06698c",
+  "prompt": "writeup"
+}

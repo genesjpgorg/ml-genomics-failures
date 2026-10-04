@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent found that every test pair shares a protein with training. It showed that a per-protein label-rate baseline with no features reaches AUROC 0.825, matching the 0.82 model, so the score reflects memorized protein propensities. It proposed a protein-disjoint split as the fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

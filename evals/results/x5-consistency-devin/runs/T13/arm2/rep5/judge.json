@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": false,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found and measured both flaws: every test pair shares proteins with training, a per-protein label-rate baseline scores 0.83, and batch alone gives AUROC 0.77. It concluded that the 0.79 does not show the model learned anything about interactions. Fix is false because it proposed holding out whole proteins *or* whole batches. The key says a fix needs both an entity-disjoint split and batch-matched evaluation, since either one alone leaves the other flaw in place.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

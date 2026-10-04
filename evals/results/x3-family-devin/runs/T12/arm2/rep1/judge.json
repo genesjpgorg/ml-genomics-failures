@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the split is gene-disjoint but that all 26 test Pfam families also appear in training. It showed that a family label-rate baseline alone reaches AUROC 0.871, so the headline 0.90 comes from family memorization rather than variant-level signal. It recommended a family-disjoint split; it did say 0.90 is fair for new genes in known families, but it did not accept the score as evidence of generalization.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

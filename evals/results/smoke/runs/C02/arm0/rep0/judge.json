@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": false,
+  "rationale": "The reviewer correctly found the plates balanced, the selection inside CV folds and three real signal proteins, then returned SUPPORTED without asserting confounding or leakage; the plate-adjustment suggestion is consistent with the 'plate effects exist but are balanced' caveat. The timing, cohort-selection and single-seed points are generic documentation caveats rather than demonstrated problems in the data.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

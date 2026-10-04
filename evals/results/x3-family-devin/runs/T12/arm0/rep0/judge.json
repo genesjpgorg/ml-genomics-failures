@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that the split is gene-disjoint but every one of the 26 test Pfam families also appears in train, so the 0.90 AUROC comes from reusing per-family label information. It declined to report 0.90 as general performance. It measured 100% family overlap, and its family-held-out CV result (0.38) supports the key's fix of splitting by family. It did not compute the family label-rate baseline, but the 100% overlap figure matches one of the key's quantify items.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

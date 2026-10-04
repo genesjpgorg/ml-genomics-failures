@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that plate is confounded with status: plates 1\u20132 hold 51 cases and 12 controls, plates 3\u20134 hold 9 cases and 48 controls, and plate alone gives AUROC 0.78. These numbers roughly match the key (~85% vs ~15%, ~0.82). It declined to report 0.82 as the classifier's performance and proposed the key's fix: randomize cases and controls across plates or validate on a new, balanced cohort.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

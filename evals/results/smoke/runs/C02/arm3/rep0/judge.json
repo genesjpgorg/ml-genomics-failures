@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": false,
+  "rationale": "The reviewer showed that plates are balanced, that selection happens inside the folds, and that a permutation null sits at chance, so they explicitly ruled out both listed false alarms and correctly returned SUPPORTED. Their extra points (seed variance, missing clinical baseline, unrecorded sampling timing) are reasonable caveats or untested speculation, not demonstrated important flaws.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

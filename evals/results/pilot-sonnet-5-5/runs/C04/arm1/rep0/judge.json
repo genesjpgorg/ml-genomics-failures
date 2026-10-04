@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": true,
+  "rationale": "The reviewer correctly judged the claim SUPPORTED, noting it is scoped to between-gene variation and excludes variants. Their main concerns (no GC/CpG baselines, paralog leakage across chromosomes) are acceptable caveats. They also measured a real ~0.94 log-unit prediction offset (raw R\u00b2 0.36 vs r\u00b2 0.63), a valid issue the key doesn't mention.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

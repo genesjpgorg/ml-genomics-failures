@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent says the 0.82 AUROC is inflated: 59 of 60 test proteins also appear in training, so the ID-based model can memorize per-protein interaction propensity ('sticky proteins') rather than generalize to new proteins. That overlap figure roughly matches the key's ~100% shared-protein item, and the agent offers a protein-disjoint re-split as the fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

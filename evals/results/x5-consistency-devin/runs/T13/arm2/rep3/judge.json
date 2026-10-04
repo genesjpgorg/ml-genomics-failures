@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found both flaws. Every test pair shares its proteins with training, and a per-protein label-rate baseline scores AUROC 0.83. Batch is confounded with the label, and batch alone scores AUROC 0.77. It proposed an entity-disjoint re-split plus within-batch evaluation, and it declined to treat 0.79 as evidence of real predictive skill.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

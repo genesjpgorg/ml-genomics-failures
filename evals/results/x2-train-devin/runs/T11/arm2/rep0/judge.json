@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent found that plate and status are confounded: plates 1-2 hold 51 of 60 cases (85%) and plates 3-4 hold 48 of 60 controls. It measured plate-only AUROC at 0.78, close to the key's ~0.82, and concluded the 0.82 doesn't support a cancer signature. Its proposed fix was to re-run the samples with cases and controls balanced across plates.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

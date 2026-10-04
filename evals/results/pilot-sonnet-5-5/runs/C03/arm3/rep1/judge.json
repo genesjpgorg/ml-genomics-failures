@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": false,
+  "rationale": "The reviewer correctly reached SUPPORTED after measuring the absence of composition (GC ~0.54, k-mer below chance), position (~0.49) and leakage shortcuts, matching the key. They said the controls don't specifically isolate order and suggested a motif-swap test, but did not call the controls invalid or reject the claim; their other points are minor documentation suggestions rather than important flaws.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

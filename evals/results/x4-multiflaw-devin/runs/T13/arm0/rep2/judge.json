@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent names both flaws. It says batch is confounded with the label (batch alone gives AUROC 0.77) and that all 59 of 59 test proteins appear in training, where per-protein label rates can be memorised. It recommends a per-protein split and reports within-batch AUROC, which matches the key's fix. Although it gives 0.79 as the headline, it says most of that score comes from batch rather than biology, so it does not accept the result as valid.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

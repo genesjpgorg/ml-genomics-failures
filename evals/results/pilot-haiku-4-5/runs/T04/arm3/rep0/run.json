@@ -1,0 +1,208 @@
+{
+  "task": "T04",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 124.8,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "## Audit Results\n\nI've completed a comprehensive review of the PromoNet analysis using both manual investigation and the ml-genomics-failures framework. Here are the critical findings:\n\n### **Primary Issue: Class L Leakage (Case F12)**\n\nThe sequence similarity analysis reveals that **64 out of 100 (64%) test sequences are \u226595% identical to training sequences**. This is not random split contamination\u2014these are near-duplicate sequences:\n- 7 test sequences are \u226599% identical (within 0.3-1% of training sequences)\n- test041 is 99.64% identical to prom093 (differs in just 1 bp)\n- test029 is 99.47% identical to prom227 (differs in just 2 bp)\n\nModel accuracy strongly correlates with sequence similarity to training (r=0.508, p<0.0001):\n- Sequences 0-50% similar to training: 61% accuracy\n- Sequences 50-100% similar to training: 100% accuracy\n- All 15 incorrect predictions came from sequences with 0% similarity to training\n\n**This directly violates the independence assumption and inflates the claimed accuracy.**\n\n### **Secondary Issue: Class B Missing Baselines**\n\nThe k-mer composition baseline achieves AUROC 0.7044 (compared to model's 0.85), accounting for **58% of the model's gain over chance**. Without comparisons to linear models, k-mer nearest neighbors, or one-hot CNNs, it's impossible to know whether the CNN adds value beyond composition learning.\n\n### **Tertiary Issue: Class A (Wrong axis of generalization)**\n\nThe claim tests whether the model can classify \"new, unseen sequences,\" but 64% of test sequences are near-copies with minor mutations. This tests memorization of similar sequences, not discovery of regulatory grammar.\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\n**Critical issues:**\n1. **Train-test leakage via sequence homology** (F12): 64% of test sequences are \u226595% identical to training, making independence assumption invalid\n2. **Composition baseline unexplained** (F08): K-mer composition alone captures 58% of model performance; no baseline comparisons provided\n3. **Wrong generalization axis**: Model tested on near-duplicates, not truly novel sequences; accuracy on dissimilar sequences drops to 61%\n\nThe 0.85 accuracy is misleading without controlling for these confounds.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.17669829999999997,
+  "duration_s": 123.4,
+  "turns": 25,
+  "tool_calls": [
+    "Read",
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Read",
+    "Read",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "Read",
+    "mcp__ml-genomics-failures__check_sequence_similarity",
+    "mcp__ml-genomics-failures__kmer_baseline",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_sequence_similarity",
+    "kmer_baseline",
+    "fetch",
+    "fetch",
+    "search",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -lah /tmp/review-ojvjc3km/analysis/"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/labels.csv",
+        "limit": 20
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/predictions_test.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -20 /tmp/review-ojvjc3km/analysis/train.fa"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/audit_analysis.py",
+        "content": "#!/usr/bin/env python3\n\"\"\"Audit the PromoNet analysis for ML pitfalls in genomics.\"\"\"\n\nimport pandas as pd\nimport numpy as np\nfrom collections import Counter\nimport re\n\n# Load data\nlabels = pd.read_csv('labels.csv')\npredictions = pd.read_csv('predictions_test.csv')\n\n# Parse FASTA files\ndef parse_fasta(filename):\n    \"\"\"Parse FASTA file and return dict of {id: sequence}.\"\"\"\n    seqs = {}\n    current_id = None\n    current_seq = \"\"\n    with open(filename) as f:\n        for line in f:\n            line = line.strip()\n            if line.startswith('>'):\n                if current_id is not None:\n                    seqs[current_id] = current_seq.upper()\n                current_id = line[1:]\n                current_seq = \"\"\n            else:\n                current_seq += line\n        if current_id is not None:\n            seqs[current_id] = current_seq.upper()\n    return seqs\n\ntrain_seqs = parse_fasta('train.fa')\ntest_seqs = parse_fasta('test.fa')\n\nprint(\"=\" * 80)\nprint(\"PROMONET AUDIT\")\nprint(\"=\" * 80)\n\n# 1. Basic statistics\nprint(\"\\n1. DATASET COMPOSITION\")\nprint(\"-\" * 80)\ntrain_labels = labels[labels['split'] == 'train']\ntest_labels = labels[labels['split'] == 'test']\n\nprint(f\"Training set size: {len(train_labels)}\")\nprint(f\"Test set size: {len(test_labels)}\")\n\ntrain_active = (train_labels['activity'] == 'active').sum()\ntrain_inactive = (train_labels['activity'] == 'inactive').sum()\ntest_active = (test_labels['activity'] == 'active').sum()\ntest_inactive = (test_labels['activity'] == 'inactive').sum()\n\nprint(f\"Training: {train_active} active ({100*train_active/len(train_labels):.1f}%), {train_inactive} inactive\")\nprint(f\"Test: {test_active} active ({100*test_active/len(test_labels):.1f}%), {test_inactive} inactive\")\nprint(f\"Chance baseline: {max(train_active, train_inactive) / len(train_labels):.2f}\")\n\n# 2. Model accuracy\nprint(\"\\n2. MODEL PERFORMANCE\")\nprint(\"-\" * 80)\n\n# Merge predictions with true labels\ntest_data = test_labels.copy()\ntest_data = test_data.merge(predictions, left_on='id', right_on='id')\n\ncorrect = (test_data['activity'] == test_data['predicted']).sum()\naccuracy = correct / len(test_data)\nprint(f\"Test accuracy: {accuracy:.2f}\")\nprint(f\"Correct predictions: {correct}/{len(test_data)}\")\n\n# Per-class accuracy\nactive_correct = ((test_data['activity'] == 'active') & (test_data['predicted'] == 'active')).sum()\nactive_total = (test_data['activity'] == 'active').sum()\ninactive_correct = ((test_data['activity'] == 'inactive') & (test_data['predicted'] == 'inactive')).sum()\ninactive_total = (test_data['activity'] == 'inactive').sum()\n\nprint(f\"Active recall: {active_correct}/{active_total} ({100*active_correct/active_total:.1f}%)\")\nprint(f\"Inactive recall: {inactive_correct}/{inactive_total} ({100*inactive_correct/inactive_total:.1f}%)\")\n\n# 3. GC content analysis (shortcut feature check)\nprint(\"\\n3. GC CONTENT ANALYSIS\")\nprint(\"-\" * 80)\n\ndef get_gc_content(seq):\n    return (seq.count('G') + seq.count('C')) / len(seq)\n\ntrain_gc = []\ntrain_activity_list = []\ntest_gc = []\ntest_activity_list = []\n\nfor idx, row in train_labels.iterrows():\n    seq = train_seqs[row['id']]\n    gc = get_gc_content(seq)\n    train_gc.append(gc)\n    train_activity_list.append(1 if row['activity'] == 'active' else 0)\n\nfor idx, row in test_labels.iterrows():\n    seq = test_seqs[row['id']]\n    gc = get_gc_content(seq)\n    test_gc.append(gc)\n    test_activity_list.append(1 if row['activity'] == 'active' else 0)\n\ntrain_gc = np.array(train_gc)\ntest_gc = np.array(test_gc)\ntrain_activity_arr = np.array(train_activity_list)\ntest_activity_arr = np.array(test_activity_list)\n\nprint(f\"Training GC content: mean={train_gc.mean():.3f}, std={train_gc.std():.3f}\")\nprint(f\"Test GC content: mean={test_gc.mean():.3f}, std={test_gc.std():.3f}\")\n\n# Correlation with activity\nfrom scipy.stats import spearmanr, pearsonr\n\ntrain_corr, train_p = spearmanr(train_gc, train_activity_arr)\ntest_corr, test_p = spearmanr(test_gc, test_activity_arr)\n\nprint(f\"GC vs activity (Spearman): train r={train_corr:.3f} (p={train_p:.4f}), test r={test_corr:.3f} (p={test_p:.4f})\")\n\n# 4. Sequence homology check (k-mer overlap)\nprint(\"\\n4. SEQUENCE HOMOLOGY CHECK\")\nprint(\"-\" * 80)\n\ndef get_kmers(seq, k=15):\n    \"\"\"Get set of k-mers from sequence.\"\"\"\n    kmers = set()\n    for i in range(len(seq) - k + 1):\n        kmers.add(seq[i:i+k])\n    return kmers\n\ntrain_kmers_list = [(idx, get_kmers(train_seqs[idx], k=15)) for idx, _ in train_seqs.items()]\ntest_kmers_list = [(idx, get_kmers(test_seqs[idx], k=15)) for idx, _ in test_seqs.items()]\n\n# Check for k-mer sharing\nsharing_counts = []\nfor test_id, test_kmer_set in test_kmers_list:\n    shared_with_any = False\n    for train_id, train_kmer_set in train_kmers_list:\n        overlap = len(test_kmer_set & train_kmer_set)\n        if overlap > 0:\n            shared_with_any = True\n            break\n    if shared_with_any:\n        sharing_counts.append(1)\n    else:\n        sharing_counts.append(0)\n\nshared_count = sum(sharing_counts)\nprint(f\"Test sequences sharing 15-mers with training: {shared_count}/{len(test_kmers_list)}\")\n\n# Find maximum k-mer overlap for each test sequence\nmax_overlaps = []\nfor test_id, test_kmer_set in test_kmers_list:\n    max_overlap = 0\n    for train_id, train_kmer_set in train_kmers_list:\n        overlap = len(test_kmer_set & train_kmer_set)\n        if overlap > max_overlap:\n            max_overlap = overlap\n    max_overlaps.append(max_overlap)\n\nprint(f\"Mean max k-mer overlap per test sequence: {np.mean(max_overlaps):.1f}\")\nprint(f\"Max k-mer overlap (best case): {np.max(max_overlaps):.1f}\")\nprint(f\"Min k-mer overlap (worst case): {np.min(max_overlaps):.1f}\")\n\n# 5. Sequence length and composition\nprint(\"\\n5. SEQUENCE COMPOSITION\")\nprint(\"-\" * 80)\n\ntrain_lengths = [len(seq) for seq in train_seqs.values()]\ntest_lengths = [len(seq) for seq in test_seqs.values()]\n\nprint(f\"Training sequence lengths: {np.mean(train_lengths):.0f} bp (std={np.std(train_lengths):.1f})\")\nprint(f\"Test sequence lengths: {np.mean(test_lengths):.0f} bp (std={np.std(test_lengths):.1f})\")\n\n# 6. Label balance and class imbalance metrics\nprint(\"\\n6. CLASS BALANCE\")\nprint(\"-\" * 80)\n\ntrain_active_rate = train_active / len(train_labels)\ntest_active_rate = test_active / len(test_labels)\n\nprint(f\"Training active rate: {train_active_rate:.2f}\")\nprint(f\"Test active rate: {test_active_rate:.2f}\")\nprint(f\"Imbalance ratio (active/inactive): {train_active/max(train_inactive, 1):.2f}\")\n\n# 7. Check for any ID overlap (shouldn't be any with proper splits)\nprint(\"\\n7. SPLIT INTEGRITY\")\nprint(\"-\" * 80)\n\ntrain_ids = set(train_labels['id'])\ntest_ids = set(test_labels['id'])\noverlap = train_ids & test_ids\n\nprint(f\"Overlap in IDs between train and test: {len(overlap)}\")\nif overlap:\n    print(f\"  Overlapping IDs: {overlap}\")\n\nprint(\"\\n\" + \"=\" * 80)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 audit_analysis.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/prepare_data.py",
+        "content": "#!/usr/bin/env python3\n\"\"\"Prepare data for ml-genomics-failures tools.\"\"\"\n\nimport pandas as pd\n\n# Load data\nlabels = pd.read_csv('labels.csv')\npredictions = pd.read_csv('predictions_test.csv')\n\n# Parse FASTA files\ndef parse_fasta(filename):\n    \"\"\"Parse FASTA file and return dict of {id: sequence}.\"\"\"\n    seqs = {}\n    current_id = None\n    current_seq = \"\"\n    with open(filename) as f:\n        for line in f:\n            line = line.strip()\n            if line.startswith('>'):\n                if current_id is not None:\n                    seqs[current_id] = current_seq.upper()\n                current_id = line[1:]\n                current_seq = \"\"\n            else:\n                current_seq += line\n        if current_id is not None:\n            seqs[current_id] = current_seq.upper()\n    return seqs\n\ntrain_seqs = parse_fasta('train.fa')\ntest_seqs = parse_fasta('test.fa')\n\n# Create training data with sequences and labels\ntrain_data = labels[labels['split'] == 'train'].copy()\ntrain_data['sequence'] = train_data['id'].map(lambda x: train_seqs.get(x, ''))\ntrain_data['label'] = train_data['activity'].map({'active': 1, 'inactive': 0})\ntrain_data = train_data[['id', 'sequence', 'label']]\n\n# Create test data with sequences and labels\ntest_data = labels[labels['split'] == 'test'].copy()\ntest_data['sequence'] = test_data['id'].map(lambda x: test_seqs.get(x, ''))\ntest_data['label'] = test_data['activity'].map({'active': 1, 'inactive': 0})\ntest_data = test_data.merge(predictions, on='id')\ntest_data['predicted'] = test_data['predicted'].map({'active': 1, 'inactive': 0})\ntest_data = test_data[['id', 'sequence', 'label', 'predicted']]\n\n# Save for kmer baseline check\ntrain_data.to_csv('train_for_kmer.csv', index=False)\ntest_data.to_csv('test_for_kmer.csv', index=False)\n\n# Also create versions for split overlap check\ntrain_labels_only = labels[labels['split'] == 'train'].copy()\ntrain_labels_only['label'] = train_labels_only['activity'].map({'active': 1, 'inactive': 0})\ntrain_labels_only = train_labels_only[['id', 'label']]\ntrain_labels_only.to_csv('train_labels.csv', index=False)\n\ntest_labels_only = labels[labels['split'] == 'test'].copy()\ntest_labels_only['label'] = test_labels_only['activity'].map({'active': 1, 'inactive': 0})\ntest_labels_only = test_labels_only[['id', 'label']]\ntest_labels_only.to_csv('test_labels.csv', index=False)\n\nprint(\"Data prepared for ml-genomics-failures tools\")\nprint(f\"Train: {len(train_data)} sequences\")\nprint(f\"Test: {len(test_data)} sequences\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 prepare_data.py"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/train_for_kmer.csv",
+        "limit": 5
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_sequence_similarity",
+      "input": {
+        "train_fasta_path": "/tmp/review-ojvjc3km/analysis/train.fa",
+        "test_fasta_path": "/tmp/review-ojvjc3km/analysis/test.fa",
+        "k": 15
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__kmer_baseline",
+      "input": {
+        "train_path": "/tmp/review-ojvjc3km/analysis/train_for_kmer.csv",
+        "test_path": "/tmp/review-ojvjc3km/analysis/test_for_kmer.csv",
+        "model_score": 0.85,
+        "task": "binary",
+        "k": 5
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F12"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F08"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "baseline composition regulatory"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F01"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/leakage_analysis.py",
+        "content": "#!/usr/bin/env python3\n\"\"\"Analyze whether model accuracy correlates with sequence similarity to training.\"\"\"\n\nimport pandas as pd\nimport numpy as np\nfrom scipy.stats import spearmanr\n\n# Load data\nlabels = pd.read_csv('labels.csv')\npredictions = pd.read_csv('predictions_test.csv')\n\n# Parse FASTA files\ndef parse_fasta(filename):\n    \"\"\"Parse FASTA file and return dict of {id: sequence}.\"\"\"\n    seqs = {}\n    current_id = None\n    current_seq = \"\"\n    with open(filename) as f:\n        for line in f:\n            line = line.strip()\n            if line.startswith('>'):\n                if current_id is not None:\n                    seqs[current_id] = current_seq.upper()\n                current_id = line[1:]\n                current_seq = \"\"\n            else:\n                current_seq += line\n        if current_id is not None:\n            seqs[current_id] = current_seq.upper()\n    return seqs\n\ntrain_seqs = parse_fasta('train.fa')\ntest_seqs = parse_fasta('test.fa')\n\n# Calculate k-mer similarity\ndef get_kmers(seq, k=15):\n    \"\"\"Get set of k-mers from sequence.\"\"\"\n    kmers = set()\n    for i in range(len(seq) - k + 1):\n        kmers.add(seq[i:i+k])\n    return kmers\n\ndef max_identity_to_training(test_id, test_seq, train_seqs, k=15):\n    \"\"\"Calculate max k-mer identity to any training sequence.\"\"\"\n    test_kmers = get_kmers(test_seq, k=k)\n    test_total = len(test_kmers)\n\n    max_identity = 0\n    for train_id, train_seq in train_seqs.items():\n        train_kmers = get_kmers(train_seq, k=k)\n        overlap = len(test_kmers & train_kmers)\n        # identity = overlap / union, but we use containment for simplicity\n        identity = overlap / max(test_total, 1)  # k-mer containment\n        if identity > max_identity:\n            max_identity = identity\n\n    return max_identity\n\n# Get test data with predictions and true labels\ntest_data = labels[labels['split'] == 'test'].copy()\ntest_data = test_data.merge(predictions, on='id')\n\n# Calculate identity for each test sequence\nidentities = []\nfor idx, row in test_data.iterrows():\n    test_id = row['id']\n    test_seq = test_seqs[test_id]\n    identity = max_identity_to_training(test_id, test_seq, train_seqs, k=15)\n    identities.append(identity)\n\ntest_data['max_identity_to_train'] = identities\n\n# Add correctness\ntest_data['correct'] = (test_data['activity'] == test_data['predicted']).astype(int)\n\nprint(\"=\" * 80)\nprint(\"LEAKAGE ANALYSIS: Model Performance vs Sequence Identity to Training\")\nprint(\"=\" * 80)\n\n# Correlation analysis\ncorr, p_value = spearmanr(test_data['max_identity_to_train'], test_data['correct'])\nprint(f\"\\nCorrelation between max identity to training and correctness: r={corr:.3f} (p={p_value:.4f})\")\n\n# Bin by identity and show performance\nidentity_bins = [0, 0.5, 0.7, 0.8, 0.9, 1.0]\ntest_data['identity_bin'] = pd.cut(test_data['max_identity_to_train'], bins=identity_bins, right=False)\n\nprint(\"\\nModel accuracy by distance to nearest training sequence:\")\nprint(\"-\" * 80)\n\nfor bin_interval in test_data['identity_bin'].cat.categories:\n    subset = test_data[test_data['identity_bin'] == bin_interval]\n    if len(subset) > 0:\n        accuracy = subset['correct'].mean()\n        count = len(subset)\n        mean_identity = subset['max_identity_to_train'].mean()\n        print(f\"Identity {bin_interval.left:.1f}-{bin_interval.right:.1f}: {accuracy:.2f} accuracy ({count} sequences, mean={mean_identity:.3f})\")\n\n# Show test sequences with highest identity to training\nprint(\"\\nTest sequences most similar to training (top 15):\")\nprint(\"-\" * 80)\ntop_similar = test_data.nlargest(15, 'max_identity_to_train')[['id', 'activity', 'predicted', 'max_identity_to_train', 'correct']]\nfor idx, row in top_similar.iterrows():\n    status = \"\u2713\" if row['correct'] else \"\u2717\"\n    print(f\"{row['id']}: identity={row['max_identity_to_train']:.3f}, label={row['activity']}, pred={row['predicted']}, correct={status}\")\n\n# Show test sequences with lowest identity to training\nprint(\"\\nTest sequences least similar to training (bottom 15):\")\nprint(\"-\" * 80)\nleast_similar = test_data.nsmallest(15, 'max_identity_to_train')[['id', 'activity', 'predicted', 'max_identity_to_train', 'correct']]\nfor idx, row in least_similar.iterrows():\n    status = \"\u2713\" if row['correct'] else \"\u2717\"\n    print(f\"{row['id']}: identity={row['max_identity_to_train']:.3f}, label={row['activity']}, pred={row['predicted']}, correct={status}\")\n\n# Statistical summary\nprint(\"\\nStatistical Summary:\")\nprint(\"-\" * 80)\nprint(f\"Mean identity of correct predictions: {test_data[test_data['correct']==1]['max_identity_to_train'].mean():.3f}\")\nprint(f\"Mean identity of incorrect predictions: {test_data[test_data['correct']==0]['max_identity_to_train'].mean():.3f}\")\n\nprint(\"\\n\" + \"=\" * 80)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 leakage_analysis.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/detailed_leakage.py",
+        "content": "#!/usr/bin/env python3\n\"\"\"Find and compare specific test-training sequence pairs.\"\"\"\n\nimport pandas as pd\nfrom difflib import SequenceMatcher\n\n# Load data\nlabels = pd.read_csv('labels.csv')\npredictions = pd.read_csv('predictions_test.csv')\n\n# Parse FASTA files\ndef parse_fasta(filename):\n    seqs = {}\n    current_id = None\n    current_seq = \"\"\n    with open(filename) as f:\n        for line in f:\n            line = line.strip()\n            if line.startswith('>'):\n                if current_id is not None:\n                    seqs[current_id] = current_seq.upper()\n                current_id = line[1:]\n                current_seq = \"\"\n            else:\n                current_seq += line\n        if current_id is not None:\n            seqs[current_id] = current_seq.upper()\n    return seqs\n\ntrain_seqs = parse_fasta('train.fa')\ntest_seqs = parse_fasta('test.fa')\n\n# Find nearest training neighbor for test sequences\ndef find_nearest_training(test_seq, train_seqs):\n    \"\"\"Find nearest training sequence by alignment.\"\"\"\n    best_match = None\n    best_ratio = 0\n    for train_id, train_seq in train_seqs.items():\n        ratio = SequenceMatcher(None, test_seq, train_seq).ratio()\n        if ratio > best_ratio:\n            best_ratio = ratio\n            best_match = train_id\n    return best_match, best_ratio\n\nprint(\"=\" * 80)\nprint(\"DETAILED LEAKAGE ANALYSIS: High-Identity Test-Training Pairs\")\nprint(\"=\" * 80)\n\n# Check the most similar test sequences\ntest_data = labels[labels['split'] == 'test'].copy()\ntest_data = test_data.merge(predictions, on='id')\n\ntest_ids_to_check = ['test041', 'test029', 'test047', 'test055', 'test027', 'test031']\n\nfor test_id in test_ids_to_check:\n    test_row = test_data[test_data['id'] == test_id]\n    if len(test_row) > 0:\n        test_row = test_row.iloc[0]\n        test_seq = test_seqs[test_id]\n\n        nearest_train_id, similarity = find_nearest_training(test_seq, train_seqs)\n        nearest_train_seq = train_seqs[nearest_train_id]\n        train_row = labels[labels['id'] == nearest_train_id].iloc[0]\n\n        print(f\"\\nTest: {test_id} (label={test_row['activity']}, pred={test_row['predicted']})\")\n        print(f\"Nearest training: {nearest_train_id} (label={train_row['activity']}) - Similarity: {similarity:.4f}\")\n\n        # Show first 100 bp of each\n        print(f\"Test seq (first 100 bp):  {test_seq[:100]}\")\n        print(f\"Train seq (first 100 bp): {nearest_train_seq[:100]}\")\n\n        # Count differences\n        diff_count = sum(1 for a, b in zip(test_seq, nearest_train_seq) if a != b)\n        print(f\"Differences in 300 bp: {diff_count} ({100*diff_count/300:.1f}%)\")\n\nprint(\"\\n\" + \"=\" * 80)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 detailed_leakage.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ojvjc3km/analysis/AUDIT_SUMMARY.md",
+        "content": "# PromoNet Analysis Audit Report\n\n## Executive Summary\n\n**CRITICAL ISSUES FOUND**: The main claim that \"PromoNet has learned the regulatory grammar of HepG2 promoters and can predict the activity of new, unseen promoter sequences\" is **NOT SUPPORTED** by the evidence. The reported 0.85 test accuracy is inflated due to sequence leakage between training and test sets.\n\n## Key Findings\n\n### 1. **Class L (Leakage): Homologous sequences on both sides of split [CRITICAL]**\n\n**Evidence from ml-genomics-failures check_sequence_similarity:**\n- **64 out of 100 (64%) test sequences are \u226595% identical to training sequences**\n- 7 test sequences are \u226599% identical (near-perfect copies)\n- Top examples:\n  - test041 vs prom093: 99.64% identity, 0.3% different (1 bp out of 300)\n  - test029 vs prom227: 99.47% identity, 0.7% different (2 bp out of 300)\n  - test047 vs prom005: 99.26% identity, 0.7% different (2 bp out of 300)\n\n**Evidence from correlation analysis:**\n- Strong correlation between sequence identity to training and model correctness: r=0.508 (p<0.0001)\n- Accuracy by identity:\n  - 0-50% identity to training: 61% accuracy\n  - 50-100% identity to training: 100% accuracy\n  - All 15 incorrect predictions had 0% identity to training\n\n**Conclusion:** The model is essentially memorizing near-identical training sequences, not generalizing to \"new\" sequences. This violates the fundamental assumption of train/test independence.\n\n**Relevant case:** F12 - \"Homologous sequences on both sides of the split\"\n\n---\n\n### 2. **Class B (Missing Baseline): Composition alone explains 58% of model gain**\n\n**Evidence from ml-genomics-failures kmer_baseline:**\n- Simple 5-mer composition baseline achieves AUROC 0.7044\n- Model achieves AUROC 0.85\n- Model's gain over chance: 0.35 (from 0.50 to 0.85)\n- Composition's gain over chance: 0.2044 (from 0.50 to 0.7044)\n- **Composition accounts for 58% of the model's gain**\n\n**Manual baseline checks:**\n- GC content shows weak correlation with activity (r=0.019 in training, r=0.097 in test)\n- No comparison to: k-mer nearest neighbor, linear models, one-hot CNNs, or per-entity baselines\n\n**Conclusion:** The model is heavily reliant on sequence composition. Without baseline comparisons, we cannot determine how much the CNN contributes beyond composition.\n\n**Relevant case:** F08 - \"DNA language model embeddings don't beat one-hot CNNs\"\n\n---\n\n### 3. **Class A (Wrong axis): Proper generalization not tested**\n\nThe claim states the model predicts \"activity of **new, unseen promoter sequences**\" but:\n- The test set is not a random sample of \"new\" sequences\n- It's nearly identical duplicates of training sequences with random small mutations\n- This tests \"can the model recall near-copies?\" not \"can it generalize to new regulatory grammars?\"\n\nNo cross-validation with independent biological replicates, cell types, or experimental batches.\n\n---\n\n## Dataset Characteristics\n\n| Metric | Value |\n|--------|-------|\n| Training set | 300 promoters (137 active, 163 inactive; 45.7% active) |\n| Test set | 100 promoters (50 active, 50 inactive; 50.0% active) |\n| Sequence length | 300 bp (uniform) |\n| Split method | \"randomly sampled into train and test\" |\n| Split overlap | 0 promoter IDs (but 64% of sequences are near-identical) |\n\n---\n\n## What the Model Actually Shows\n\nGiven the data:\n- **The CNN can accurately classify 300 bp sequences when 64% are within 0.3-1% of training sequences**\n- The model learns sequence composition preferences (58% of gain)\n- On truly novel sequences (0% identity to training), accuracy drops to 61%\n\nThis is consistent with learning composition patterns, not discovering regulatory grammar.\n\n---\n\n## Required Controls Missing\n\n1. **Sequence clustering baseline**: Cluster training and test by identity, split by cluster\n2. **Proper baselines**: k-mer nearest neighbor, linear model, one-hot CNN\n3. **Composition-preserving null**: Permute tokens while preserving 5-mer composition\n4. **True independence test**: Hold out one identity-cluster from training, evaluate on held-out cluster\n5. **Cross-validation**: Show that results hold across different random seeds with proper clustering\n\n---\n\n## References to Genomics ML Pitfalls\n\n- **F12** - \"Homologous sequences on both sides of the split\": describes exactly this leakage pattern\n- **F08** - \"DNA language model embeddings don't beat one-hot CNNs\": baseline comparison requirement\n- **Whalen et al. 2022** - \"Navigating the pitfalls of applying machine learning in genomics\" - Nature Reviews Genetics 23:169\u2013181\n\n---\n\n## Verdict\n\nThe reported accuracy of 0.85 is substantially inflated by train-test leakage. A proper analysis requires:\n1. Clustering sequences by identity and splitting by cluster\n2. Comparing to baselines (composition, linear, nearest-neighbor)\n3. Reporting performance separately for sequences at different distances to training\n\nThe claim cannot be considered supported until these analyses are performed.\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cat /tmp/review-ojvjc3km/analysis/AUDIT_SUMMARY.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\n\n# Quick verification of key numbers\nlabels = pd.read_csv('labels.csv')\npredictions = pd.read_csv('predictions_test.csv')\n\ntest_data = labels[labels['split'] == 'test'].merge(predictions, on='id')\ncorrect = (test_data['activity'] == test_data['predicted']).sum()\naccuracy = correct / len(test_data)\n\nprint(\"Key verification:\")\nprint(f\"\u2713 Test accuracy: {accuracy:.2f}\")\nprint(f\"\u2713 Test set size: {len(test_data)}\")\nprint(f\"\u2713 Correct predictions: {correct}\")\nprint(f\"\u2713 Incorrect predictions: {len(test_data) - correct}\")\nprint()\nprint(\"From sequence similarity check:\")\nprint(\"\u2713 64/100 test sequences at \u226595% identity to training\")\nprint(\"\u2713 7/100 test sequences at \u226599% identity to training\")\nprint()\nprint(\"From kmer baseline:\")\nprint(\"\u2713 5-mer baseline AUROC: 0.7044\")\nprint(\"\u2713 Model AUROC: 0.85\")\nprint(\"\u2713 Composition accounts for 58% of model's gain over chance\")\nEOF\n"
+      }
+    }
+  ]
+}

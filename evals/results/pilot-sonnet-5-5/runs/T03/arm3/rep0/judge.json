@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": true,
+  "rationale": "The reviewer identified the plate/run-date confound and showed plate alone gives AUROC 0.915; their table puts 90% of cases vs 13% of controls on plates 1-2, matching the key. They proposed randomizing across plates, batch correction inside folds, and an independent cohort. They also correctly noted that the 'early-stage' and screening-readiness claims lack stage data and screening-relevant specificity.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

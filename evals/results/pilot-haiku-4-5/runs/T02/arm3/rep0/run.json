@@ -1,0 +1,163 @@
+{
+  "task": "T02",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 110.3,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "## Summary\n\nI've completed a detailed audit of this SpliceScore analysis against the ml-genomics-failures framework. Here are the critical findings:\n\n### Key Issues Found\n\n**1. Entity-Level Leakage (Class L - F03/F04 pattern)**\n- All test variants come from genes present in training (100% overlap)\n- 97.2% of test variants have exact gene+label matches in training data\n- Variants are split at random variant-level, not at gene level\n\n**2. Gene-Level Memorization Dominates**\n- A baseline using only **per-gene disruption rates** achieves AUROC 0.9259\n- The model with 140 variant features achieves AUROC 0.9412\n- **Only 0.0152 AUROC points improvement** (1.6% difference)\n- Per-gene baseline explains **96.5% of the model's predictive power**\n\n**3. Model Learns Gene Identity, Not Variant Features**\n- Model scores show r = 0.9922 correlation with per-gene disruption rates\n- Model scores show r = 0.8484 correlation with actual variant labels\n- Variants from the same gene receive nearly identical scores (std 0.0404)\n\n**4. Wrong Axis of Generalization**\n- The claim requires generalization to \"variants of uncertain significance\"\n- But test set only contains variants from genes seen in training\n- No evaluation on unseen genes, which is the realistic use case\n\n### Supporting Evidence\n\nThe `check_split_overlap` tool confirmed: entity memorization baseline (0.9696 AUROC) reaches 107% of the model's gain over chance, indicating leakage.\n\nThis directly matches the documented **F04 failure** (Cui et al., 2025): supervised models where test entities are present in training learn entity-specific statistics rather than general biology.\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\nThe main claim that \"SpliceScore learns variant-level determinants\" is contradicted by the evidence. The model primarily learns per-gene splice-disruption patterns through entity leakage, not variant-level biology. To support the claim, the authors must:\n1. Re-split at the gene level (test genes must be absent from training)\n2. Report performance on genuinely unseen genes\n3. Demonstrate the model adds substantial value beyond per-gene rates\n\nAs presented, the AUROC 0.94 is inflated by leakage and unsuitable for clinical variant prioritization.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.1227924,
+  "duration_s": 109.0,
+  "turns": 18,
+  "tool_calls": [
+    "Bash",
+    "Read",
+    "Read",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_shortcuts",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_split_overlap",
+    "check_shortcuts",
+    "fetch",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-drrl8432/analysis/"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-drrl8432/analysis/README.md"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-drrl8432/analysis/variants.csv",
+        "limit": 50
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "columns": [
+          "gene"
+        ],
+        "train_path": "/tmp/review-drrl8432/analysis/variants.csv",
+        "test_path": "/tmp/review-drrl8432/analysis/variants.csv",
+        "label": "label",
+        "model_score": 0.94,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-drrl8432/analysis/check_leakage.py",
+        "content": "import pandas as pd\nfrom sklearn.metrics import roc_auc_score\nimport numpy as np\n\n# Load data\ndf = pd.read_csv('variants.csv')\n\n# Split by train/test\ntrain = df[df['split'] == 'train']\ntest = df[df['split'] == 'test']\n\nprint(\"=\" * 70)\nprint(\"SPLIT OVERLAP ANALYSIS\")\nprint(\"=\" * 70)\n\n# 1. Gene overlap\ntrain_genes = set(train['gene'].unique())\ntest_genes = set(test['gene'].unique())\nshared_genes = train_genes & test_genes\n\nprint(f\"\\nGene overlap:\")\nprint(f\"  Train genes: {len(train_genes)}\")\nprint(f\"  Test genes: {len(test_genes)}\")\nprint(f\"  Shared genes: {len(shared_genes)}\")\nprint(f\"  % of test genes that are in train: {100*len(shared_genes)/len(test_genes):.1f}%\")\n\n# 2. How many test rows come from genes in train?\ntest_from_shared_genes = test[test['gene'].isin(train_genes)]\nprint(f\"\\nTest rows from genes seen in training: {len(test_from_shared_genes)} / {len(test)} ({100*len(test_from_shared_genes)/len(test):.1f}%)\")\n\n# 3. Per-gene label rates as a baseline\nprint(\"\\n\" + \"=\" * 70)\nprint(\"PER-GENE BASELINE\")\nprint(\"=\" * 70)\n\n# Compute per-gene label rate in training\ngene_rates = train.groupby('gene')['label'].mean()\n\n# For each test row, predict using its gene's training label rate\ntest_predictions_gene = test['gene'].map(gene_rates)\n\n# Calculate AUROC for the gene baseline\nauroc_gene = roc_auc_score(test['label'], test_predictions_gene)\nprint(f\"\\nAUROC using per-gene label rates (no variant features): {auroc_gene:.4f}\")\nprint(f\"Model AUROC: {test['model_score'].mean():.4f}\")\nprint(f\"Model beats gene baseline by: {auroc_gene - test['model_score'].mean():.4f}\")\n\n# 4. Exact row duplicates\nprint(\"\\n\" + \"=\" * 70)\nprint(\"EXACT DUPLICATES\")\nprint(\"=\" * 70)\n\n# Check for exact duplicates in key columns\ntest_key = test[['gene', 'label']].reset_index(drop=True)\ntrain_key = train[['gene', 'label']].reset_index(drop=True)\n\n# Find test rows that exactly match train rows\nduplicates = 0\nfor i, test_row in test.iterrows():\n    match = train[(train['gene'] == test_row['gene']) & (train['label'] == test_row['label'])]\n    if len(match) > 0:\n        duplicates += 1\n\nprint(f\"Test rows with exact matches in training (same gene+label): {duplicates} / {len(test)} ({100*duplicates/len(test):.1f}%)\")\n\n# 5. Average conservation by gene in train\nprint(\"\\n\" + \"=\" * 70)\nprint(\"CONSERVATION BY GENE\")\nprint(\"=\" * 70)\n\nfor gene in sorted(df['gene'].unique())[:5]:\n    gene_train = train[train['gene'] == gene]\n    gene_test = test[test['gene'] == gene]\n    if len(gene_train) > 0 and len(gene_test) > 0:\n        print(f\"{gene}: train conservation mean={gene_train['conservation'].mean():.2f}, test={gene_test['conservation'].mean():.2f}\")\n\n# 6. Label distribution by gene\nprint(\"\\n\" + \"=\" * 70)\nprint(\"LABEL DISTRIBUTION BY GENE\")\nprint(\"=\" * 70)\n\ngene_labels_train = train.groupby('gene')['label'].agg(['sum', 'count', 'mean'])\nprint(\"\\nTrain set label rates by gene (first 10):\")\nprint(gene_labels_train.head(10))\nprint(f\"\\nGene-level label variance: {gene_labels_train['mean'].std():.3f}\")\nprint(f\"(High variance = per-gene rates differ a lot)\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python check_leakage.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-drrl8432/analysis/verify_auroc.py",
+        "content": "import pandas as pd\nfrom sklearn.metrics import roc_auc_score, roc_curve\nimport numpy as np\n\n# Load data\ndf = pd.read_csv('variants.csv')\ntest = df[df['split'] == 'test']\n\nprint(\"Test set size:\", len(test))\nprint(\"Label distribution in test:\")\nprint(test['label'].value_counts())\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"VERIFYING AUROC\")\nprint(\"=\" * 70)\n\n# Calculate AUROC from the model_score column\nauroc = roc_auc_score(test['label'], test['model_score'])\nprint(f\"AUROC using test['model_score']: {auroc:.4f}\")\n\n# Show some statistics about model_score\nprint(f\"\\nModel score statistics:\")\nprint(f\"  Min: {test['model_score'].min():.4f}\")\nprint(f\"  Max: {test['model_score'].max():.4f}\")\nprint(f\"  Mean: {test['model_score'].mean():.4f}\")\nprint(f\"  Median: {test['model_score'].median():.4f}\")\n\n# Look at model scores by label\nprint(f\"\\nModel score by label:\")\nfor label in [0, 1]:\n    scores = test[test['label'] == label]['model_score']\n    print(f\"  Label {label}: mean={scores.mean():.4f}, median={scores.median():.4f}, std={scores.std():.4f}\")\n\n# Check if there's something strange with how AUROC was calculated\n# Perhaps it was calculated on train+test?\nfull = df\nauroc_full = roc_auc_score(full['label'], full['model_score'])\nprint(f\"\\nAUROC on full dataset (train+test): {auroc_full:.4f}\")\n\n# Calculate on train only\ntrain = df[df['split'] == 'train']\nauroc_train = roc_auc_score(train['label'], train['model_score'])\nprint(f\"AUROC on train only: {auroc_train:.4f}\")\n\n# Maybe reported AUROC is from a different metric?\nprint(\"\\n\" + \"=\" * 70)\nprint(\"DEBUGGING\")\nprint(\"=\" * 70)\n\n# Look at model score distribution across genes\nprint(\"\\nModel scores by gene (test set):\")\nfor gene in sorted(test['gene'].unique())[:5]:\n    gene_test = test[test['gene'] == gene]\n    scores = gene_test['model_score']\n    print(f\"  {gene}: mean={scores.mean():.4f}, count={len(gene_test)}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python verify_auroc.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "label": "label",
+        "features": [
+          "conservation"
+        ],
+        "table_path": "/tmp/review-drrl8432/analysis/variants.csv",
+        "model_score": 0.9412,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F03"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-drrl8432/analysis/detailed_leakage_analysis.py",
+        "content": "import pandas as pd\nfrom sklearn.metrics import roc_auc_score\nimport numpy as np\n\ndf = pd.read_csv('variants.csv')\ntrain = df[df['split'] == 'train']\ntest = df[df['split'] == 'test']\n\nprint(\"=\" * 80)\nprint(\"DETAILED LEAKAGE ANALYSIS: F04-CLASS FAILURE\")\nprint(\"=\" * 80)\n\n# 1. Degree/imbalance per gene\nprint(\"\\n1. PER-GENE SPLICE-DISRUPTION RATE (analogous to per-gene degree)\")\nprint(\"-\" * 80)\n\ngene_rates = train.groupby('gene').agg({\n    'label': ['sum', 'count', 'mean']\n}).droplevel(0, axis=1)\ngene_rates.columns = ['disrupting', 'total', 'rate']\ngene_rates = gene_rates.sort_values('rate', ascending=False)\n\nprint(\"\\nTop 10 genes by disruption rate:\")\nprint(gene_rates.head(10))\nprint(\"\\nBottom 10 genes by disruption rate:\")\nprint(gene_rates.tail(10))\n\nprint(f\"\\nDispruption rates: min={gene_rates['rate'].min():.3f}, max={gene_rates['rate'].max():.3f}, std={gene_rates['rate'].std():.3f}\")\n\n# 2. Check if test variants from high-rate genes have high scores\nprint(\"\\n2. CORRELATION: GENE RATE \u2192 TEST PREDICTION\")\nprint(\"-\" * 80)\n\ntest = test.copy()\ntest['gene_rate'] = test['gene'].map(gene_rates['rate'])\n\n# Correlation between gene rate and model score\ncorr_gene_rate_score = test['gene_rate'].corr(test['model_score'])\nprint(f\"\\nCorrelation(gene_rate, model_score): {corr_gene_rate_score:.4f}\")\n\n# Correlation between label and model score\ncorr_label_score = test['label'].corr(test['model_score'])\nprint(f\"Correlation(label, model_score): {corr_label_score:.4f}\")\n\n# If model is learning variant-level biology, it should be driven by label\n# If it's learning gene-level patterns, it should be driven by gene_rate\nprint(f\"\\nThe model's scores are {'MUCH MORE' if corr_gene_rate_score > corr_label_score else 'MORE'} correlated with gene rates than with the actual label.\")\n\n# 3. Baseline: predict using only gene rates\nprint(\"\\n3. PER-GENE RATE BASELINE\")\nprint(\"-\" * 80)\n\npred_gene_rate = test['gene_rate']\nauroc_gene = roc_auc_score(test['label'], pred_gene_rate)\nauroc_model = roc_auc_score(test['label'], test['model_score'])\n\nprint(f\"\\nBaseline (using only per-gene disruption rate): AUROC {auroc_gene:.4f}\")\nprint(f\"Model (with 140 variant-level features):        AUROC {auroc_model:.4f}\")\nprint(f\"Advantage of model: {auroc_model - auroc_gene:.4f} AUROC points\")\n\n# 4. What fraction of information comes from gene-level vs variant-level?\nprint(\"\\n4. INFORMATION DECOMPOSITION\")\nprint(\"-\" * 80)\n\n# Simple decomposition: what's the gain from gene baseline vs chance?\nchance = 0.5\ngain_gene = auroc_gene - chance\ngain_model = auroc_model - chance\n\nprint(f\"\\nGain from gene baseline (vs random guessing): {gain_gene:.4f}\")\nprint(f\"Gain from model (vs random guessing): {gain_model:.4f}\")\nprint(f\"Gene baseline explains {100*gain_gene/gain_model:.1f}% of model's gain\")\n\n# 5. Test on unseen genes (the proper fix)\nprint(\"\\n5. WHAT HAPPENS WITH 'UNSEEN GENES' SPLIT?\")\nprint(\"-\" * 80)\n\n# Create synthetic unseen genes split: pick genes for test that have very few train examples\ntrain_gene_counts = train['gene'].value_counts()\n\n# Use genes with only 1 train example as test\nunseen_candidates = train_gene_counts[train_gene_counts == 1].index.tolist()\n\nif len(unseen_candidates) > 0:\n    test_unseen = test[test['gene'].isin(unseen_candidates)]\n    if len(test_unseen) > 0:\n        auroc_unseen = roc_auc_score(test_unseen['label'], test_unseen['model_score'])\n        print(f\"\\nTest variants from genes with only 1 training example:\")\n        print(f\"  Count: {len(test_unseen)}\")\n        print(f\"  AUROC: {auroc_unseen:.4f} (vs {auroc_model:.4f} overall)\")\n    else:\n        print(\"No test variants from 1-example genes\")\nelse:\n    print(\"No genes with exactly 1 training example (most genes well-represented)\")\n\n# 6. Variant-within-gene variation\nprint(\"\\n6. VARIANT-LEVEL VARIATION WITHIN GENES\")\nprint(\"-\" * 80)\n\n# Do variants from the same gene with the same label have different scores?\nwithin_gene_variation = []\nfor gene in test['gene'].unique():\n    gene_test = test[test['gene'] == gene]\n    for label in [0, 1]:\n        label_group = gene_test[gene_test['label'] == label]\n        if len(label_group) > 1:\n            scores = label_group['model_score'].values\n            variation = scores.std()\n            within_gene_variation.append({\n                'gene': gene,\n                'label': label,\n                'count': len(label_group),\n                'score_std': variation,\n                'score_range': scores.max() - scores.min()\n            })\n\nif within_gene_variation:\n    variation_df = pd.DataFrame(within_gene_variation)\n    print(f\"\\nAmong test variants from the same gene with the same label:\")\n    print(f\"  Avg score variation (std): {variation_df['score_std'].mean():.4f}\")\n    print(f\"  Avg score range (max-min): {variation_df['score_range'].mean():.4f}\")\n    print(f\"  \u2192 Low variation = model ignores variant-level differences\")\n    print(f\"  \u2192 High variation = model picks up on variant-level features\")\n\nprint(\"\\n\" + \"=\" * 80)\nprint(\"SUMMARY\")\nprint(\"=\" * 80)\nprint(f\"\"\"\nThe model achieves AUROC 0.94, but only {auroc_model - auroc_gene:.4f} AUROC points\nbetter than a baseline that memorizes per-gene disruption rates ({auroc_gene:.4f}).\n\nGene-level information explains {100*gain_gene/gain_model:.1f}% of the model's predictive power.\n\nThis pattern matches F04: supervised models on gene networks where test genes\nare present in training. The split is not at the gene level, so genes leak from\ntrain to test, and the model learns gene-specific properties rather than\ngeneral variant-level biology.\n\nIMPLICATION: The claim that \"SpliceScore learns variant-level determinants\"\nis not supported. It learns to classify based on gene-level patterns.\n\"\"\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python detailed_leakage_analysis.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-drrl8432/analysis/check_generalization.py",
+        "content": "import pandas as pd\n\ndf = pd.read_csv('variants.csv')\ntrain = df[df['split'] == 'train']\ntest = df[df['split'] == 'test']\n\nprint(\"=\" * 80)\nprint(\"AXIS OF GENERALIZATION CHECK (Question 3 in audit)\")\nprint(\"=\" * 80)\n\nprint(\"\\nTrain set label distribution:\")\nprint(f\"  Splice-disrupting (1): {(train['label'] == 1).sum()} / {len(train)} ({100*(train['label']==1).mean():.1f}%)\")\nprint(f\"  Not disrupting (0): {(train['label'] == 0).sum()} / {len(train)} ({100*(train['label']==0).mean():.1f}%)\")\n\nprint(\"\\nTest set label distribution:\")\nprint(f\"  Splice-disrupting (1): {(test['label'] == 1).sum()} / {len(test)} ({100*(test['label']==1).mean():.1f}%)\")\nprint(f\"  Not disrupting (0): {(test['label'] == 0).sum()} / {len(test)} ({100*(test['label']==0).mean():.1f}%)\")\n\n# Check if conservation distribution differs between train and test\nprint(\"\\n\" + \"=\" * 80)\nprint(\"FEATURE DISTRIBUTION: TRAIN vs TEST\")\nprint(\"=\" * 80)\n\nprint(\"\\nConservation score (train):\")\nprint(f\"  Mean: {train['conservation'].mean():.4f}\")\nprint(f\"  Std:  {train['conservation'].std():.4f}\")\nprint(f\"  Min:  {train['conservation'].min():.4f}\")\nprint(f\"  Max:  {train['conservation'].max():.4f}\")\n\nprint(\"\\nConservation score (test):\")\nprint(f\"  Mean: {test['conservation'].mean():.4f}\")\nprint(f\"  Std:  {test['conservation'].std():.4f}\")\nprint(f\"  Min:  {test['conservation'].min():.4f}\")\nprint(f\"  Max:  {test['conservation'].max():.4f}\")\n\n# The key question: are train and test sampled from different gene populations?\nprint(\"\\n\" + \"=\" * 80)\nprint(\"GENE COMPOSITION: TRAIN vs TEST\")\nprint(\"=\" * 80)\n\nprint(f\"\\nTotal unique genes: {df['gene'].nunique()}\")\nprint(f\"Genes in train: {train['gene'].nunique()}\")\nprint(f\"Genes in test: {test['gene'].nunique()}\")\n\n# Get label rates for each gene\ngene_rates = train.groupby('gene')['label'].agg(['sum', 'count', 'mean'])\ngene_rates.columns = ['disrupting', 'total', 'rate']\n\n# Which genes are in test?\ntest_genes = test['gene'].unique()\ntest_gene_rates = gene_rates.loc[test_genes]\n\nprint(f\"\\nDisruption rate of genes that appear in test (as trained):\")\nprint(f\"  Mean: {test_gene_rates['rate'].mean():.4f}\")\nprint(f\"  Std:  {test_gene_rates['rate'].std():.4f}\")\n\n# Genes only in train\ntrain_only_genes = set(train['gene'].unique()) - set(test['gene'].unique())\nprint(f\"\\nGenes only in training (not in test): {len(train_only_genes)}\")\nif train_only_genes:\n    print(f\"  Their disruption rates: {gene_rates.loc[list(train_only_genes), 'rate'].values}\")\n\nprint(\"\\n\" + \"=\" * 80)\nprint(\"CLAIM vs GENERALIZATION AXIS\")\nprint(\"=\" * 80)\n\nprint(\"\"\"\nClaim: \"SpliceScore learns variant-level determinants of splice disruption\"\n\nWhat does this mean?\n  - The model should predict based on features WITHIN a variant\n  - It should work on new variants from the same or different genes\n  - It should work on new variants from entirely new genes\n\nTest axis:\n  - Train: 1079 variants from 80 genes\n  - Test:  215 variants from 80 genes (SAME genes as train, just different variants)\n\nProblem:\n  - The test does NOT vary the \"gene\" dimension at all\n  - All genes in test are already in training\n  - The model can learn gene-level statistics, not variant-level biology\n  - This is like testing drug efficacy on the same patients, not new patients\n\nThis is an F04-class error: \"Wrong axis of generalization\"\n\"\"\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python check_generalization.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-drrl8432/analysis/audit_summary.md",
+        "content": "# SpliceScore Analysis Review\n\n## Claim\n\"SpliceScore learns variant-level determinants of splice disruption and should be used to prioritize variants of uncertain significance in diagnostic pipelines.\"\n\n**Result reported:** AUROC 0.94 on test set\n\n---\n\n## Audit Findings\n\n### 1. ENTITY LEAKAGE (Class L, Matching F03, F04)\n\n**Problem:** The split is at the variant level, not the gene level. This means:\n- Train set: 1079 variants from 80 genes\n- Test set: 215 variants from 73 genes\n- **All 100% of test genes appear in training data**\n- 97.2% of test variants have exact matches in training for (gene, label) pair\n\n**Evidence:**\n```\nPer-gene baseline (no features, just gene disruption rates): AUROC 0.9259\nModel with 140 variant features:                             AUROC 0.9412\nDifference:                                                  0.0152 AUROC points\n```\n\nThe per-gene baseline explains **96.5% of the model's gain over chance**.\n\n**Correlation analysis:**\n- Model score vs. per-gene disruption rate: r = 0.9922 (extremely high)\n- Model score vs. actual variant label:     r = 0.8484 (moderate)\n\nThe model is primarily learning gene-level patterns, not variant-level biology.\n\n### 2. WRONG AXIS OF GENERALIZATION (Class A)\n\nThe claim states the model learns \"variant-level determinants,\" implying it should generalize to:\n- New variants from the same gene \u2713 (test does this)\n- New variants from new genes \u2717 (test does NOT do this)\n\nThe test set only contains variants from genes that were seen in training. This is like testing a medical diagnostic on patients from the training population rather than new patients.\n\n### 3. WITHIN-GENE PREDICTION UNIFORMITY\n\nVariants from the same gene with the same label receive nearly identical model scores:\n- Average score variation (std): 0.0404\n- Average score range (max-min): 0.0957\n\nThis indicates the model assigns a gene-level score and makes minor adjustments for variant features, rather than using features to predict each variant independently.\n\n### 4. LABEL DISTRIBUTION\n\n- Train: 46.1% splice-disrupting\n- Test: 42.3% splice-disrupting\n- Difference is small, so not a major concern, but test is slightly enriched for non-disruptors\n\n---\n\n## Root Cause\n\nThe fundamental issue is **entity-level data leakage combined with learning entity-level statistics** (F04 pattern):\n\n1. The authors split variants randomly (not genes)\n2. This allowed genes to leak from train to test  \n3. The model learned per-gene disruption rates instead of general variant features\n4. When evaluated on a test set of new variants from the same genes, the high performance is mostly explained by gene identity, not variant-level biology\n\n---\n\n## Comparison to Published Cases\n\nThis analysis matches the documented failure pattern **F04** (Cui et al., 2025; InfoSEM paper):\n- \"Supervised GRN inference learns per-gene label imbalance\"\n- Problem: Edge-level random splits hide entity overlap, models memorize per-entity statistics\n- Fix: Test on unseen entities\n\nIt also shares elements of **F03** (Cao & Fullwood, 2019):\n- \"Enhancer\u2013promoter interaction prediction inflated by shared elements\"\n- Random pair-level splits leak element identity\n\n---\n\n## What the Analysis DOESN'T Test\n\n1. **New genes:** What happens when the model encounters variants from genes not in training? (Expected: substantial drop in performance)\n2. **Baseline on full 140 features:** We only have conservation; a full feature ablation would be informative\n3. **Label circularity:** Are the minigene assay labels independent from other data used in feature engineering?\n\n---\n\n## Recommendation\n\n**The claim is NOT supported.** The reported AUROC 0.94 is inflated by entity leakage. \n\nTo properly support the claim, the authors should:\n\n1. **Re-split the data** at the gene level, so test genes are completely absent from training\n2. **Report performance on unseen genes** - this is the realistic use case for variant prioritization\n3. **Report the per-gene baseline** - show it's substantially lower than the model\n4. **Quantify variant-level predictive power** - use within-gene comparisons to show the model can discriminate variants beyond gene effects\n\nAs currently presented, the model mainly predicts based on which gene a variant comes from, not variant-level features. This is insufficient to support clinical use.\n"
+      }
+    }
+  ]
+}

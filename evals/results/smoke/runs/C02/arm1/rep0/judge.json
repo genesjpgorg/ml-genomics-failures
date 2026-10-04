@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": false,
+  "rationale": "The reviewer correctly rejected both plate confounding (balanced 15/15 per plate, leave-plate-out AUROC 0.69) and selection leakage (selection is inside the folds, permutation null ~0.49), and reached SUPPORTED with acceptable caveats. The sampling-timing and missing clinical-baseline points are reasonable caveats, but the reviewer didn't show they were real problems in this data.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

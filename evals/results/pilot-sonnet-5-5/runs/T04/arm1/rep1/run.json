@@ -1,0 +1,71 @@
+{
+  "task": "T04",
+  "arm": "1",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 33.6,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. The 0.85 test accuracy comes from near-duplicate sequences shared between train and test. On promoters unlike anything in training, the model is at chance.\n\n**What I checked**\n- **Accuracy reproduces.** `predictions_test.csv` against `labels.csv` gives 0.85 on 100 test promoters, balanced 50/50.\n- **Near-duplicates (F12, L).**\n  - 70 of the 100 test promoters share more than 50% of their 8-mers with a single training promoter. Their median similarity is about 0.75\u20130.85.\n  - The other 30 are unrelated to training, at about 0.03 similarity.\n  - There are no exact duplicates, so a simple duplicate check would miss this.\n  - The README says only \"randomly sampled\", with no identity filtering or clustering.\n- **Accuracy by similarity.**\n\n  | Test promoters | n | PromoNet accuracy | Copy nearest training label |\n  |---|---|---|---|\n  | Close homolog in train | 70 | 1.00 | 1.00 |\n  | No close homolog | 30 | 0.50 | 0.40 |\n\n  - This split accounts for the whole headline: 0.7 \u00d7 1.0 + 0.3 \u00d7 0.5 = 0.85.\n  - Copying the nearest training neighbour's label scores 0.82 overall, close to PromoNet's 0.85, so the CNN adds almost nothing beyond recall.\n- **Composition carries no signal.** A 4-mer logistic regression scores 0.54 in cross-validation on train and 0.50 on test. So the result is not a GC or k-mer shortcut, and the 0.85 comes from memorized relatives (F12).\n\n**Issues that matter most**\n1. **Leakage by homology (F12, L).** Near-identical sequences sit on both sides of the split. The test set measures recall of training examples, not generalization to unseen promoters. The README should have used a cluster-based split (MMseqs2 or CD-HIT) and reported accuracy by distance to training.\n2. **Missing baseline (B).** A nearest-neighbour baseline nearly matches the model (0.82 vs 0.85). No one-hot CNN or k-mer baseline is reported.\n3. **No true null (K).** There are no permutation or entity-level controls.\n4. **Small sample (variance).** There is one split and one seed. The \"unseen\" subset has only 30 promoters, so 0.50 there has a wide interval (roughly 0.3\u20130.7). It is still clearly nowhere near 0.85.\n5. **Overreach.** \"Learned regulatory grammar\" is unsupported. The evidence shows that PromoNet memorizes close relatives, and it says nothing about grammar.\n\n**To fix before submission**\n- Re-split by sequence-identity cluster.\n- Report accuracy against distance to the nearest training sequence.\n- Add nearest-neighbour, k-mer and one-hot CNN baselines.\n- Run several seeds with a larger held-out set.\n\nMy scripts are `a.py` and `b.py` in the directory.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.07741100000000001,
+  "duration_s": 32.5,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-61urgd8v/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-61urgd8v/analysis; head -4 labels.csv predictions_test.csv; head -c 400 train.fa; grep -c '>' *.fa"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-61urgd8v/analysis; cat > a.py <<'E'\nimport pandas as pd,numpy as np,itertools\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\ndef rd(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l[0]=='>':k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr=rd('train.fa');te=rd('test.fa')\nlab=pd.read_csv('labels.csv');print(lab.split.value_counts());print(lab.groupby('split').activity.value_counts())\nprint(lab.id.head(3).tolist(),lab[lab.split=='test'].id.head(3).tolist())\np=pd.read_csv('predictions_test.csv')\nL=lab.set_index('id').activity\nprint(set(p.id)<=set(L.index))\ny=p.id.map(L);print('acc',(y==p.predicted).mean(), y.isna().sum())\n# overlap\ntrs=set(tr.values());print('exact dup',sum(s in trs for s in te.values()))\ndef km(s,k=4):\n    ks=[''.join(x) for x in itertools.product('ACGT',repeat=k)];c=dict.fromkeys(ks,0)\n    for i in range(len(s)-k+1):c[s[i:i+k]]+=1\n    return [c[x]/len(s) for x in ks]\nytr=np.array([L[i]=='active' for i in tr]);X=np.array([km(s) for s in tr.values()])\nprint('train cv kmer',cross_val_score(LogisticRegression(C=1,max_iter=2000),X,ytr,cv=5).mean())\nif y.notna().all():\n  Xt=np.array([km(s) for s in te.values()]);yt=np.array([L[i]=='active' for i in te])\n  m=LogisticRegression(max_iter=2000).fit(X,ytr);print('kmer test',m.score(Xt,yt))\n# nearest neighbor identity\ndef k8(s):return {s[i:i+8] for i in range(len(s)-7)}\nT={k:k8(s) for k,s in tr.items()}\nbest=[max(len(k8(s)&v) for v in T.values()) for s in te.values()];print('max shared 8mers',np.percentile(best,[0,50,100]))\nprint(np.mean([s.count('G')+s.count('C') for s in tr.values()])/300)\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-61urgd8v/analysis/a.py",
+        "content": "import pandas as pd,numpy as np,itertools\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\ndef rd(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l[0]=='>':k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr=rd('train.fa');te=rd('test.fa')\nlab=pd.read_csv('labels.csv');print(lab.split.value_counts());print(lab.groupby('split').activity.value_counts())\nprint(list(tr)[:3],list(te)[:3],lab[lab.split=='test'].id.head(3).tolist())\np=pd.read_csv('predictions_test.csv')\nL=lab.set_index('id').activity\nprint(set(p.id)<=set(L.index))\ny=p.id.map(L);print('acc',(y==p.predicted).mean(), y.isna().sum())\ntrs=set(tr.values());print('exact dup',sum(s in trs for s in te.values()))\ndef km(s,k=4):\n    ks=[''.join(x) for x in itertools.product('ACGT',repeat=k)];c=dict.fromkeys(ks,0)\n    for i in range(len(s)-k+1):c[s[i:i+k]]+=1\n    return [c[x]/len(s) for x in ks]\nytr=np.array([L[i]=='active' for i in tr]);X=np.array([km(s) for s in tr.values()])\nprint('train cv kmer',cross_val_score(LogisticRegression(C=1,max_iter=2000),X,ytr,cv=5).mean())\nif y.notna().all():\n  Xt=np.array([km(s) for s in te.values()]);yt=np.array([L[i]=='active' for i in te])\n  m=LogisticRegression(max_iter=2000).fit(X,ytr);print('kmer test',m.score(Xt,yt))\ndef k8(s):return {s[i:i+8] for i in range(len(s)-7)}\nT={k:k8(s) for k,s in tr.items()}\nbest=[max(len(k8(s)&v) for v in T.values()) for s in te.values()];print('max shared 8mers',np.percentile(best,[0,50,100]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-61urgd8v/analysis; python a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-61urgd8v/analysis/b.py",
+        "content": "import pandas as pd,numpy as np\nexec(open('a.py').read().split(\"lab=pd.read_csv\")[0])\nlab=pd.read_csv('labels.csv');L=lab.set_index('id').activity\np=pd.read_csv('predictions_test.csv').set_index('id')\ndef k8(s):return {s[i:i+8] for i in range(len(s)-7)}\nT={k:k8(s) for k,s in tr.items()}\nrows=[]\nfor k,s in te.items():\n    a=k8(s);sh={t:len(a&v) for t,v in T.items()};n=max(sh,key=sh.get)\n    rows.append((k,sh[n]/len(a),L[n],L[k],p.predicted[k]))\nd=pd.DataFrame(rows,columns=['id','sim','nnlab','true','pred'])\nd['hi']=d.sim>0.5\nprint(d.hi.sum(),(d.nnlab==d.true).mean(),'NN acc overall')\nfor h,g in d.groupby('hi'):print(h,len(g),'model',(g.pred==g.true).mean(),'NN',(g.nnlab==g.true).mean())\nprint(d.sim.describe())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-61urgd8v/analysis; python b.py"
+      }
+    }
+  ]
+}

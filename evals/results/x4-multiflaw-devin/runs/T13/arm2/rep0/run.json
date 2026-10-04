@@ -1,0 +1,73 @@
+{
+  "task": "T13",
+  "arm": "2",
+  "rep": 0,
+  "model": "claude-sonnet-5-5-medium",
+  "prompt": "train",
+  "prompt_text": "Train a classifier on the data in this directory (README.md describes it) and report its held-out performance. Python (numpy, pandas, scipy, scikit-learn) is available; create scripts with the Write tool.",
+  "wall_s": 16.8,
+  "timed_out": false,
+  "stderr_tail": "",
+  "duration_s": 16.8,
+  "cost_usd": null,
+  "api_error_status": null,
+  "answer": "Proteins are shared entities and batch may be a confounder; I'll check overlap and baselines.Held-out AUROC is about 0.79, but most of that score doesn't come from biology, so I wouldn't report it as evidence the model learned protein interaction.\n\n**Result:** A logistic regression on `coexpression_z` and `batch` scores AUROC 0.794 on `pairs_test.csv`. A gradient boosting model scores 0.782.\n\n**What drives the score:**\n- **Batch is a shortcut.** Interaction rates differ sharply by batch: about 5% positive in batch 1 and about 40% in batch 2. This holds in both train and test. `batch` alone scores AUROC 0.771.\n- **Coexpression adds little.** `coexpression_z` alone scores 0.576. Within a single batch it scores 0.66 in batch 1 and 0.51 in batch 2, which is near chance. The gain over the batch-only score is about 0.02.\n- **The split leaks proteins.** Every test pair shares at least one protein with training, and 97% have both proteins seen. Predicting from each protein's training label rate alone, with no features, scores AUROC 0.747. That is close to the model's score. A random pair split like this doesn't test generalization to new proteins.\n\n**Caveats:**\n- The test set has only 120 pairs, so the AUROC is noisy.\n- I didn't re-split by protein, so I haven't measured how the model does on unseen proteins. I expect it to be lower.\n- A re-split with no protein on both sides, plus a batch-stratified evaluation, would give a more honest number.\n\nThe script is `run.py` in the analysis directory. I can do the protein-disjoint re-split if you want.",
+  "tool_calls": [
+    "exec",
+    "mcp_list_tools",
+    "exec",
+    "mcp_call_tool",
+    "exec"
+  ],
+  "mcp_calls": [
+    "mcp_list_tools",
+    "check_split_overlap"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-th94mxi1/analysis && ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "mcp_list_tools",
+      "input": {
+        "server_name": "ml-genomics-failures"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-th94mxi1/analysis && head -5 pairs_train.csv pairs_test.csv; ls .devin; wc -l *.csv"
+      }
+    },
+    {
+      "name": "mcp_call_tool",
+      "input": {
+        "server_name": "ml-genomics-failures",
+        "tool_name": "check_split_overlap",
+        "arguments": {
+          "columns": [
+            "protein_a",
+            "protein_b"
+          ],
+          "test_path": "/tmp/review-th94mxi1/analysis/pairs_test.csv",
+          "train_path": "/tmp/review-th94mxi1/analysis/pairs_train.csv",
+          "label": "label"
+        }
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-th94mxi1/analysis && cat > run.py <<'E'\nimport pandas as pd\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.ensemble import GradientBoostingClassifier\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv')\nprint(tr.groupby('batch').label.agg(['mean','count']));print(te.groupby('batch').label.agg(['mean','count']))\nfor f in (['coexpression_z'],['batch'],['coexpression_z','batch']):\n    m=LogisticRegression().fit(tr[f],tr.label);print(f,A(te.label,m.predict_proba(te[f])[:,1]))\nm=GradientBoostingClassifier().fit(tr[['coexpression_z','batch']],tr.label);print('gb',A(te.label,m.predict_proba(te[['coexpression_z','batch']])[:,1]))\nfor b in (1,2):\n    s=te[te.batch==b]; print('within batch',b,A(s.label,s.coexpression_z) if s.label.nunique()>1 else None)\nE\npython run.py"
+      }
+    }
+  ],
+  "turns": 3,
+  "prompt_tokens": 90256,
+  "completion_tokens": 1465,
+  "is_error": false
+}

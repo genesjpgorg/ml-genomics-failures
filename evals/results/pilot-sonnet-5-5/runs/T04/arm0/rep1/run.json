@@ -1,0 +1,93 @@
+{
+  "task": "T04",
+  "arm": "0",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 41.0,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim is not supported. The 0.85 test accuracy comes from train/test leakage, and on test promoters that have no close relative in the training set the model is at chance.\n\n**What I checked**\n- **Reported number:** The predictions file reproduces the 0.85 accuracy (85 of 100). The test set is balanced, 50 active and 50 inactive.\n- **Exact duplicates:** There are none between train and test.\n- **Near-duplicates:** 70 of the 100 test promoters are near-copies of a training promoter.\n  - I measured this as shared 8-mers with the closest training sequence. Those 70 share more than 100 of about 293 8-mers, and the maximum is 284.\n  - Their median position-wise identity to that training sequence is about 97%.\n  - Two unrelated training promoters share a median of only about 8 8-mers, so the overlap isn't a property of the sequence type.\n  - The README says the split was \"randomly sampled\", which can't produce this. The data look like variants of the same promoters landing on both sides of the split.\n- **Accuracy by overlap:**\n\n| Test promoters | n | PromoNet accuracy | Accuracy of copying the closest training promoter's label |\n|---|---|---|---|\n| Near-copy of a training promoter | 70 | 1.00 | 1.00 |\n| No close training relative | 30 | 0.50 | 0.40 |\n\n- **Baseline:** Copying the nearest training label alone gets 0.82 overall. PromoNet's predictions agree with that nearest-neighbour label on 83% of test promoters.\n- **Simple sequence-composition model:** A logistic regression on 3-mer frequencies gets about 0.54 in 5-fold cross-validation on the training set. That is weak, but the folds can contain near-copies of each other, so treat it as rough.\n\n**Main issues**\n1. **Leakage.** The test accuracy mostly reflects memorizing training sequences, not learning \"regulatory grammar\".\n2. **No generalization shown.** On the 30 genuinely novel test promoters, accuracy is 0.50 (n=30, so the interval is wide). That is consistent with no learned signal.\n3. **Missing baselines and uncertainty.** There is no nearest-neighbour or k-mer baseline, and no confidence interval. A test set of 100 gives a \u00b17 percentage-point margin even before the leakage.\n4. **Fix before this goes in a paper.** Re-split by sequence similarity, for example by clustering at a given identity threshold or holding out by locus or family. Then retrain and report accuracy with a confidence interval alongside the baselines.\n\nI left my scripts (`check.py`, `check2.py`, `check3.py`) in the directory.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0884594,
+  "duration_s": 40.0,
+  "turns": 11,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1sswi3t2/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1sswi3t2/analysis; head -5 labels.csv predictions_test.csv; head -4 train.fa test.fa; grep -c '>' *.fa"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1sswi3t2/analysis; cat > check.py <<'E'\nimport pandas as pd,numpy as np,itertools\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\ndef rf(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l[0]=='>':k=l[1:]\n        else:d[k]=d.get(k,'')+l\n    return d\ntr,te=rf('train.fa'),rf('test.fa')\nlab=pd.read_csv('labels.csv');print(lab.split.value_counts(),lab.groupby('split').activity.value_counts())\nprint(lab.id.head(3).tolist(),lab[lab.split=='test'].id.head(3).tolist())\np=pd.read_csv('predictions_test.csv')\nL=lab.set_index('id').activity\nprint(len(set(p.id)&set(L.index)))\nytest=L.reindex(p.id)\nprint('ids missing',ytest.isna().sum())\nif ytest.notna().all():print('acc',(ytest.values==p.predicted.values).mean(), p.predicted.value_counts().to_dict())\n# overlap\nprint('exact dup',len(set(tr.values())&set(te.values())),len(set(tr.values())),len(set(te.values())))\ndef kmers(s,k=8):return {s[i:i+k] for i in range(len(s)-k+1)}\ntrk={i:kmers(s) for i,s in tr.items()}\nmx=[]\nfor i,s in te.items():\n    a=kmers(s);b=max(trk,key=lambda j:len(a&trk[j]));mx.append((i,b,len(a&trk[b])))\nprint(sorted(mx,key=lambda x:-x[2])[:8])\n# baseline\nks=[''.join(x) for x in itertools.product('ACGT',repeat=3)]\ndef f(s):return [sum(s[i:i+3]==k for i in range(len(s)-2))/298 for k in ks]\nids=[i for i in L.index if i in tr];print(len(ids))\nX=np.array([f(tr[i]) for i in ids]);y=(L[ids]=='active').values\nprint('cv',cross_val_score(LogisticRegression(C=10,max_iter=2000),X,y,cv=5).mean())\nE\npython check.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-1sswi3t2/analysis/check.py",
+        "content": "import pandas as pd,numpy as np,itertools\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\ndef rf(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l[0]=='>':k=l[1:]\n        else:d[k]=d.get(k,'')+l\n    return d\ntr,te=rf('train.fa'),rf('test.fa')\nlab=pd.read_csv('labels.csv');print(lab.split.value_counts(),lab.groupby('split').activity.value_counts())\nprint(lab.id.head(3).tolist(),lab[lab.split=='test'].id.head(3).tolist())\np=pd.read_csv('predictions_test.csv')\nL=lab.set_index('id').activity\nprint(len(set(p.id)&set(L.index)))\nytest=L.reindex(p.id)\nprint('ids missing',ytest.isna().sum())\nif ytest.notna().all():print('acc',(ytest.values==p.predicted.values).mean(), p.predicted.value_counts().to_dict())\nprint('exact dup',len(set(tr.values())&set(te.values())),len(set(tr.values())),len(set(te.values())))\ndef kmers(s,k=8):return {s[i:i+k] for i in range(len(s)-k+1)}\ntrk={i:kmers(s) for i,s in tr.items()}\nmx=[]\nfor i,s in te.items():\n    a=kmers(s);b=max(trk,key=lambda j:len(a&trk[j]));mx.append((i,b,len(a&trk[b])))\nprint(sorted(mx,key=lambda x:-x[2])[:8])\nks=[''.join(x) for x in itertools.product('ACGT',repeat=3)]\ndef f(s):return [sum(s[i:i+3]==k for i in range(len(s)-2))/298 for k in ks]\nids=[i for i in L.index if i in tr];print(len(ids))\nX=np.array([f(tr[i]) for i in ids]);y=(L[ids]=='active').values\nprint('cv',cross_val_score(LogisticRegression(C=10,max_iter=2000),X,y,cv=5).mean())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1sswi3t2/analysis; python check.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1sswi3t2/analysis; cat >> check.py <<'E'\nprint('---')\nsh=[m[2] for m in mx];print(np.percentile(sh,[0,25,50,75,100]))\nnn=[(L[b],L[i]) for i,b,_ in mx]\nprint('1-NN acc',np.mean([a==c for a,c in nn]))\n# within-train nearest neighbor sharing\ntl=[i for i in tr]\nms=[]\nfor i in tl[:60]:\n    a=trk[i];ms.append(max(len(a&trk[j]) for j in tl if j!=i))\nprint('train-train max share median',np.median(ms))\npr=dict(zip(p.id,p.predicted))\nprint('pred==nn label',np.mean([L[b]==pr[i] for i,b,_ in mx]))\nE\npython check.py | sed -n '/---/,$p'"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-1sswi3t2/analysis/check2.py",
+        "content": "import pandas as pd,numpy as np\ndef rf(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l[0]=='>':k=l[1:]\n        else:d[k]=d.get(k,'')+l\n    return d\ntr,te=rf('train.fa'),rf('test.fa')\nL=pd.read_csv('labels.csv').set_index('id').activity\np=pd.read_csv('predictions_test.csv');pr=dict(zip(p.id,p.predicted))\ndef km(s,k=8):return {s[i:i+k] for i in range(len(s)-k+1)}\ntrk={i:km(s) for i,s in tr.items()}\nmx=[]\nfor i,s in te.items():\n    a=km(s);b=max(trk,key=lambda j:len(a&trk[j]));mx.append((i,b,len(a&trk[b])))\nprint(np.percentile([m[2] for m in mx],[0,25,50,75,100]))\nprint('1-NN label acc',np.mean([L[b]==L[i] for i,b,_ in mx]))\nprint('pred==nn label',np.mean([L[b]==pr[i] for i,b,_ in mx]))\nms=[max(len(trk[i]&trk[j]) for j in trk if j!=i) for i in list(trk)[:60]]\nprint('train-train median',np.median(ms))\n# position-wise identity\ndef ident(a,b):return np.mean([x==y for x,y in zip(a,b)])\nprint('identity to NN',np.percentile([ident(te[i],tr[b]) for i,b,_ in mx],[0,50,100]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1sswi3t2/analysis; python check2.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-1sswi3t2/analysis/check3.py",
+        "content": "import pandas as pd,numpy as np\nexec(open('check2.py').read().split(\"print(np.percentile\")[0])\nnear=[m[2]>100 for m in mx]\ny=[L[i] for i,_,_ in mx];pp=[pr[i] for i,_,_ in mx]\nc=np.array([a==b for a,b in zip(y,pp)]);n=np.array(near)\nprint('near n',n.sum(),'acc',c[n].mean(),'| novel n',(~n).sum(),'acc',c[~n].mean())\nnnl=np.array([L[b]==L[i] for i,b,_ in mx]);print('1NN acc near',nnl[n].mean(),'novel',nnl[~n].mean())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-1sswi3t2/analysis; python check3.py"
+      }
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "task": "T07",
+  "arm": "0",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 27.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "I checked both CSVs and the main claim isn't supported.\n\n**What holds up.** Across 2,000 held-out genes the gene-level Pearson r is 0.798. It is similar on each chromosome (chr8 0.79, chr9 0.79, chr10 0.81). There are no duplicate genes and no missing values. I can only check the numbers in the CSV, not whether the chromosomes were truly held out of training.\n\n**What doesn't hold up.** The claim is that ExprNet can predict the expression impact of a patient's personal regulatory variants. The gene-level r doesn't test that, and the variant-level data the colleague included contradicts it.\n\n1. **The wrong test.** Predicting differences in expression between genes (r = 0.80) mostly reflects sequence features that are the same in every person, such as promoter type and GC content. Interpreting a variant needs the change in expression within a gene when one allele changes. These are different tasks, and good performance on the first says little about the second.\n2. **The variant-level result is near null.** For the 300 variants, predicted effect against eQTL beta gives:\n   - Pearson r = 0.12 (p = 0.038), which is about 1.4% of variance.\n   - Spearman \u03c1 = 0.10 (p = 0.08), which is not significant.\n   - Sign agreement of 53%, close to the 50% expected by chance.\n   - Sign agreement of 51% among the variants with the largest eQTL effects, which is chance.\n   \n   The README mentions this comparison but never reports the numbers. The one significant result, Pearson, is weak and fragile, and it is probably driven by a few extreme points.\n3. **Predicted effects are far too small.** Their SD is 0.053, against 0.386 for the observed betas, about 7\u00d7 smaller. Even with correct signs, the model would badly underestimate effect sizes.\n4. **Calibration offset.** Predicted mean log TPM is 3.94 and observed is 4.92, about 1 unit lower. Correlation hides this. It is minor next to the variant-level result, but absolute predictions aren't calibrated.\n5. **The eQTL set is a poor proxy for rare disease.** The variants are common (the README calls them \"common variants\") and come from a 400-person cohort. Rare, patient-specific variants are a different regime. Also, eQTL betas often reflect linked causal variants rather than the scored variant, so the benchmark is noisy. Even so, 53% sign agreement is too weak to justify the plan.\n6. **Missing details.** The README doesn't say how the 300 variants were chosen, what their allele frequencies are, or whether they lie in the held-out chromosomes. There are no confidence intervals and no baseline, such as distance to TSS or a simple conservation score.\n\n**Recommendation.** The paper can say ExprNet predicts cross-gene baseline expression (r \u2248 0.80). It can't claim, or plan to use, the model for personal variant effect prediction without much stronger within-gene evidence. Useful next steps are:\n- Report the variant-level numbers, with confidence intervals.\n- Evaluate on fine-mapped eQTLs.\n- Add baselines.\n- Test within-gene across-individual prediction.\n\nVERDICT: NOT SUPPORTED\n\nMost important issues:\n- The gene-level r = 0.80 measures between-gene prediction, not variant effect.\n- The variant-level evidence is near chance: r = 0.12, \u03c1 = 0.10 (p = 0.08), 53% sign agreement.\n- Predicted effects are about 7\u00d7 too small.\n- The eQTL benchmark covers common variants, not rare ones, and no baselines are given.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.043581400000000006,
+  "duration_s": 26.6,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -4 *.csv && cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom scipy import stats\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(g.describe(include='all'));print(v.describe(include='all'))\nn=g.select_dtypes('number').columns\nprint(g.columns.tolist(),v.columns.tolist())\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -4 gene_level_eval.csv variant_eval.csv; python a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-j_dgh3ud/analysis/a.py",
+        "content": "import pandas as pd,numpy as np\nfrom scipy import stats\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(len(g),g.gene.nunique(),g.test_chromosome.value_counts().to_dict())\nprint(stats.pearsonr(g.predicted_log_tpm,g.observed_log_tpm))\nfor c,d in g.groupby('test_chromosome'):print(c,stats.pearsonr(d.predicted_log_tpm,d.observed_log_tpm)[0])\nprint(g.describe())\nprint(len(v),v.gene.nunique(),v.variant.nunique())\nprint(v.describe())\nprint(stats.pearsonr(v.predicted_effect,v.observed_eqtl_beta),stats.spearmanr(v.predicted_effect,v.observed_eqtl_beta))\nprint('sign agree',(np.sign(v.predicted_effect)==np.sign(v.observed_eqtl_beta)).mean())\nbig=v[v.observed_eqtl_beta.abs()>v.observed_eqtl_beta.abs().median()]\nprint('sign agree big',(np.sign(big.predicted_effect)==np.sign(big.observed_eqtl_beta)).mean())\n# within-gene variation: variants of same gene\nvg=v.groupby('gene').size();print(vg.value_counts().head())\n# gene-level: fraction of variance explained by gene mean? residual\nprint(g.isna().sum().sum(), v.isna().sum().sum())\nprint(g.duplicated('gene').sum())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python a.py"
+      }
+    }
+  ]
+}

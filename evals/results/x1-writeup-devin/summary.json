@@ -1,0 +1,90 @@
+{
+  "config": {
+    "tasks": [
+      "T01",
+      "T03",
+      "T04",
+      "T05",
+      "C01"
+    ],
+    "arms": [
+      "0",
+      "2"
+    ],
+    "reps": 2,
+    "model": "claude-sonnet-5-5-medium",
+    "git": "7232b45",
+    "prompt": "writeup",
+    "backend": "devin"
+  },
+  "n_runs": 20,
+  "arms": {
+    "0": {
+      "n": 10,
+      "verdict_correct": 1.0,
+      "verdict_correct_flawed": 1.0,
+      "verdict_correct_clean": 1.0,
+      "detected": 1.0,
+      "quantified": 1.0,
+      "fix": 1.0,
+      "false_alarm": 0.0,
+      "used_mcp": 0.0,
+      "mcp_calls_per_run": 0.0,
+      "cost_per_run": 0.0,
+      "time_per_run_s": 24.21,
+      "contaminated": 0,
+      "errors": 0
+    },
+    "2": {
+      "n": 10,
+      "verdict_correct": 1.0,
+      "verdict_correct_flawed": 1.0,
+      "verdict_correct_clean": 1.0,
+      "detected": 1.0,
+      "quantified": 1.0,
+      "fix": 1.0,
+      "false_alarm": 0.0,
+      "used_mcp": 0.9,
+      "mcp_calls_per_run": 1.3,
+      "cost_per_run": 0.0,
+      "time_per_run_s": 27.130000000000003,
+      "contaminated": 5,
+      "errors": 0
+    }
+  },
+  "vs_baseline": {
+    "verdict_correct": {
+      "2": {
+        "diff": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "n_tasks": 5
+      }
+    },
+    "detected": {
+      "2": {
+        "diff": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "n_tasks": 4
+      }
+    },
+    "quantified": {
+      "2": {
+        "diff": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "n_tasks": 4
+      }
+    },
+    "false_alarm": {
+      "2": null
+    }
+  }
+}

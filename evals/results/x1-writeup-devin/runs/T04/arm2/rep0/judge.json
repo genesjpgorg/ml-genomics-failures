@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the test promoters are near-duplicates of training promoters: 64/100 have a training sequence at \u226595% identity. Accuracy is 1.00 on those near-copies and 0.62 on the rest, which roughly matches the key's ~70/100 and ~1.0 vs ~0.50. It declined to support the claim and proposed an MMseqs2/CD-HIT cluster-based split, though it read the 0.62 as slightly above chance rather than at chance.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

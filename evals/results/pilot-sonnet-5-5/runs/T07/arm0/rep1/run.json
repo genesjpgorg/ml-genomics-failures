@@ -1,0 +1,57 @@
+{
+  "task": "T07",
+  "arm": "0",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 22.3,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. The r = 0.80 result holds up, but it measures a different thing from what the claim needs.\n\n**What I checked** (script `chk.py` in this directory):\n\n- **Gene-level result reproduces.** Pearson r is 0.798 across the 2,000 held-out genes, and Spearman is 0.78. It is consistent across chromosomes 8, 9 and 10 (r = 0.79, 0.79, 0.81). The held-out split is fine as far as I can tell from the file.\n- **Variant-level result is poor.** This is the evidence that matches the intended use, and the README doesn't report any numbers for it.\n  - Pearson r between predicted effect and eQTL beta is 0.12 (p = 0.04), and Spearman is 0.10 (p = 0.08). That is about 1.4% of variance explained.\n  - The predicted sign matches the observed sign for 53% of variants, which is close to a coin flip.\n  - Predicted effect magnitude doesn't track observed magnitude (Spearman 0.05, p = 0.39).\n  - Among the 150 variants with the largest observed effects, where signal should be easiest to see, Spearman is 0.15 (p = 0.07) and sign agreement is 51%.\n  - Predicted effects are also about 7 times smaller than observed ones (SD 0.05 against 0.39).\n\n**Issues that matter most:**\n\n1. **The metric doesn't fit the claim.** A gene-level r of 0.80 mostly reflects differences between genes, such as promoter type and housekeeping versus tissue-specific genes. It says nothing about whether the model captures the effect of a single variant within a gene. The model can score r = 0.80 across genes and still be uninformative about individual variants, and the variant data shows that is the case here.\n2. **The README leaves out the unfavourable result.** The variant file exists and is described, but its weak correlation is not reported. The claim rests on the 0.80 figure alone.\n3. **Even the weak variant-level signal is probably overstated.** The 300 variants are common eQTL variants, so they are the easy case. Rare-disease patients' personal variants are mostly rare, and eQTL betas for rare variants aren't measured by the cohort, so the evaluation doesn't cover them. Sign accuracy near 50% means the model can't be trusted to say whether a variant raises or lowers expression.\n4. **The 400-individual eQTL betas are noisy.** This caps the achievable correlation, but it doesn't explain a sign accuracy of 53%.\n\n**Suggested fixes before this goes into a paper:**\n\n- Report the variant-level metrics as the primary result for this use.\n- Evaluate within-gene prediction, for example the correlation of model-predicted versus observed expression across individuals, or against fine-mapped causal variants.\n- Test on rare variants.\n- Limit the claim to \"predicts between-gene expression levels from reference sequence.\"\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.04953640000000001,
+  "duration_s": 21.5,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ela2hbpd/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ela2hbpd/analysis; head -5 *.csv; python3 -c \"\nimport pandas as pd\nfor f in ['gene_level_eval.csv','variant_eval.csv']:\n    d=pd.read_csv(f);print(d.describe(include='all').T)\n\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ela2hbpd/analysis; cat > chk.py <<'E'\nimport pandas as pd,numpy as np\nfrom scipy import stats\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(stats.pearsonr(g.predicted_log_tpm,g.observed_log_tpm))\nprint(stats.spearmanr(g.predicted_log_tpm,g.observed_log_tpm))\nfor c,d in g.groupby('test_chromosome'):print(c,len(d),stats.pearsonr(d.predicted_log_tpm,d.observed_log_tpm)[0])\nprint(stats.pearsonr(v.predicted_effect,v.observed_eqtl_beta),stats.spearmanr(v.predicted_effect,v.observed_eqtl_beta))\nprint('sign agree',(np.sign(v.predicted_effect)==np.sign(v.observed_eqtl_beta)).mean())\nprint((v.observed_eqtl_beta<0).mean(),(v.predicted_effect<0).mean())\na=v.observed_eqtl_beta.abs();p=v.predicted_effect.abs()\nprint(stats.spearmanr(p,a))\nbig=v[a>a.median()];print(len(big),stats.spearmanr(big.predicted_effect,big.observed_eqtl_beta),(np.sign(big.predicted_effect)==np.sign(big.observed_eqtl_beta)).mean())\n# variant genes: compare to gene-level\nm=v.merge(g,on='gene');print(len(m))\nprint(v.predicted_effect.std(),v.observed_eqtl_beta.std())\nprint(v.gene.isin(g.gene).mean())\nE\npython3 chk.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ela2hbpd/analysis/chk.py",
+        "content": "import pandas as pd,numpy as np\nfrom scipy import stats\ng=pd.read_csv('gene_level_eval.csv');v=pd.read_csv('variant_eval.csv')\nprint(stats.pearsonr(g.predicted_log_tpm,g.observed_log_tpm))\nprint(stats.spearmanr(g.predicted_log_tpm,g.observed_log_tpm))\nfor c,d in g.groupby('test_chromosome'):print(c,len(d),stats.pearsonr(d.predicted_log_tpm,d.observed_log_tpm)[0])\nprint(stats.pearsonr(v.predicted_effect,v.observed_eqtl_beta),stats.spearmanr(v.predicted_effect,v.observed_eqtl_beta))\nprint('sign agree',(np.sign(v.predicted_effect)==np.sign(v.observed_eqtl_beta)).mean())\nprint((v.observed_eqtl_beta<0).mean(),(v.predicted_effect<0).mean())\na=v.observed_eqtl_beta.abs();p=v.predicted_effect.abs()\nprint(stats.spearmanr(p,a))\nbig=v[a>a.median()];print(len(big),stats.spearmanr(big.predicted_effect,big.observed_eqtl_beta),(np.sign(big.predicted_effect)==np.sign(big.observed_eqtl_beta)).mean())\nprint(v.predicted_effect.std(),v.observed_eqtl_beta.std())\nprint(v.gene.isin(g.gene).mean())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ela2hbpd/analysis; python3 chk.py"
+      }
+    }
+  ]
+}

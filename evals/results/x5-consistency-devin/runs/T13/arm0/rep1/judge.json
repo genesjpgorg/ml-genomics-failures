@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": false,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found both flaws. It measured the batch confound (batch alone gives AUROC 0.771) and showed that every test pair has both proteins in training, then declined to read 0.794 as biological performance. Its fix doesn't meet the key: it offered a protein split or a batch split as either-or options, not an entity-disjoint split combined with batch-matched evaluation.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

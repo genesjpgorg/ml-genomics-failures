@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer pinpointed gene leakage: labels cluster within genes and the random variant split puts all test genes in train. They measured a gene-mean baseline AUROC of 0.926 against the model's 0.941 and conservation alone at 0.55, and proposed gene-held-out evaluation, within-gene evaluation and a gene-mean baseline.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

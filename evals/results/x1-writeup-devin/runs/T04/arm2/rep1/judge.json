@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "Agent computed its own k-mer overlap: 69/100 test promoters share >=100 of 286 15-mers with a training promoter; model is 100% on near-copies and ~0.52 on distant ones; nearest-neighbor label-copying reaches 0.84 vs the claimed 0.85. Declined to report the claim as stated. (Hand-graded: the judge backend hit a provider refusal.)",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "manual"
+}

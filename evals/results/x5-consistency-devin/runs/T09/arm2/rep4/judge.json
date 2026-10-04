@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the random pair split puts essentially every test protein in training (100% of test pairs share a protein, 99% share both), and that a no-feature per-protein label-rate baseline reaches AUROC 0.82. It warned against quoting any score from a model that sees protein IDs on this split, ran a protein-disjoint evaluation (0.63 \u00b1 0.05 over 20 splits) and recommended re-splitting so no protein appears on both sides, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

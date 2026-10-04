@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": false,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent declined to report the 0.90 AUROC. It said every test protein also appears in training, so a model can memorize each protein's interaction propensity rather than generalize, which matches the key's mechanism and its ~100% overlap figure. It did not propose a protein-disjoint split or a seen/unseen breakdown. Reporting the co-expression-only model instead is not the key's remedy.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

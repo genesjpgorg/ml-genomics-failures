@@ -1,0 +1,72 @@
+{
+  "task": "T08",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 26.4,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim is not supported. The 0.99 cross-validated AUROC comes from selecting genes on the whole dataset before cross-validation, not from any real signal.\n\n**What I checked** (`check.py`, in this directory)\n- **Data:** 60 patients, 30 responders, 5,000 genes.\n- **Reproduction:** `analysis.py` gives 0.988, matching `results.json`.\n- **Leak:** `SelectKBest` is fitted on all 60 patients, labels included, before `cross_val_predict`. Every test fold has therefore already shaped the \"signature\".\n- **Corrected evaluation:** I put selection and logistic regression in one pipeline, so genes are chosen inside each training fold only. The AUROC falls to chance: 0.58, 0.42, 0.56, 0.49 and 0.51 over five different fold seeds.\n- **Permutation null:** I shuffled the response labels, so there is nothing to find, and kept the colleague's leaky procedure. It still scores 0.98\u20131.00 across 10 shuffles. The headline number is therefore what this procedure produces on pure noise.\n- **Corrected null:** With selection inside the folds, the shuffled-label scores range from 0.39 to 0.82. That spread shows how noisy a 60-patient estimate is.\n\n**Issues that matter most**\n1. **Selection leakage (circular evaluation, class C in the failure catalogue).** Picking 20 of 5,000 genes using all labels guarantees a high score in-sample. The README calls the number cross-validated, but the signature was never held out. The catalogue has no case for this exact pattern, and its search turned up only loosely related ones (F03, F04, F09, F12). The checklist's questions on a true null (question 5) and circularity (question 7) still apply.\n2. **No valid evidence of signal.** The honest nested estimate is about 0.5, so the data show no predictive signature. The 20 genes in `results.json` are noise picked from 5,000 candidates.\n3. **Small sample.** With n=60, the corrected estimate varies by about \u00b10.1 across seeds, and one shuffled-label run reached 0.82. Even a real result would need repeated CV and a confidence interval.\n4. **Missing pieces.**\n   - No independent validation cohort.\n   - No baselines.\n   - No check for batch, site or prior-treatment confounders, and `response.csv` contains no metadata to test them with. Any of these could produce a spurious result once the leak is fixed.\n5. **Recommendation is unjustified.** Prospective testing to select patients for therapy has no support from this analysis. The README should be rewritten to report the nested result, or the analysis redone on an independent cohort.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.0738462,
+  "duration_s": 24.9,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__search"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "search"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-f7hs_56n/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-f7hs_56n/analysis; cat analysis.py results.json response.csv; head -c 300 expression.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-f7hs_56n/analysis; cat > check.py <<'E'\nimport pandas as pd, numpy as np\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nx=pd.read_csv(\"expression.csv\").set_index(\"patient\")\ny=pd.read_csv(\"response.csv\").set_index(\"patient\").loc[x.index,\"responder\"].values\nX=x.values\ndef nested(y,seed=0):\n    pipe=make_pipeline(SelectKBest(f_classif,k=20),LogisticRegression(max_iter=1000))\n    p=cross_val_predict(pipe,X,y,cv=StratifiedKFold(5,shuffle=True,random_state=seed),method=\"predict_proba\")[:,1]\n    return roc_auc_score(y,p)\nprint(\"n\",len(y),\"pos\",y.sum())\nprint(\"nested\",[round(nested(y,s),3) for s in range(5)])\nrng=np.random.default_rng(0)\nprint(\"nested permuted\",[round(nested(rng.permutation(y)),3) for _ in range(10)])\n# leaky permuted\ndef leaky(y):\n    s=SelectKBest(f_classif,k=20).fit(X,y);Z=X[:,s.get_support()]\n    p=cross_val_predict(LogisticRegression(max_iter=1000),Z,y,cv=StratifiedKFold(5,shuffle=True,random_state=0),method=\"predict_proba\")[:,1]\n    return roc_auc_score(y,p)\nprint(\"leaky permuted\",[round(leaky(rng.permutation(y)),3) for _ in range(10)])\nE\npython check.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-f7hs_56n/analysis/check.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nx=pd.read_csv(\"expression.csv\").set_index(\"patient\")\ny=pd.read_csv(\"response.csv\").set_index(\"patient\").loc[x.index,\"responder\"].values\nX=x.values\ndef nested(y,seed=0):\n    pipe=make_pipeline(SelectKBest(f_classif,k=20),LogisticRegression(max_iter=1000))\n    p=cross_val_predict(pipe,X,y,cv=StratifiedKFold(5,shuffle=True,random_state=seed),method=\"predict_proba\")[:,1]\n    return roc_auc_score(y,p)\nprint(\"n\",len(y),\"pos\",y.sum(),\"shape\",X.shape)\nprint(\"nested\",[round(nested(y,s),3) for s in range(5)])\nrng=np.random.default_rng(0)\nprint(\"nested permuted\",[round(nested(rng.permutation(y)),3) for _ in range(10)])\ndef leaky(y):\n    s=SelectKBest(f_classif,k=20).fit(X,y);Z=X[:,s.get_support()]\n    p=cross_val_predict(LogisticRegression(max_iter=1000),Z,y,cv=StratifiedKFold(5,shuffle=True,random_state=0),method=\"predict_proba\")[:,1]\n    return roc_auc_score(y,p)\nprint(\"leaky\", round(leaky(y),3))\nprint(\"leaky permuted\",[round(leaky(rng.permutation(y)),3) for _ in range(10)])\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-f7hs_56n/analysis; python check.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "feature selection before cross-validation leakage"
+      }
+    }
+  ]
+}

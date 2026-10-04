@@ -1,0 +1,82 @@
+{
+  "task": "T05",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 42.1,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "**The claim is not supported.** The 0.99 accuracy is explained by GC content alone, and nothing in the evidence tests the biological claims.\n\n**What I checked**\n- The data is 200 training contigs and 100 test contigs, each 1,500 bp and balanced between phage and bacterial. `results.json` reports only `test_accuracy: 0.99` and `n_test: 100`.\n- I ran the `kmer_baseline` tool and my own script (`check.py`).\n\n**Issues, most important first**\n1. **GC content is a complete shortcut (class S, and B for the missing baseline).**\n   - Phage contigs average about 0.41 GC and bacterial contigs about 0.55. The two classes barely overlap (standard deviation about 0.026 each).\n   - A single GC threshold set on the training data classifies the test set with accuracy 1.00. That is higher than the model's 0.99.\n   - The `kmer_baseline` tool gives AUROC 1.0 from GC alone and 1.0 from 5-mers, which is 102% of the model's gain over chance.\n   - Whatever PhageFormer learned, nothing shows it is more than GC or composition. The cases F01, F02 and F08 in the failure catalogue describe this pattern.\n   - The class gap is much larger than real phage and host genomes usually show. It looks like a property of how the data was built, and the README doesn't say how.\n2. **The claim tests the wrong thing (class A).**\n   - The README says the model learns gene content and finds novel phages where homology tools fail. The test is a random split of same-length contigs, and nothing in it varies gene content or novelty.\n   - There is no comparison with homology tools (BLAST, geNomad, VirSorter or similar). There is no held-out set of divergent phages, and no hard negatives with matched GC, such as high-GC phages or low-GC bacteria.\n3. **The attention claim has no evidence.**\n   - No attention analysis, gene annotation, or overlap with known phage genes is provided.\n   - Attention maps that \"resemble\" structural or replication genes are anecdotal. They would also be expected from a model that only reads GC.\n4. **Small test set and a single run.**\n   - With 100 test contigs, 0.99 means 99 of 100 correct. No seeds, confidence intervals, or code are reported, and the model code is not in the directory.\n5. **No homology leakage, but this does not rescue the result.**\n   - My 15-mer containment check found at most 0.2% shared k-mers between any test contig and the training set, with no duplicate sequences. The `check_sequence_similarity` tool errored, so I did this by hand.\n   - The contigs are apparently unrelated, so the score isn't inflated by leakage. The problem is that the task is trivially solvable by GC, and the data cannot show novelty detection.\n\n**What would make the claim testable**\n- Report GC-only and k-mer baselines next to the model.\n- Evaluate on GC-matched positives and negatives.\n- Split by phage family or cluster identity, and compare with homology-based tools on divergent phages.\n- Check attention against annotated genes with a proper null.\n\nVERDICT: NOT SUPPORTED\n\nThe main issues:\n- GC content alone gives 100% test accuracy, so the 0.99 shows nothing about learned gene content.\n- No test of novel-phage discovery or comparison with homology tools.\n- The attention-map claim has no evidence.\n- The test set is tiny (n=100) and there is a single run.",
+  "is_error": false,
+  "cost_usd": 0.07182560000000002,
+  "duration_s": 40.6,
+  "turns": 9,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__check_sequence_similarity",
+    "mcp__ml-genomics-failures__kmer_baseline",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_sequence_similarity",
+    "kmer_baseline"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-kczhgye0/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-kczhgye0/analysis; cat results.json; head -c 600 train.csv; python3 -c \"\nimport pandas as pd\nfor f in ['train','test']:\n    d=pd.read_csv(f+'.csv');print(d.shape,d.columns.tolist(),d.iloc[:,1].value_counts().to_dict(),d.sequence.str.len().describe()[['min','max']].tolist())\n\""
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_sequence_similarity",
+      "input": {
+        "train_fasta_path": "/tmp/review-kczhgye0/analysis/train.csv",
+        "test_fasta_path": "/tmp/review-kczhgye0/analysis/test.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__kmer_baseline",
+      "input": {
+        "train_path": "/tmp/review-kczhgye0/analysis/train.csv",
+        "test_path": "/tmp/review-kczhgye0/analysis/test.csv",
+        "model_score": 0.99
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-kczhgye0/analysis; cat > check.py <<'E'\nimport pandas as pd\ntr=pd.read_csv('train.csv');te=pd.read_csv('test.csv')\ngc=lambda s:(s.count('G')+s.count('C'))/len(s)\nfor d in(tr,te):d['gc']=d.sequence.map(gc)\nprint(tr.groupby('label').gc.describe());print(te.groupby('label').gc.describe())\nk=15\ndef km(s):return {s[i:i+k] for i in range(len(s)-k+1)}\nT=[km(s) for s in tr.sequence]\nmx=[max(len(km(s)&t)/len(km(s)) for t in T) for s in te.sequence]\nte['mx']=mx;print(te.mx.describe())\nprint('dup seqs',te.sequence.isin(tr.sequence).sum(), tr.sequence.duplicated().sum())\nthr=tr.groupby('label').gc.mean().mean()\nprint('GC thr acc',((te.gc>thr)==(te.label=='phage')).mean() if tr[tr.label=='phage'].gc.mean()>thr else ((te.gc<thr)==(te.label=='phage')).mean())\nE\npython3 check.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-kczhgye0/analysis/check.py",
+        "content": "import pandas as pd\ntr=pd.read_csv('train.csv');te=pd.read_csv('test.csv')\ngc=lambda s:(s.count('G')+s.count('C'))/len(s)\nfor d in(tr,te):d['gc']=d.sequence.map(gc)\nprint(tr.groupby('label').gc.describe());print(te.groupby('label').gc.describe())\nk=15\ndef km(s):return {s[i:i+k] for i in range(len(s)-k+1)}\nT=[km(s) for s in tr.sequence]\nte['mx']=[max(len(km(s)&t)/len(km(s)) for t in T) for s in te.sequence]\nprint(te.mx.describe())\nprint('dup seqs',te.sequence.isin(tr.sequence).sum(), tr.sequence.duplicated().sum())\nm=tr.groupby('label').gc.mean();thr=m.mean()\npred=(te.gc>thr) if m['phage']>m['bacterial'] else (te.gc<thr)\nprint('GC thr acc',(pred==(te.label=='phage')).mean())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-kczhgye0/analysis; python3 check.py"
+      }
+    }
+  ]
+}

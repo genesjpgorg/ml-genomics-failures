@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": true,
+  "rationale": "The agent's draft accepts the claim: co-expression gives a moderately strong prior for unseen proteins. It correctly confirmed the split is protein-disjoint and found an AUROC of about 0.85, with no claim of leakage and no objection to the single feature. It also flagged a real reproducibility problem the key doesn't mention: the saved predictions give 0.81 and don't match a refit single-feature logistic regression, which gives 0.85.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

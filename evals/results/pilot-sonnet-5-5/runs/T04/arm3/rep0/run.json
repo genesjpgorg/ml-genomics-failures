@@ -1,0 +1,99 @@
+{
+  "task": "T04",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 35.0,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "I have enough to give a verdict.\n\n**Main claim: not supported.** The 0.85 accuracy reproduces, but it comes from near-copies of training sequences, not from learned regulatory grammar.\n\n**Evidence**\n- **Reproduction.** Joining `predictions_test.csv` to the test labels gives 85/100 correct. The test set is balanced 50/50 and the predictions are 51/49. Training has 137 active and 163 inactive.\n- **Near-duplicate leakage (class L, F12).** `check_sequence_similarity` finds that 64 of the 100 test promoters have a training sequence at an estimated identity of 95% or more, and 7 are at 99% or more. Only 30 of the 100 are unrelated to training (below 80%). The \"random split\" in the README did not separate related promoters. They were probably variants or tiles of the same loci.\n- **Accuracy by relatedness.** My own check, in `nn.py`, uses 12-mer containment with a cutoff of 0.3. It gives 70 near-copy test sequences and 30 unrelated ones.\n  - On the 70 near-copies, PromoNet scores 70/70 (100%).\n  - On the 30 unrelated ones, it scores 15/30 (50%), which is chance.\n  - Copying the label of the nearest training sequence gets 70/70 on the near-copies, with no model at all. Across all 100 test sequences it scores 0.81, against PromoNet's 0.85.\n  - On the 30 unrelated sequences, nearest-neighbour copying scores 0.37.\n  - Within the near-copies, the label always matches the nearest training sequence's label (35/35 active, 35/35 inactive).\n- **Composition baseline (class B).** `kmer_baseline` gives an AUROC of 0.70 for 5-mer nearest neighbours and 0.57 for GC content alone. I compared these against 0.85 as if it were an AUROC, but the 0.85 is an accuracy, so the \"58% of the gain\" figure is only approximate. The baseline also gets much of its score from the same near-copies.\n\n**What the README gets wrong**\n- It tests on related sequences but claims generalisation to \"new, unseen\" sequences. The held-out set should be split by sequence-identity cluster (MMseqs2 or CD-HIT), not at random.\n- It reports no baselines. At minimum it needs nearest-neighbour, k-mer logistic regression and a one-hot CNN.\n- It has no true null control, such as permuted labels or shuffled sequence-to-label pairing.\n- It reports a single split and a single seed. Only 30 test sequences are independent of training, so any accuracy on them is very noisy (\u00b19 points at 95% confidence).\n\n**What to fix before it goes in a paper**\n1. Re-split by identity cluster and report accuracy on that split. On the current data, that accuracy looks like chance (15/30).\n2. Add the baselines above, and report counts as well as rates.\n3. Either drop the \"regulatory grammar\" claim or back it with motif or attribution analyses on a leakage-free split.\n\nI did not fetch the F12 case text. I cited it by ID from the checklist table and the tool output.\n\nVERDICT: NOT SUPPORTED\n\nIssues that matter most:\n1. 64 of the 100 test promoters have a training sequence at \u226595% identity, so the random split leaks.\n2. All of the accuracy comes from those near-copies: 100% on 70 near-copy test sequences and 50% (chance) on the 30 unrelated ones.\n3. Nearest-neighbour label copying scores 0.81 overall, close to PromoNet's 0.85, so the model adds little beyond recall.\n4. There are no baselines, no null control and only one seed, and the independent test set is just 30 sequences.",
+  "is_error": false,
+  "cost_usd": 0.0882232,
+  "duration_s": 33.7,
+  "turns": 11,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_sequence_similarity",
+    "mcp__ml-genomics-failures__kmer_baseline",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_sequence_similarity",
+    "kmer_baseline"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-0fgqauko/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-0fgqauko/analysis; head -5 labels.csv predictions_test.csv; head -c 400 train.fa; grep -c '>' train.fa test.fa"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-0fgqauko/analysis; cat > prep.py <<'E'\nimport pandas as pd\ndef fa(p):\n    d={};k=None\n    for l in open(p):\n        l=l.strip()\n        if l.startswith('>'):k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr=fa('train.fa');te=fa('test.fa')\nlab=pd.read_csv('labels.csv');pr=pd.read_csv('predictions_test.csv')\nprint(lab.split.value_counts());print(lab.head(3),lab.tail(3))\nprint(lab.groupby('split').activity.value_counts())\nL=lab.set_index('id').activity\ntrd=pd.DataFrame({'id':list(tr),'sequence':list(tr.values())});trd['label']=trd.id.map(L)\nprint(trd.label.isna().sum())\n# test labels\ntid=list(te);print(tid[:3],[i in L.index for i in tid[:3]])\nopen('train.csv','w').write(trd.to_csv(index=False))\nprint(len(set(tr.values())&set(te.values())), len(set(tr.values())),len(set(te.values())))\nE\npython prep.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-0fgqauko/analysis/prep.py",
+        "content": "import pandas as pd\ndef fa(p):\n    d = {}; k = None\n    for l in open(p):\n        l = l.strip()\n        if l.startswith('>'):\n            k = l[1:]; d[k] = ''\n        else:\n            d[k] += l\n    return d\ntr = fa('train.fa'); te = fa('test.fa')\nlab = pd.read_csv('labels.csv'); pr = pd.read_csv('predictions_test.csv')\nprint(lab.split.value_counts())\nprint(lab.groupby('split').activity.value_counts())\nprint(lab[lab.split == 'test'].head(3))\nL = lab.set_index('id').activity\nprint(list(te)[:3], list(tr)[:3])\ntrd = pd.DataFrame({'id': list(tr), 'sequence': list(tr.values())}); trd['label'] = trd.id.map(L)\nprint('train label NA', trd.label.isna().sum())\ntrd.to_csv('train.csv', index=False)\nted = pd.DataFrame({'id': list(te), 'sequence': list(te.values())})\nted['label'] = ted.id.map(L)\nprint('test label NA', ted.label.isna().sum())\nif ted.label.isna().all():\n    # try matching by order\n    t = lab[lab.split == 'test'].activity.values\n    print(len(t))\n    if len(t) == len(ted): ted['label'] = t\nted.to_csv('test.csv', index=False)\nprint('exact dup seqs', len(set(tr.values()) & set(te.values())))\nm = pr.merge(ted, on='id')\nprint('acc', (m.predicted == m.label).mean(), len(m))\nprint(ted.label.value_counts(), pr.predicted.value_counts())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-0fgqauko/analysis; python prep.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_sequence_similarity",
+      "input": {
+        "train_fasta_path": "/tmp/review-0fgqauko/analysis/train.fa",
+        "test_fasta_path": "/tmp/review-0fgqauko/analysis/test.fa",
+        "k": 12
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__kmer_baseline",
+      "input": {
+        "train_path": "/tmp/review-0fgqauko/analysis/train.csv",
+        "test_path": "/tmp/review-0fgqauko/analysis/test.csv",
+        "model_score": 0.85,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-0fgqauko/analysis/nn.py",
+        "content": "import pandas as pd, numpy as np\ntr = pd.read_csv('train.csv'); te = pd.read_csv('test.csv')\npr = pd.read_csv('predictions_test.csv').set_index('id').predicted\nk = 12\ndef ks(s): return {s[i:i+k] for i in range(len(s) - k + 1)}\nT = [ks(s) for s in tr.sequence]\nrows = []\nfor i, r in te.iterrows():\n    q = ks(r.sequence)\n    c = [len(q & t) / len(q) for t in T]\n    j = int(np.argmax(c))\n    rows.append((r.id, c[j], tr.label[j], r.label, pr[r.id]))\nd = pd.DataFrame(rows, columns=['id', 'cont', 'nnlab', 'label', 'pred'])\nd['near'] = d.cont > 0.3\nd['model_ok'] = d.pred == d.label\nd['nn_ok'] = d.nnlab == d.label\nprint(d.cont.describe())\nprint(d.groupby('near')[['model_ok', 'nn_ok']].agg(['mean', 'count']))\nprint('overall nn acc', d.nn_ok.mean())\n# label concordance among near-duplicates\nprint(pd.crosstab(d[d.near].nnlab, d[d.near].label))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-0fgqauko/analysis; python nn.py"
+      }
+    }
+  ]
+}

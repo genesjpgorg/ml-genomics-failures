@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that 100% of test pairs share proteins with training. It showed that a no-feature per-protein propensity baseline reaches AUROC 0.82, and it said the scores reflect interpolation within known proteins rather than generalization to new ones. It offered a protein-disjoint split as the fix. Its response opens with what looks like a leaked hint ('check overlap and entity-memorization baseline'), but the overlap and baseline numbers it reports match the key, so the grades stand.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer identified the mechanism: labels cluster by gene and a random variant split leaks genes into test. They measured a gene label-mean baseline AUROC of 0.926 against the model's 0.941, and conservation-only AUROC of 0.547, matching the key. They proposed a gene-grouped split, within-gene evaluation, and reporting the gene-mean baseline; their other points (no CIs, unauditable features) are minor.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

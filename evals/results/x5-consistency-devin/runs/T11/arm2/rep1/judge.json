@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that plate and run date are confounded with case status, and that the classifier learns batch rather than biology. It backed this with measured numbers: plate alone gives AUROC 0.78, and about 85% of cases sit on plates 1\u20132 versus about 15% of controls, both close to the key. It also recommended balancing or randomizing cases and controls across plates.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

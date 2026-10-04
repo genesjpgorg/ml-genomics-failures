@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that plate confounds case status and that the classifier is learning the batch. It measured plate-only AUROC at 0.78 and found that 51 of 59 cases (~86%) sat on plates 1-2, both close to the key's figures. Its remedies were to randomize or balance samples across plates and to validate on samples run on different plates.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

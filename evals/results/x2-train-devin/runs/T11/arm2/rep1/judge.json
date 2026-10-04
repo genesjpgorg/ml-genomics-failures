@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that plate/run date is confounded with status (51/63 cases on plates 1-2 vs 12/70 controls, roughly 85% vs 15%). It measured a plate-only AUROC of 0.78, close to the key's ~0.82, and declined to report the 0.82 as a real signature. It proposed re-randomizing samples across plates and using plate-aware/leave-one-plate-out CV, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

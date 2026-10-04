@@ -1,0 +1,101 @@
+{
+  "task": "C01",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 41.4,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim holds up, with caveats. I reran the numbers and found no leakage or shortcut that explains the 0.81.\n\n**Audit checks (checklist items 1\u20133 and 8; the audit tools are `check_split_overlap` and my own scripts `audit.py` and `audit2.py`)**\n- **Leakage (L, items 1 and 3):** The split really is protein-disjoint. 60 training proteins and 20 test proteins share nothing, and no test row has a seen protein. This is the unit-of-independence failure behind F04, and it is not present here.\n- **Per-protein shortcut (S, F04):** A baseline that predicts each pair from its proteins' label rates scores AUROC 0.50 on the test set under `check_split_overlap`, with 0% of the model's gain. A leave-one-pair-out version of the same idea scores 0.51 in training and 0.42 within the test set. Per-protein hub effects are not driving the result.\n- **Reproduction (item 4):** The raw `coexpression_z` feature alone gives test AUROC 0.854. Refitting logistic regression on the training set gives the same 0.854, with training AUROC 0.873. So the signal is real and carries over to unseen proteins. The single feature is also the baseline, so there is nothing weaker to compare against.\n- **Uncertainty (item 8):** I bootstrapped over the 20 test proteins. The 95% interval for the reported scores is about 0.72\u20130.90. The 150 test pairs are not independent, since they come from only 20 proteins.\n\n**Issues to fix before it goes in a paper**\n1. **`predictions_test.csv` does not match the described model.** The scores are not a monotone function of `coexpression_z`. There are 72 ordering violations and the Spearman correlation is 0.96. The file gives AUROC 0.813, while the stated single-feature logistic regression gives 0.854. Either the predictions came from a different model or extra inputs, or they were perturbed. Regenerate them, or report 0.85 and say how the file was made.\n2. **The \"useful prior\" wording goes beyond the evidence.** The test set is 41% positive, and the training set is 38%. Real yeast PPI prevalence is far lower. AUROC on such a balanced set says little about ranking partners for an uncharacterized protein. Report precision at k or AUPRC at a realistic positive rate.\n3. **Circularity is not ruled out (C, item 7).** The README doesn't say where the interaction labels came from. Co-expression is often used to build or filter interaction sets, such as STRING-derived ones. If the labels share origin with expression data, the feature is partly circular.\n4. **Small sample.** Report the uncertainty (about 0.72\u20130.90) and the counts (20 test proteins, 150 pairs).\n5. **No true null (K, item 5).** Add a control such as permuting the feature across proteins, to confirm that it falls to 0.5.\n\nVERDICT: SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.10374839999999999,
+  "duration_s": 40.1,
+  "turns": 11,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch",
+    "check_split_overlap"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-zzq0_vvo/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-zzq0_vvo/analysis; head -4 pairs_train.csv pairs_test.csv predictions_test.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-zzq0_vvo/analysis; cat > audit.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nfrom sklearn.linear_model import LogisticRegression as LR\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(len(tr),len(te),tr.label.mean(),te.label.mean())\nprint(set(tr.protein_a)|set(tr.protein_b)&(set(te.protein_a)|set(te.protein_b)))\nprint((te[['protein_a','protein_b']].values==p[['protein_a','protein_b']].values).all())\nprint('reported',A(te.label,p.score),'coexp raw',A(te.label,te.coexpression_z))\nm=LR().fit(tr[['coexpression_z']],tr.label);print('refit',A(te.label,m.predict_proba(te[['coexpression_z']])[:,1]),m.coef_)\nprint('train auc',A(tr.label,tr.coexpression_z))\nfor n,d in(('tr',tr),('te',te)):\n    pr=pd.concat([d.protein_a,d.protein_b]);l=pd.concat([d.label,d.label])\n    g=l.groupby(pr.values).agg(['mean','count']);print(n,g['mean'].describe().round(2).to_dict(),g['count'].describe().round(1).to_dict())\n    # degree of positives\n    # leave-one-pair-out protein rate baseline\n    s=[];\n    for i,r in d.iterrows():\n        o=d.drop(i);v=[]\n        for q in(r.protein_a,r.protein_b):\n            x=o[(o.protein_a==q)|(o.protein_b==q)].label;v.append(x.mean() if len(x) else .5)\n        s.append(np.mean(v))\n    print(n,'protein-rate LOO AUC',A(d.label,s))\n    ds=pd.concat([d.protein_a,d.protein_b]).value_counts()\n# coexpression vs protein\npr=pd.concat([te.protein_a,te.protein_b]);print(te.groupby('protein_a').label.agg(['mean','count']).T)\nprint(te.groupby('protein_a').coexpression_z.mean().round(2).values)\nprint(te.groupby('label').coexpression_z.describe())\nE\npython audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zzq0_vvo/analysis/audit.py",
+        "content": "import pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nfrom sklearn.linear_model import LogisticRegression as LR\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(len(tr),len(te),tr.label.mean(),te.label.mean())\nS=lambda d:set(d.protein_a)|set(d.protein_b)\nprint('overlap',S(tr)&S(te),len(S(tr)),len(S(te)))\nprint('aligned',(te[['protein_a','protein_b']].values==p[['protein_a','protein_b']].values).all())\nprint('reported',A(te.label,p.score),'coexp raw',A(te.label,te.coexpression_z))\nm=LR().fit(tr[['coexpression_z']],tr.label);print('refit',A(te.label,m.predict_proba(te[['coexpression_z']])[:,1]),m.coef_)\nprint('train auc',A(tr.label,tr.coexpression_z))\nfor n,d in(('tr',tr),('te',te)):\n    pr=pd.concat([d.protein_a,d.protein_b]);l=pd.concat([d.label,d.label])\n    g=l.groupby(pr.values).agg(['mean','count']);print(n,g['mean'].describe().round(2).to_dict(),g['count'].describe().round(1).to_dict())\n    s=[]\n    for i,r in d.iterrows():\n        o=d.drop(i);v=[]\n        for q in(r.protein_a,r.protein_b):\n            x=o[(o.protein_a==q)|(o.protein_b==q)].label;v.append(x.mean() if len(x) else .5)\n        s.append(np.mean(v))\n    print(n,'protein-rate LOO AUC',A(d.label,s))\nprint(te.groupby('protein_a').label.agg(['mean','count']).T)\nprint(te.groupby('label').coexpression_z.describe())\nprint(tr.groupby('label').coexpression_z.describe())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-zzq0_vvo/analysis; python audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zzq0_vvo/analysis/audit2.py",
+        "content": "import pandas as pd,numpy as np\nfrom scipy.stats import spearmanr\nfrom sklearn.metrics import roc_auc_score as A\nte=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(spearmanr(te.coexpression_z,p.score))\nd=te.assign(s=p.score)\nd['r']=d.s.rank()-d.coexpression_z.rank()\nprint(d.sort_values('r').head(5));print(d.sort_values('r').tail(5))\nprint(d.s.describe())\n# monotone check\no=d.sort_values('coexpression_z');print('violations',(np.diff(o.s.values)<0).sum())\n# protein-cluster bootstrap\nrng=np.random.default_rng(0);pr=sorted(set(te.protein_a)|set(te.protein_b));v=[];v2=[]\nfor _ in range(1000):\n    c=rng.choice(pr,len(pr));\n    k=set(c);b=d[d.protein_a.isin(k)&d.protein_b.isin(k)]\n    if b.label.nunique()==2:v.append(A(b.label,b.s));v2.append(A(b.label,b.coexpression_z))\nprint(np.percentile(v,[2.5,50,97.5]),np.percentile(v2,[2.5,50,97.5]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-zzq0_vvo/analysis; python audit2.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "train_path": "/tmp/review-zzq0_vvo/analysis/pairs_train.csv",
+        "test_path": "/tmp/review-zzq0_vvo/analysis/pairs_test.csv",
+        "columns": [
+          "protein_a",
+          "protein_b"
+        ],
+        "label": "label",
+        "model_score": 0.81
+      }
+    }
+  ]
+}

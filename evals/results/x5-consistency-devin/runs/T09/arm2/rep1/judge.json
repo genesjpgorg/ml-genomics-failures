@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the split is by pair, not by protein: every test pair shares a protein with training and 99% share both. It showed that a per-protein label-rate baseline with no features reaches AUROC 0.82, warned that this split mainly rewards memorizing protein propensities, and used a protein-disjoint evaluation (about 0.64) as the figure to expect on new proteins. It did not accept the random-split performance as evidence of generalization.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

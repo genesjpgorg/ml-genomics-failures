@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": true,
+  "other_valid_issue": false,
+  "rationale": "The agent got a test AUROC of 0.66 and confirmed the split is family-disjoint, but it then dismissed the result as noise and concluded that conservation carries no reliable signal (best estimate 0.5\u20130.55). That rejects the clean, earned moderate AUROC on grounds the key says don't hold, so it counts as a false alarm.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": false,
+  "flawed": false,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

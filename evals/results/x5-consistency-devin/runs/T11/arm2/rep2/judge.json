@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that case status is confounded with plate and run date. It measured the imbalance at about 85% of cases on plates 1-2 versus about 15% of controls, and found that plate alone gives an AUROC of 0.78, which is close to the key's ~0.82. It showed that training on one batch and testing on the other falls to chance, rejected the 0.82 as a disease signature, and recommended re-running with cases and controls balanced across plates.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

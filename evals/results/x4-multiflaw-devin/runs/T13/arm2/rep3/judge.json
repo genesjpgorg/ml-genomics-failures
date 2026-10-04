@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found both flaws. First, batch is confounded with the label: batch alone gives AUROC 0.77, with 5% positives in one batch and 40% in the other. Second, proteins leak across the split: every test pair shares a protein with training, and a per-protein label-rate baseline scores 0.83. It proposed holding out proteins entirely and comparing within batch or balancing batches, and it rejected the 0.79 as evidence that the model learned anything about protein interaction.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

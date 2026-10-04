@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": true,
+  "rationale": "The reviewer confirmed the protein-disjoint split (0 shared proteins) and the pair-level signal (refit AUROC 0.854, within-protein 0.84), and reached SUPPORTED with only acceptable caveats such as sample size and scope. They also found a concrete, measured reproducibility gap the key doesn't mention: the shipped predictions give 0.813, while a refit with the stated method gives 0.854.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

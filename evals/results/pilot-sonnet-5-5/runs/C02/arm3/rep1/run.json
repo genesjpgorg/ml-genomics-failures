@@ -1,0 +1,116 @@
+{
+  "task": "C02",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 50.1,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim holds up. The AUROC of 0.71 is not an artifact of plate, batch or leakage, though it is a modest and noisy estimate.\n\n**What I checked**\n- **Batch confounding (F10).** Plate and run date are fully nested, and each plate holds 15 cases and 15 controls. Plate alone predicts status at chance (`check_shortcuts` AUROC 0.36, which is below chance because that feature carries no information). So the design is balanced and plate is not a shortcut.\n- **Plate effect in the data.** PC2 of the protein matrix tracks plate (r = 0.96) and is uncorrelated with status (r = 0.02). Plate is a strong technical axis, but it is orthogonal to the label.\n- **Label-permutation null.** Across 100 permutations the mean AUROC is 0.49, with p \u2248 0.01. Permuting labels within plate gives 0.48. Both nulls fall to chance, so nothing in the pipeline leaks.\n- **Feature selection.** `analysis.py` fits scaling, selection and the model inside each fold. I found no selection leakage.\n- **Unit of independence.** Each sample is one patient, and the sample IDs are unique. I found no repeated individuals.\n- **Plate correction.** Centering each plate and then running the same CV gives about 0.80 (0.80, 0.84, 0.79 across three seeds). Plate noise therefore hides some signal and does not create it.\n\n**Issues that matter**\n1. **The estimate is noisy.** The AUROC ranges from 0.69 to 0.79 across 8 CV seeds, and `results.json` reports only seed 0 (0.713). The paper should give a repeated-CV mean with an interval, which is about 0.73.\n2. **Few proteins carry the signal.** Only 4 of 200 proteins have univariate p < 0.05, and the top four are `prot000`, `prot001`, `prot002` and `prot151`. The claim should name them and say the signal is concentrated in a handful of proteins.\n3. **Performance is uneven across plates.** In leave-one-plate-out validation, AUROC is 0.89, 0.75, 0.57 and 0.80 for plates 1\u20134. The model does not transfer cleanly to an unseen plate. Plate-level batch correction should be done inside the training folds, and an external cohort is needed, as the README already says.\n4. **The claim wording overreaches.** \"Measured at sepsis onset\" and \"go on to develop\" are not backed by anything in the files. The directory has no sampling-time data and no information on when AKI developed. The README does not say whether case and control patients were matched for severity or baseline creatinine. Baseline kidney function could drive the signal.\n5. **Missing baselines.** There is no comparison with clinical covariates such as age, SOFA score or baseline creatinine. Without one, the paper cannot say the proteins add anything beyond what is already known.\n\nI added `audit.py` to the directory with these checks.\n\nVERDICT: SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.1138054,
+  "duration_s": 48.7,
+  "turns": 13,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_shortcuts",
+    "Bash",
+    "Edit",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch",
+    "check_shortcuts"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ltcs84tn/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ltcs84tn/analysis; cat analysis.py results.json; head -5 samples.csv; head -c 400 protein_matrix.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F10"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ltcs84tn/analysis; python -c \"\nimport pandas as pd\ns=pd.read_csv('samples.csv');print(pd.crosstab(s.plate,s.status));print(pd.crosstab(s.run_date,[s.plate,s.status]))\nprint(s.sample_id.is_unique, s.shape)\n\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ltcs84tn/analysis; cat > audit.py <<'E'\nimport numpy as np, pandas as pd\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.decomposition import PCA\ns=pd.read_csv(\"samples.csv\");X=pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\").loc[s.sample_id].values\ny=(s.status==\"case\").astype(int).values\nprint(X.shape, np.isnan(X).sum())\ndef cv(X,y,seed=0,k=12):\n    m=make_pipeline(StandardScaler(),SelectKBest(f_classif,k=k),LogisticRegression(max_iter=1000))\n    return roc_auc_score(y,cross_val_predict(m,X,y,cv=StratifiedKFold(5,shuffle=True,random_state=seed),method=\"predict_proba\")[:,1])\nprint(\"seeds\",[round(cv(X,y,i),3) for i in range(8)])\nrng=np.random.default_rng(0)\nperm=[cv(X,rng.permutation(y)) for _ in range(100)]\nprint(\"perm mean\",np.mean(perm),\"p\",(np.sum(np.array(perm)>=0.713)+1)/101)\n# plate-wise permutation\npl=s.plate.values\ndef pp():\n    yy=y.copy()\n    for p in np.unique(pl):\n        i=np.where(pl==p)[0]; yy[i]=rng.permutation(yy[i])\n    return yy\nprint(\"plate-perm\",np.mean([cv(X,pp()) for _ in range(50)]))\n# plate predictability from proteins\nP=PCA(5).fit_transform(StandardScaler().fit_transform(X))\nfor j in range(5): print(\"PC\",j,\"corr plate\",np.corrcoef(P[:,j],pl)[0,1].round(2),\"corr y\",np.corrcoef(P[:,j],y)[0,1].round(2))\n# plate-wise centering then CV\nXc=X.copy()\nfor p in np.unique(pl): Xc[pl==p]-=X[pl==p].mean(0)\nprint(\"plate-centered\",[round(cv(Xc,y,i),3) for i in range(3)])\n# leave-plate-out\npr=np.zeros(len(y))\nfor p in np.unique(pl):\n    tr=pl!=p\n    m=make_pipeline(StandardScaler(),SelectKBest(f_classif,k=12),LogisticRegression(max_iter=1000)).fit(X[tr],y[tr]); pr[~tr]=m.predict_proba(X[~tr])[:,1]\n    print(\"plate\",p,roc_auc_score(y[~tr],pr[~tr]).round(3))\n# univariate\nF,pv=f_classif(X,y);print(\"min p\",np.sort(pv)[:8],\"n<.05\",(pv<.05).sum())\nprint(\"top feats\",np.argsort(pv)[:12])\n# sample order\nprint(\"order corr\",np.corrcoef(np.arange(len(y)),y)[0,1])\nE\npython audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ltcs84tn/analysis/audit.py",
+        "content": "import numpy as np, pandas as pd\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.decomposition import PCA\ns=pd.read_csv(\"samples.csv\");X=pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\").loc[s.sample_id].values\ny=(s.status==\"case\").astype(int).values\nprint(X.shape, np.isnan(X).sum())\ndef mk(): return make_pipeline(StandardScaler(),SelectKBest(f_classif,k=12),LogisticRegression(max_iter=1000))\ndef cv(X,y,seed=0):\n    return roc_auc_score(y,cross_val_predict(mk(),X,y,cv=StratifiedKFold(5,shuffle=True,random_state=seed),method=\"predict_proba\")[:,1])\nprint(\"seeds\",[round(cv(X,y,i),3) for i in range(8)])\nrng=np.random.default_rng(0)\nperm=np.array([cv(X,rng.permutation(y)) for _ in range(100)])\nprint(\"perm mean\",perm.mean(),\"p\",(np.sum(perm>=0.713)+1)/101)\npl=s.plate.values\ndef pp():\n    yy=y.copy()\n    for p in np.unique(pl):\n        i=np.where(pl==p)[0]; yy[i]=rng.permutation(yy[i])\n    return yy\nprint(\"plate-perm\",np.mean([cv(X,pp()) for _ in range(50)]))\nP=PCA(5).fit_transform(StandardScaler().fit_transform(X))\nfor j in range(5): print(\"PC\",j,\"corr plate\",np.corrcoef(P[:,j],pl)[0,1].round(2),\"corr y\",np.corrcoef(P[:,j],y)[0,1].round(2))\nXc=X.copy()\nfor p in np.unique(pl): Xc[pl==p]-=X[pl==p].mean(0)\nprint(\"plate-centered\",[round(cv(Xc,y,i),3) for i in range(3)])\nfor p in np.unique(pl):\n    tr=pl!=p\n    m=mk().fit(X[tr],y[tr]); print(\"leave plate\",p,roc_auc_score(y[~tr],m.predict_proba(X[~tr])[:,1]).round(3))\nF,pv=f_classif(X,y);print(\"min p\",np.sort(pv)[:8],\"n<.05\",(pv<.05).sum())\nprint(\"top feats\",np.argsort(pv)[:12])\nprint(\"order corr\",np.corrcoef(np.arange(len(y)),y)[0,1])\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ltcs84tn/analysis; python audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "table_path": "/tmp/review-ltcs84tn/analysis/samples.csv",
+        "label": "status",
+        "features": [
+          "plate",
+          "run_date"
+        ],
+        "model_score": 0.713
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ltcs84tn/analysis; sed -i 's/\\[:,1\\]).round(3))/[:,1]))/' audit.py; python audit.py | tail -9"
+      }
+    },
+    {
+      "name": "Edit",
+      "input": {
+        "replace_all": false,
+        "file_path": "/tmp/review-ltcs84tn/analysis/audit.py",
+        "old_string": "[:,1]).round(3))",
+        "new_string": "[:,1]))"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ltcs84tn/analysis; python audit.py | tail -9"
+      }
+    }
+  ]
+}

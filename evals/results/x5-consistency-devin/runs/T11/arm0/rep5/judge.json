@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that plate is confounded with case status (51/63 on plates 1-2 were cases, 9/57 on plates 3-4) and showed that plate alone gives an AUROC of 0.78. That is close to the key's ~0.82 and ~85% vs ~15%. It declined to report a diagnostic signature and recommended rerunning samples with cases and controls balanced across plates, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

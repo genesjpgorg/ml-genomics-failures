@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer found the key's mechanism: dinucleotide shuffling preserves GC, GC alone separates the classes, and a single-seed 0.03 gap is not evidence of grammar. They measured GC-only AUROC at 0.985, which roughly matches the key's ~0.96 accuracy, and proposed GC-matched negatives, baselines, multiple seeds, permuted labels and direct grammar tests. Their other points (missing motif evidence, train/test homology) are either covered by the key or minor.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

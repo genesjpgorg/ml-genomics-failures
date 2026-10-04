@@ -1,0 +1,16 @@
+{
+  "tasks": [
+    "T09",
+    "T11",
+    "T13"
+  ],
+  "arms": [
+    "0",
+    "2"
+  ],
+  "reps": 6,
+  "model": "claude-sonnet-5-5-medium",
+  "git": "622d896",
+  "prompt": "train",
+  "backend": "devin"
+}

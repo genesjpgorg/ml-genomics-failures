@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": false,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found the flaw. It showed that every test pair has both proteins in training and explained that a model using protein identity would score high by memorizing hub propensity, so it would overstate performance on new proteins. It refused to report such a model and gave a coexpression-only AUROC of 0.652 instead. However, it did not propose a protein-disjoint split, did not report AUROC by how many proteins were seen in training, and did not compute the per-protein baseline.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer pinpointed the key's mechanism: dinucleotide shuffling preserves composition, GC separates the classes, and the 0.03 single-seed gap is uninterpretable. They backed it with a measured GC-only AUROC of 0.964, matching the key's ~0.96, and proposed GC-matched negatives, baselines, multiple seeds, a label-permutation null and motif-arrangement tests. The extra leakage/chromosome-split point was raised only as unchecked, with no evidence it matters, so it doesn't count as an additional valid issue.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

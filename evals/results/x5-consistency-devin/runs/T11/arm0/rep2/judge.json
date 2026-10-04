@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent found that cases sit mostly on plates 1-2 and controls on plates 3-4. It measured plate alone predicting status at AUROC 0.821, and its counts (51/60 cases on plates 1-2, about 85%) match the key. It declined to report the 0.85 as real performance and proposed balanced re-running or external validation, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

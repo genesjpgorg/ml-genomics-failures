@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": false,
+  "quantified": true,
+  "fix": false,
+  "other_valid_issue": false,
+  "rationale": "The agent found and measured the batch confound (batch alone AUROC 0.771) and declined to report 0.79. It also measured that all test proteins appear in training, but it said this overlap doesn't affect its numbers instead of treating it as a second reason the score fails, so only one of the two required flaws counts as detected. For the same reason it proposed only coexpression-only and within-batch numbers, with no entity-disjoint split.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

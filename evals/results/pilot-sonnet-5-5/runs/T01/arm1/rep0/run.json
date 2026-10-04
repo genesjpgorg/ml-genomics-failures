@@ -1,0 +1,56 @@
+{
+  "task": "T01",
+  "arm": "1",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 22.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. A baseline that ignores sequence entirely matches PairNet's score.\n\n**What I checked** (script: `a.py`, run on the three CSVs)\n- I reproduced AUROC 0.790 on the 140 test pairs.\n- Every one of the 60 proteins in the test set also appears in training, so no test pair involves an unseen protein. Only 60 proteins give rise to 700 pairs, and each protein sits in about 19 training pairs.\n- A baseline that scores a pair by the sum of its two proteins' training-set interaction rates gets AUROC 0.795. That is slightly above PairNet's 0.790.\n- PairNet's test scores correlate at r = 0.98 with that baseline. PairNet has most likely learned per-protein \"stickiness\" (protein identity) rather than anything about sequence determinants of interaction.\n\n**Issues that matter most**\n1. **Leakage through shared entities (F03, F04, F12).** The split is a random split of pairs, so the same proteins are on both sides. The test set therefore measures recall of per-protein tendencies. It does not measure generalization to new proteins.\n2. **Shortcut explains the whole score (F04).** Per-protein label rate, a feature with no sequence information, reproduces the headline AUROC. Per-protein rates also vary a lot (0 to 0.67, with 25% of proteins at 0). That gives a model plenty to exploit.\n3. **The claim's axis does not match the test (A).** The stated use is predicting partners for uncharacterized proteins, which means unseen proteins. The test never covers that case. The necessary evaluation is to hold out proteins, ideally with both proteins of a test pair unseen, and to cluster by sequence identity so homologs don't straddle the split.\n4. **Missing baselines and null (B, K).** The write-up reports no degree/prior baseline, no k-mer or one-hot baseline, and no null such as shuffling embeddings across proteins. The negatives are \"tested, no interaction\" pairs from a curated screen. Their selection could encode protein-level bias.\n5. **Small sample.** 140 test pairs with about 32 positives, one seed, and no confidence intervals. The 0.005 gap to the baseline is noise. The data are too small to support a claim about sequence determinants.\n\nThe 0.79 AUROC is real, but it demonstrates protein-identity memorization, not learned sequence determinants. I would not use it to predict partners for uncharacterized proteins until the model is re-evaluated with unseen-protein splits and the baselines above.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.055997000000000005,
+  "duration_s": 21.6,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_ji7uocs/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_ji7uocs/analysis; head -4 *.csv; wc -l *.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_ji7uocs/analysis; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as auc\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');pr=pd.read_csv('predictions_test.csv')\nte=te.merge(pr,on=['protein_a','protein_b']);print(len(te),auc(te.label,te.score))\nprint(tr.label.mean(),te.label.mean())\ndef stats(d):\n    s=pd.concat([d.protein_a,d.protein_b]);return s.value_counts()\ntrp=set(tr.protein_a)|set(tr.protein_b)\nprint('test proteins unseen:',[p for p in set(te.protein_a)|set(te.protein_b) if p not in trp])\nprint('pairs both seen',np.mean([(a in trp and b in trp) for a,b in zip(te.protein_a,te.protein_b)]))\n# per-protein train rate\nlong=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})])\nr=long.groupby('p').label.agg(['mean','count']);print(r.describe())\ng=tr.label.mean()\nf=lambda p:r['mean'].get(p,g)\nte['deg']=[f(a)+f(b) for a,b in zip(te.protein_a,te.protein_b)]\nprint('per-protein rate baseline AUC',auc(te.label,te.deg))\nprint('score vs deg corr',np.corrcoef(te.score,te.deg)[0,1])\n# duplicates/reversed\nk=lambda d:set(map(lambda x:frozenset(x),zip(d.protein_a,d.protein_b)))\nprint('overlap pairs',len(k(tr)&k(te)))\n# unseen-protein split sim: hold out proteins, baseline\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-_ji7uocs/analysis/a.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score as auc\n\ntr = pd.read_csv('pairs_train.csv'); te = pd.read_csv('pairs_test.csv'); pr = pd.read_csv('predictions_test.csv')\nte = te.merge(pr, on=['protein_a', 'protein_b'])\nprint(len(te), 'model AUC', auc(te.label, te.score))\nprint('pos rate', tr.label.mean(), te.label.mean())\ntrp = set(tr.protein_a) | set(tr.protein_b)\ntep = set(te.protein_a) | set(te.protein_b)\nprint('test proteins', len(tep), 'unseen', len(tep - trp))\nprint('pairs both seen', np.mean([(a in trp and b in trp) for a, b in zip(te.protein_a, te.protein_b)]))\n\nlong = pd.concat([tr[['protein_a', 'label']].set_axis(['p', 'label'], axis=1),\n                  tr[['protein_b', 'label']].set_axis(['p', 'label'], axis=1)])\nr = long.groupby('p').label.agg(['mean', 'count'])\nprint(r.describe())\ng = tr.label.mean()\nf = lambda p: r['mean'].get(p, g)\nte['deg'] = [f(a) + f(b) for a, b in zip(te.protein_a, te.protein_b)]\nte['mx'] = [max(f(a), f(b)) for a, b in zip(te.protein_a, te.protein_b)]\nprint('per-protein rate baseline AUC', auc(te.label, te.deg), auc(te.label, te.mx))\nprint('corr score vs baseline', np.corrcoef(te.score, te.deg)[0, 1])\nk = lambda d: set(frozenset(x) for x in zip(d.protein_a, d.protein_b))\nprint('overlap pairs', len(k(tr) & k(te)))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-_ji7uocs/analysis; python a.py"
+      }
+    }
+  ]
+}

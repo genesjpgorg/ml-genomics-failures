@@ -1,0 +1,216 @@
+{
+  "task": "C02",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 140.7,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "## Summary\n\nI've completed a detailed audit of this sepsis/kidney injury protein analysis. While the analysis is methodologically sound in its cross-validation design, I found **several critical issues** that substantially weaken the main claim:\n\n### Critical Findings:\n\n1. **Result is unstable across random seeds** (\u00b17.5% variation):\n   - Reported AUROC 0.713 (seed=0) is one of the *lower* estimates\n   - Actual range: 0.688-0.788 across 5 seeds; mean 0.726 \u00b1 0.038\n\n2. **Suboptimal parameter choice**:\n   - k=4 proteins: AUROC = 0.791 (better than reported)\n   - k=12 proteins: AUROC = 0.713 (reported, but worse)\n   - No justification given for why k=12 was chosen over the better-performing k=4\n\n3. **Missing baseline comparisons**:\n   - All 200 proteins: AUROC = 0.668 (nearly same as reported 0.713)\n   - This suggests the 12-protein selection provides minimal benefit\n\n4. **Feature selection is unstable**:\n   - Only 4 proteins selected in all 5 folds\n   - Other proteins vary across folds\n   - Different feature sets per fold suggests fold-specific overfitting\n\n5. **Wide confidence interval** [0.615, 0.802] reflects large uncertainty given small sample size (120 samples with 200 features)\n\n### Positive aspects:\n- \u2713 Proper CV design with feature selection inside folds\n- \u2713 Batch effects properly controlled\n- \u2713 Real signal detected (beats permutation null by 0.199 AUROC)\n\n**VERDICT: PARTIALLY SUPPORTED**\n\nThe evidence shows there IS a real biological signal, but it's weaker, less stable, and less optimized than the claim suggests. The choice of parameters appears arbitrary (k=4 would be better), and generalization to external cohorts is untested despite being essential for the main claim.\n\nSee `/tmp/review-8v7bnkm1/analysis/REVIEW.md` for full details.",
+  "is_error": false,
+  "cost_usd": 0.18399200000000002,
+  "duration_s": 139.3,
+  "turns": 26,
+  "tool_calls": [
+    "Read",
+    "Bash",
+    "Read",
+    "Read",
+    "Read",
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "bash",
+    "Bash",
+    "Bash",
+    "mcp__ml-genomics-failures__check_shortcuts",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "Write"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_shortcuts",
+    "check_split_overlap",
+    "search",
+    "search",
+    "fetch",
+    "fetch",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-8v7bnkm1/analysis/README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-8v7bnkm1/analysis/"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-8v7bnkm1/analysis/samples.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-8v7bnkm1/analysis/results.json"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-8v7bnkm1/analysis/analysis.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -5 /tmp/review-8v7bnkm1/analysis/protein_matrix.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 analysis.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.preprocessing import LabelEncoder\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\ny = (samples.status == \"case\").astype(int).values\n\n# Check 1: Can plate alone predict outcome?\nplate_encoder = LabelEncoder()\nplate_encoded = plate_encoder.fit_transform(samples.plate)\nplate_auroc = roc_auc_score(y, plate_encoded)\nprint(f\"AUROC using plate alone: {plate_auroc:.3f}\")\n\n# Check 2: Can date alone predict outcome?\ndate_encoder = LabelEncoder()\ndate_encoded = date_encoder.fit_transform(samples.run_date)\ndate_auroc = roc_auc_score(y, date_encoded)\nprint(f\"AUROC using date alone: {date_auroc:.3f}\")\n\n# Check 3: Can a logistic model on plate predict outcome with CV?\ncv = StratifiedKFold(5, shuffle=True, random_state=0)\nmodel = LogisticRegression(max_iter=1000)\nplate_cv_pred = cross_val_predict(model, plate_encoded.reshape(-1, 1), y, cv=cv, method=\"predict_proba\")[:, 1]\nplate_cv_auroc = roc_auc_score(y, plate_cv_pred)\nprint(f\"Cross-validated AUROC using plate: {plate_cv_auroc:.3f}\")\n\n# Check case/control distribution by plate\nprint(\"\\nCase/control distribution by plate:\")\nprint(samples.groupby('plate')['status'].value_counts().unstack(fill_value=0))\n\nprint(\"\\nCase/control distribution by date:\")\nprint(samples.groupby('run_date')['status'].value_counts().unstack(fill_value=0))\n\nEOF\n"
+      }
+    },
+    {
+      "name": "bash",
+      "input": {
+        "command": "cd /tmp/review-8v7bnkm1/analysis && python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\n\n# Check for trivial features that could explain the result\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\")\n\n# Get case and control samples\ncases = samples[samples.status == \"case\"].sample_id.values\ncontrols = samples[samples.status == \"control\"].sample_id.values\n\ncase_proteins = proteins.loc[cases]\ncontrol_proteins = proteins.loc[controls]\n\nprint(\"Protein measurement ranges:\")\nprint(f\"Cases min: {case_proteins.values.min():.3f}, max: {case_proteins.values.max():.3f}, mean: {case_proteins.values.mean():.3f}\")\nprint(f\"Controls min: {control_proteins.values.min():.3f}, max: {control_proteins.values.max():.3f}, mean: {control_proteins.values.mean():.3f}\")\n\nprint(\"\\nEffect size (mean difference between cases and controls):\")\nfor col in proteins.columns:\n    case_mean = case_proteins[col].mean()\n    control_mean = control_proteins[col].mean()\n    case_std = case_proteins[col].std()\n    control_std = control_proteins[col].std()\n    pooled_std = np.sqrt((case_std**2 + control_std**2) / 2)\n    cohens_d = (case_mean - control_mean) / pooled_std if pooled_std > 0 else 0\n    if abs(cohens_d) > 0.5:\n        print(f\"{col}: Cohen's d = {cohens_d:.3f}\")\n\nEOF\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\n\n# Check for trivial features that could explain the result\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\")\n\n# Get case and control samples\ncases = samples[samples.status == \"case\"].sample_id.values\ncontrols = samples[samples.status == \"control\"].sample_id.values\n\ncase_proteins = proteins.loc[cases]\ncontrol_proteins = proteins.loc[controls]\n\nprint(\"Protein measurement ranges:\")\nprint(f\"Cases min: {case_proteins.values.min():.3f}, max: {case_proteins.values.max():.3f}, mean: {case_proteins.values.mean():.3f}\")\nprint(f\"Controls min: {control_proteins.values.min():.3f}, max: {control_proteins.values.max():.3f}, mean: {control_proteins.values.mean():.3f}\")\n\nprint(\"\\nEffect size (proteins with |Cohen's d| > 0.5):\")\ncount_large_effects = 0\nfor col in proteins.columns:\n    case_mean = case_proteins[col].mean()\n    control_mean = control_proteins[col].mean()\n    case_std = case_proteins[col].std()\n    control_std = control_proteins[col].std()\n    pooled_std = np.sqrt((case_std**2 + control_std**2) / 2)\n    cohens_d = (case_mean - control_mean) / pooled_std if pooled_std > 0 else 0\n    if abs(cohens_d) > 0.5:\n        print(f\"{col}: Cohen's d = {cohens_d:.3f}\")\n        count_large_effects += 1\n\nprint(f\"\\nTotal proteins with |d| > 0.5: {count_large_effects} / 200\")\n\nEOF\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\n\n# Prepare data for shortcut analysis\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\")\n\n# Create a table with all features and label\ndata = proteins.reset_index()\ndata['status'] = samples['status'].values\ndata['plate'] = samples['plate'].values\ndata['run_date'] = samples['run_date'].values\ndata['label'] = (samples['status'] == 'case').astype(int).values\n\n# Save for analysis\ndata.to_csv('analysis_data.csv', index=False)\nprint(\"Data prepared for shortcut analysis\")\nprint(data.shape)\n\nEOF\n"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "table_path": "/tmp/review-8v7bnkm1/analysis/analysis_data.csv",
+        "label": "label",
+        "features": [
+          "plate",
+          "run_date"
+        ],
+        "model_score": 0.713,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "test_path": "/tmp/review-8v7bnkm1/analysis/samples.csv",
+        "columns": [
+          "sample_id"
+        ],
+        "label": "status",
+        "model_score": 0.713,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.model_selection import StratifiedKFold\nfrom sklearn.preprocessing import StandardScaler\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\").loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\n# Track which features are selected in each fold\ncv = StratifiedKFold(5, shuffle=True, random_state=0)\nselected_features_per_fold = []\nscaler = StandardScaler()\n\nfor train_idx, test_idx in cv.split(proteins, y):\n    X_train = proteins[train_idx]\n    y_train = y[train_idx]\n    \n    # Standardize and select\n    X_train_scaled = scaler.fit_transform(X_train)\n    selector = SelectKBest(f_classif, k=12)\n    selector.fit(X_train_scaled, y_train)\n    \n    selected_features = np.argsort(selector.get_support())\n    selected_features_per_fold.append(set(np.where(selector.get_support())[0]))\n\nprint(\"Features selected per fold:\")\nfor i, features in enumerate(selected_features_per_fold):\n    print(f\"Fold {i+1}: {sorted(features)}\")\n\n# Find intersection (common to all folds)\ncommon_features = set.intersection(*selected_features_per_fold)\nprint(f\"\\nFeatures common to all folds: {sorted(common_features)}\")\n\n# Find union\nall_features = set.union(*selected_features_per_fold)\nprint(f\"Features selected in at least one fold: {sorted(all_features)}\")\nprint(f\"Total unique features across all folds: {len(all_features)} / 200\")\n\n# Check univariate correlations\nprint(\"\\nTop 20 proteins by univariate f-score:\")\nselector = SelectKBest(f_classif, k=20)\nX_scaled = scaler.fit_transform(proteins)\nselector.fit(X_scaled, y)\nscores = selector.scores_\ntop_20_indices = np.argsort(scores)[-20:][::-1]\nfor idx in top_20_indices:\n    print(f\"prot{idx:03d}: f-score = {scores[idx]:.3f}\")\n\nEOF\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.metrics import roc_auc_score\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\").loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\n# Test models with different numbers of top proteins\ncv = StratifiedKFold(5, shuffle=True, random_state=0)\nscaler = StandardScaler()\n\nprint(\"Cross-validated AUROC by number of top proteins:\")\nfor n_proteins in [1, 2, 3, 4, 5, 10, 12, 20, 50]:\n    X_scaled = scaler.fit_transform(proteins)\n    \n    # For univariate selection, we need to rank features\n    from sklearn.feature_selection import SelectKBest, f_classif\n    selector = SelectKBest(f_classif, k=min(n_proteins, proteins.shape[1]))\n    X_selected = selector.fit_transform(X_scaled, y)\n    \n    # Get the indices of selected features\n    selected_mask = selector.get_support()\n    selected_proteins = np.where(selected_mask)[0]\n    \n    # CV with selected features\n    model = LogisticRegression(max_iter=1000)\n    p = cross_val_predict(model, X_selected, y, cv=cv, method=\"predict_proba\")[:, 1]\n    auroc = roc_auc_score(y, p)\n    \n    print(f\"Top {n_proteins:2d} proteins: AUROC = {auroc:.3f}\")\n\n# Also check the 4 common proteins alone\nprint(\"\\n\\nUsing the 4 proteins selected in all folds:\")\ntop_4_proteins = np.array([0, 1, 2, 151])\nX_top_4 = proteins[:, top_4_proteins]\nX_top_4_scaled = scaler.fit_transform(X_top_4)\n\nmodel = LogisticRegression(max_iter=1000)\np = cross_val_predict(model, X_top_4_scaled, y, cv=cv, method=\"predict_proba\")[:, 1]\nauroc = roc_auc_score(y, p)\nprint(f\"4 proteins (prot000, prot001, prot002, prot151): AUROC = {auroc:.3f}\")\n\n# Random protein baseline\nnp.random.seed(42)\nrandom_aurocs = []\nfor _ in range(10):\n    random_proteins = np.random.choice(proteins.shape[1], 12, replace=False)\n    X_random = proteins[:, random_proteins]\n    X_random_scaled = scaler.fit_transform(X_random)\n    model = LogisticRegression(max_iter=1000)\n    p = cross_val_predict(model, X_random_scaled, y, cv=cv, method=\"predict_proba\")[:, 1]\n    auroc = roc_auc_score(y, p)\n    random_aurocs.append(auroc)\n\nprint(f\"\\nRandom 12-protein models (10 trials): AUROC = {np.mean(random_aurocs):.3f} \u00b1 {np.std(random_aurocs):.3f}\")\n\nEOF\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.metrics import roc_auc_score\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\").loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\ncv = StratifiedKFold(5, shuffle=True, random_state=0)\n\nprint(\"Cross-validated AUROC with proper feature selection inside folds:\")\nfor n_proteins in [1, 2, 3, 4, 5, 10, 12, 20, 50]:\n    model = make_pipeline(\n        StandardScaler(),\n        SelectKBest(f_classif, k=n_proteins),\n        LogisticRegression(max_iter=1000)\n    )\n    p = cross_val_predict(model, proteins, y, cv=cv, method=\"predict_proba\")[:, 1]\n    auroc = roc_auc_score(y, p)\n    print(f\"Top {n_proteins:2d} proteins: AUROC = {auroc:.3f}\")\n\n# Now also check what happens if we select ALL proteins\nprint(\"\\n\\nUsing all proteins (no feature selection):\")\nmodel = make_pipeline(\n    StandardScaler(),\n    LogisticRegression(max_iter=1000)\n)\np = cross_val_predict(model, proteins, y, cv=cv, method=\"predict_proba\")[:, 1]\nauroc = roc_auc_score(y, p)\nprint(f\"All 200 proteins: AUROC = {auroc:.3f}\")\n\nEOF\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.metrics import roc_auc_score\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\").loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\n# Test stability across random seeds\nprint(\"Stability across random seeds (k=12):\")\naurocs_seed = []\nfor seed in range(5):\n    cv = StratifiedKFold(5, shuffle=True, random_state=seed)\n    model = make_pipeline(\n        StandardScaler(),\n        SelectKBest(f_classif, k=12),\n        LogisticRegression(max_iter=1000)\n    )\n    p = cross_val_predict(model, proteins, y, cv=cv, method=\"predict_proba\")[:, 1]\n    auroc = roc_auc_score(y, p)\n    aurocs_seed.append(auroc)\n    print(f\"  Seed {seed}: AUROC = {auroc:.3f}\")\n\nprint(f\"\\nMean \u00b1 Std: {np.mean(aurocs_seed):.3f} \u00b1 {np.std(aurocs_seed):.3f}\")\n\n# Check sample size adequacy\nprint(\"\\n\\nSample size and statistical power:\")\nprint(f\"Cases: {np.sum(y == 1)}\")\nprint(f\"Controls: {np.sum(y == 0)}\")\nprint(f\"Total: {len(y)}\")\nprint(f\"Number of proteins: {proteins.shape[1]}\")\nprint(f\"Proteins selected per fold: 12\")\nprint(f\"Ratio of samples to selected proteins: {len(y) / 12:.1f}\")\nprint(f\"Ratio of samples to total proteins: {len(y) / proteins.shape[1]:.1f}\")\n\nEOF\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python3 << 'EOF'\nimport pandas as pd\nimport numpy as np\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.metrics import roc_auc_score\nfrom scipy import stats\n\n# Load data\nsamples = pd.read_csv(\"samples.csv\")\nproteins = pd.read_csv(\"protein_matrix.csv\").set_index(\"sample_id\").loc[samples.sample_id].values\ny = (samples.status == \"case\").astype(int).values\n\ncv = StratifiedKFold(5, shuffle=True, random_state=0)\nmodel = make_pipeline(\n    StandardScaler(),\n    SelectKBest(f_classif, k=12),\n    LogisticRegression(max_iter=1000)\n)\np = cross_val_predict(model, proteins, y, cv=cv, method=\"predict_proba\")[:, 1]\nauroc = roc_auc_score(y, p)\n\n# Calculate 95% confidence interval using bootstrap\nfrom sklearn.utils import resample\nn_iterations = 1000\naurocs_boot = []\nfor _ in range(n_iterations):\n    indices = resample(range(len(y)), n_samples=len(y))\n    y_boot = y[indices]\n    p_boot = p[indices]\n    if len(np.unique(y_boot)) > 1:  # Need both classes\n        auroc_boot = roc_auc_score(y_boot, p_boot)\n        aurocs_boot.append(auroc_boot)\n\nci_lower = np.percentile(aurocs_boot, 2.5)\nci_upper = np.percentile(aurocs_boot, 97.5)\n\nprint(f\"Cross-validated AUROC: {auroc:.3f}\")\nprint(f\"95% CI: [{ci_lower:.3f}, {ci_upper:.3f}]\")\nprint(f\"Bootstrap mean: {np.mean(aurocs_boot):.3f}\")\n\n# Compare with baseline (random model)\nprint(\"\\n\\nComparison with null model (label permutation):\")\naurocs_null = []\nfor seed in range(100):\n    y_perm = np.random.RandomState(seed).permutation(y)\n    model = make_pipeline(\n        StandardScaler(),\n        SelectKBest(f_classif, k=12),\n        LogisticRegression(max_iter=1000)\n    )\n    p_null = cross_val_predict(model, proteins, y_perm, cv=cv, method=\"predict_proba\")[:, 1]\n    auroc_null = roc_auc_score(y_perm, p_null)\n    aurocs_null.append(auroc_null)\n\nprint(f\"Null model AUROC: {np.mean(aurocs_null):.3f} \u00b1 {np.std(aurocs_null):.3f}\")\nprint(f\"Max null AUROC: {np.max(aurocs_null):.3f}\")\nprint(f\"Min null AUROC: {np.min(aurocs_null):.3f}\")\nprint(f\"\\nReported AUROC (0.713) vs max null AUROC ({np.max(aurocs_null):.3f})\")\nprint(f\"Difference: {auroc - np.mean(aurocs_null):.3f}\")\n\nEOF\n"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "small sample size overfitting high-dimensional"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "baseline generalization external cohort reproducibility"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F05"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F06"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F11"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-8v7bnkm1/analysis/REVIEW.md",
+        "content": "# Review: Plasma proteins associated with sepsis-induced kidney injury\n\n## Executive Summary\nThe cross-validated AUROC of 0.713 is **supported by real signal**, but several methodological and analytical issues suggest the claim is **PARTIALLY SUPPORTED** at best. The reported result is suboptimal and unstable.\n\n---\n\n## Audit Checklist Results\n\n### 1. Unit of Independence \u2713\n- Proper: Stratified 5-fold CV at sample level\n- Samples properly randomized across plates (15 cases + 15 controls per plate)\n- No evidence of split overlap at sample level\n\n### 2. Shortcut Inventory \u2713\n- **Batch effects do NOT confound the result** (F10 ruled out)\n  - Plate alone: AUROC = 0.500 (chance)\n  - Date alone: AUROC = 0.500 (chance)  \n  - Cross-validated plate: AUROC = 0.421 (below chance)\n- No strong univariate shortcuts found\n- Only 4 proteins have Cohen's d > 0.5\n\n### 3. Claim vs Test Axis \u26a0\ufe0f\n- Claim: \"Plasma proteins at sepsis onset predict kidney injury\"\n- Test: Stratified CV on single cohort\n- **Issue**: No external validation. Authors acknowledge \"worth testing in an external cohort\" but haven't done it\n- Potential case **F05/F11**: Within-cohort prediction doesn't guarantee generalization\n\n### 4. Baselines: MISSING \u274c\n- **No comparison with simpler models**\n- Using all 200 proteins: AUROC = 0.668 (nearly identical to 0.713!)\n- Using top 4 proteins: AUROC = 0.791 **higher than reported 0.713**\n- **Case F06 applicable**: Deep selection (k=12) doesn't beat simpler options (k=4)\n\n### 5. True Null \u2713\n- Label permutation test shows real signal:\n  - Null model: AUROC = 0.514 \u00b1 0.065\n  - Reported: AUROC = 0.713\n  - Difference: 0.199 (significant)\n  - Max null AUROC in 100 trials: 0.661 (still below 0.713)\n\n### 6. Controls: Feature Selection Instability \u26a0\ufe0f\n- Only 4/12 proteins selected in ALL 5 folds:\n  - prot000, prot001, prot002, prot151\n- 31 different proteins selected in at least one fold\n- Suggests model learns different feature combinations per fold\n- Poor reproducibility\n\n### 7. Circularity \u2713\n- No circular evaluation detected\n- Labels are outcomes, features are baseline measurements\n- Proper temporal structure\n\n### 8. Variance \u26a0\ufe0f\n- 120 samples total (60 cases, 60 controls)\n- Small sample size with 200 features (ratio 0.6:1)\n- **CRITICAL FINDING**: Result varies significantly by random seed\n  - Seed 0: AUROC = 0.713 (reported)\n  - Seed 1: AUROC = 0.748\n  - Seed 2: AUROC = 0.788\n  - Seed 3: AUROC = 0.688\n  - Seed 4: AUROC = 0.692\n  - **Mean \u00b1 Std: 0.726 \u00b1 0.038**\n- 95% CI from bootstrap: [0.615, 0.802] (very wide)\n\n---\n\n## Major Issues Found\n\n### CRITICAL: Result Instability\nThe reported AUROC of 0.713 (seed=0) varies by \u00b17.5% across random seeds:\n- Range: 0.688 - 0.788\n- This is concerning for reproducibility\n- The reported value is one of the *lower* estimates\n\n### CRITICAL: Suboptimal Feature Selection\nThe choice of k=12 is not justified:\n| k | AUROC (proper CV) |\n|---|---|\n| 1 | 0.657 |\n| 2 | 0.720 |\n| 3 | 0.758 |\n| **4** | **0.791** \u2190 Best |\n| 5 | 0.746 |\n| 10 | 0.743 |\n| **12** | **0.713** \u2190 Reported |\n| 20 | 0.667 |\n| 50 | 0.671 |\n\n**Finding**: Using only the top 4 proteins (which are stable across folds) gives AUROC 0.791, substantially better than the reported 0.713. The analysis selected k=12 but provides no justification.\n\n### IMPORTANT: Missing Baselines\n- All 200 proteins: AUROC = 0.668\n- Top 4 proteins: AUROC = 0.791\n- Top 12 proteins (reported): AUROC = 0.713\n\nThe model performance is not substantially better than using all features (0.668 vs 0.713). This suggests the feature selection is providing modest benefit at best.\n\n### IMPORTANT: Small Sample with High Dimensionality\n- 120 samples, 200 proteins (p/n = 0.6)\n- Even with feature selection down to k=12 (p/n = 0.1), this is borderline\n- High risk of overfitting despite proper cross-validation\n- Wide confidence interval [0.615, 0.802] reflects uncertainty\n\n### MODERATE: Poor Feature Stability\n- Only 4 proteins appear in all 5 folds\n- Other 31 proteins selected in <5 folds\n- Different feature sets per fold \u2192 different models per fold\n- Undermines claim that these specific proteins are the signal\n\n### MODERATE: Generalization Untested\n- No external cohort validation\n- Performance may differ in other sepsis populations\n- Authors acknowledge this: \"worth testing in an external cohort\"\n- Follows pattern of **case F05** (generalization failure across contexts)\n\n---\n\n## What's Done Right\n\n\u2713 **Cross-validation design**: Feature selection properly done inside each fold (avoids selection bias)\n\n\u2713 **Batch control**: Randomization across plates is effective; batch doesn't confound outcome\n\n\u2713 **Null hypothesis testing**: Label permutation shows real signal, not noise\n\n\u2713 **Proper statistical testing**: Using StratifiedKFold with proper label balance\n\n---\n\n## Recommendations for the Paper\n\n1. **Report the actual best result**: k=4 proteins give AUROC 0.791, not 0.713. If k=12 is preferred, justify the choice.\n\n2. **Report uncertainty**: Include:\n   - 95% CI from bootstrap: [0.615, 0.802]\n   - Results across different random seeds showing variation\n   - Mean \u00b1 Std across seeds: 0.726 \u00b1 0.038\n\n3. **Provide baseline comparisons**:\n   - AUROC with all 200 proteins: 0.668\n   - AUROC with top 4 proteins: 0.791\n   - AUROC with clinical baseline (if available)\n\n4. **Address feature stability**:\n   - Only 4 proteins are selected in all folds\n   - Acknowledge that the other 8 proteins vary by fold\n   - Consider using only the stable 4 proteins\n\n5. **Plan external validation**:\n   - The claim \"worth testing in external cohort\" is good\n   - But this must be done before publication or clearly labeled as preliminary\n\n---\n\n## Matching Failure Cases\n\n- **F06** (Perturbation-effect models don't beat linear baselines): Complex selection (k=12) doesn't beat simpler baseline (k=4)\n- **F05/F11** (Generalization failure): Untested on external cohorts\n- **F02** (Control that isn't a null): Feature selection instability suggests overfitting to specific fold splits\n\n---\n\n## Conclusion\n\nThe analysis is methodologically sound in design but shows concerning signs of:\n1. Instability across random seeds (\u00b17.5%)\n2. Suboptimal parameter choice (k=12 vs k=4)\n3. Lack of baseline comparisons\n4. Unstable feature selection (31 proteins in <5 folds)\n\nThe real signal exists (beats null), but the strength and generalizability are overstated in the current presentation.\n"
+      }
+    }
+  ]
+}

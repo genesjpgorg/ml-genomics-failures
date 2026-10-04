@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent found that all 59 test proteins also appear in training, so every test pair shares a protein with training. It explained that identity features let the model memorize per-protein 'stickiness' rather than learn pair biology, refused to report the inflated 0.82\u20130.85 AUROC, and proposed a protein-disjoint re-split. It did not compute the no-feature per-protein baseline, but the 59/59 overlap figure matches the key's ~100% overlap item.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

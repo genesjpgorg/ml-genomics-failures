@@ -1,0 +1,18 @@
+{
+  "tasks": [
+    "T01",
+    "T03",
+    "T04",
+    "T05",
+    "C01"
+  ],
+  "arms": [
+    "0",
+    "2"
+  ],
+  "reps": 2,
+  "model": "claude-sonnet-5-5-medium",
+  "git": "7232b45",
+  "prompt": "writeup",
+  "backend": "devin"
+}

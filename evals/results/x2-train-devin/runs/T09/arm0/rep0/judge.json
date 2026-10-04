@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that the random pair-level split puts every test pair's proteins in training. It measured this directly (59 of 60 proteins appear in both sets, and every test pair has both proteins in training). It said the 0.84 AUROC from the protein-identity model is inflated because it memorizes per-protein interaction propensity, and it proposed a protein-disjoint re-split. The small-test-set caveat is generic, so it does not count as an additional valid issue.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

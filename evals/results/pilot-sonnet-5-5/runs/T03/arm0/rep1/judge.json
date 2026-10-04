@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": true,
+  "rationale": "The reviewer found the plate and run-date confound, showed that plate alone gives AUROC 0.89 (54/60 cases vs 8/60 controls on plates 1\u20132), and showed the signal disappears within plate. They proposed randomizing across plates, batch correction and an independent cohort. They also noted, correctly, that a 50%-case design can't support a screening claim without realistic-prevalence validation, which the key doesn't mention.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}

@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that cases sit mostly on plates 1-2 and controls on plates 3-4, and that the classifier is learning the plate rather than disease. It declined to report 0.82 as real performance. It backed this with measured numbers: plate alone gives AUROC 0.84, and plates 1-2 hold 51/60 cases versus 12/60 controls (about 85% vs 20%). Its proposed fixes match the key: randomize samples across plates and validate on an independently processed cohort.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

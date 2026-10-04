@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that plate is confounded with case status, with plates 1-2 mostly cases and plates 3-4 mostly controls. It measured that plate alone gives AUROC 0.82, close to the 0.85 from the full protein model, and that plate-corrected AUROC falls to about 0.52. It declined to report the naive number as a trustworthy result and proposed randomizing cases and controls across plates or validating on a replication cohort, which matches the key.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": false,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent clearly identified the batch confound: batch alone gave AUROC 0.771, which matches the key's ~0.77. It also offered both remedies, a batch-stratified evaluation and a protein-disjoint split. But it treated the protein overlap as a problem only for a hypothetical model that uses protein identity, not as a reason its own score is inflated. It also never measured that nearly all test pairs share a protein with training. The key requires both flaws to be named as undermining the claim, so detection is incomplete.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

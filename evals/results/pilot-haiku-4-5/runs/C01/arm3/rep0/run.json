@@ -1,0 +1,227 @@
+{
+  "task": "C01",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 145.1,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "---\n\n## Summary\n\nI've completed a systematic audit of this protein-protein interaction prediction analysis against ML-genomics best practices. Here are the critical findings:\n\n### \u2713 What Works\n- **Clean protein-level split**: No test protein appears in training data (60 training proteins P000\u2013P059, 20 test proteins P060\u2013P079). The \"proteins never seen in training\" claim is valid.\n- **Strong feature signal**: Coexpression-label correlation is 0.60 in both train and test sets, supporting biological plausibility.\n- **Appropriate test set size**: 150 pairs adequate for AUROC estimation.\n\n### \u2717 Critical Problems\n\n1. **Missing Baseline Comparisons (Case F06)** \u2013 CRITICAL  \n   A simple logistic regression on the same feature achieves **0.8545 AUROC**, which exceeds the reported **0.81 AUROC**. Baseline comparisons are mandatory in ML work. Reporting none is a major flaw.\n\n2. **Reported Performance Underperforms Expectation**  \n   - Feature correlation r=0.60 is strong; LR should achieve ~0.85+ AUROC\n   - Reported 0.81 is suspiciously low\n   - Training cross-validation gets 0.873 \u00b1 0.013\n   - This suggests either: (a) model implementation issues, (b) different preprocessing than expected, or (c) data problems\n\n3. **No Null Control**  \n   No permutation test (shuffle labels at protein level) to verify non-triviality. Cannot rule out systematic bias.\n\n4. **Single Feature, No Ablations**  \n   Only coexpression tested; no alternative features or model variants explored.\n\n### Verdict by Audit Question\n\n| Question | Finding |\n|----------|---------|\n| Unit of independence | \u2713 PASS \u2013 protein-disjoint split |\n| Shortcut inventory | \u2713 PASS \u2013 no confounders, feature is biological |\n| Claim vs test axis | \u2713 FAIR \u2013 correct axis but narrow scope (single organism) |\n| Baselines | \u2717 **FAIL** \u2013 none reported; simple LR beats reported result |\n| Null control | \u2717 FAIL \u2013 none reported |\n| What each control keeps | \u2717 N/A \u2013 no controls |\n| Circularity | \u2713 PASS \u2013 no obvious label leakage |\n| Variance | \u2713 FAIR \u2013 adequate sample size |\n\n**VERDICT: NOT SUPPORTED**\n\n### Main Issues\n1. **Missing baselines violates ML best practices** (class B, case F06 \u2013 \"Perturbation-effect models don't beat linear baselines\")\n2. **Reported result underperforms simple baseline** (0.81 < 0.85), indicating possible model or evaluation issues\n3. **No null control** to verify the signal is real\n4. **Incomplete model specification** (hyperparameters, CV strategy not documented)\n\nThe protein-level generalization claim is sound, but the evidence presentation fails to meet publication standards. Before this goes into a paper, add: (1) reported baselines side-by-side with the model result, (2) explanation for why reported < simple LR, (3) permutation test, and (4) model implementation details.",
+  "is_error": false,
+  "cost_usd": 0.2647805999999999,
+  "duration_s": 143.7,
+  "turns": 27,
+  "tool_calls": [
+    "Bash",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash",
+    "Edit",
+    "Bash",
+    "Edit",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Write",
+    "Bash",
+    "Write"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "search",
+    "search",
+    "fetch",
+    "fetch",
+    "fetch",
+    "check_split_overlap"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-zsmn81uz/analysis/"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/README.md"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/pairs_train.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/pairs_test.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/predictions_test.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/audit_analysis.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, roc_curve\nfrom sklearn.linear_model import LogisticRegression\n\n# Load data\ntrain = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_train.csv')\ntest = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_test.csv')\npredictions = pd.read_csv('/tmp/review-zsmn81uz/analysis/predictions_test.csv')\n\nprint(\"=== Data Overview ===\")\nprint(f\"Train pairs: {len(train)}\")\nprint(f\"Test pairs: {len(test)}\")\nprint(f\"Prediction pairs: {len(predictions)}\")\nprint(f\"\\nTrain label distribution: {train['label'].value_counts().to_dict()}\")\nprint(f\"Test label distribution: {test['label'].value_counts().to_dict()}\")\n\n# Check protein overlap\ntrain_proteins = set(train['protein_a'].unique()) | set(train['protein_b'].unique())\ntest_proteins = set(test['protein_a'].unique()) | set(test['protein_b'].unique())\n\nprint(f\"\\n=== Protein Overlap Check (Leakage L) ===\")\nprint(f\"Train proteins: {sorted(train_proteins)}\")\nprint(f\"Test proteins: {sorted(test_proteins)}\")\noverlap = train_proteins & test_proteins\nprint(f\"Protein overlap: {overlap}\")\nprint(f\"Overlap count: {len(overlap)}\")\n\n# Check pair overlap\ntrain_pairs = set()\nfor _, row in train.iterrows():\n    a, b = row['protein_a'], row['protein_b']\n    train_pairs.add(tuple(sorted([a, b])))\n\ntest_pairs = set()\nfor _, row in test.iterrows():\n    a, b = row['protein_a'], row['protein_b']\n    test_pairs.add(tuple(sorted([a, b])))\n\npair_overlap = train_pairs & test_pairs\nprint(f\"Pair overlap: {len(pair_overlap)}\")\n\n# Verify AUROC calculation\npred_with_labels = predictions.merge(test[['protein_a', 'protein_b', 'label']],\n                                     on=['protein_a', 'protein_b'], how='left')\n\nprint(f\"\\n=== AUROC Verification ===\")\nauroc = roc_auc_score(pred_with_labels['label'], pred_with_labels['score'])\nprint(f\"Reported AUROC: 0.81\")\nprint(f\"Computed AUROC: {auroc:.4f}\")\nprint(f\"Match: {abs(auroc - 0.81) < 0.001}\")\n\n# Check distribution of scores\nprint(f\"\\n=== Prediction Score Distribution ===\")\nprint(f\"Score mean: {pred_with_labels['score'].mean():.4f}\")\nprint(f\"Score std: {pred_with_labels['score'].std():.4f}\")\nprint(f\"Score min: {pred_with_labels['score'].min():.4f}\")\nprint(f\"Score max: {pred_with_labels['score'].max():.4f}\")\n\n# Score by label\nprint(f\"\\nMean score for label=0: {pred_with_labels[pred_with_labels['label']==0]['score'].mean():.4f}\")\nprint(f\"Mean score for label=1: {pred_with_labels[pred_with_labels['label']==1]['score'].mean():.4f}\")\n\n# Baseline: logistic regression on training data\nprint(f\"\\n=== Simple Baseline (Logistic Regression) ===\")\nX_train = train[['coexpression_z']].values\ny_train = train['label'].values\nX_test = test[['coexpression_z']].values\ny_test = test['label'].values\n\nlr = LogisticRegression()\nlr.fit(X_train, y_train)\nlr_pred = lr.predict_proba(X_test)[:, 1]\nlr_auroc = roc_auc_score(y_test, lr_pred)\nprint(f\"Logistic regression AUROC: {lr_auroc:.4f}\")\n\n# Baseline: mean of label per protein\nprint(f\"\\n=== Per-protein mean baseline ===\")\n# For each protein, compute the mean label of its training interactions\ntrain_protein_means = {}\nfor protein in train_proteins:\n    # Find all interactions involving this protein\n    mask = (train['protein_a'] == protein) | (train['protein_b'] == protein)\n    if mask.sum() > 0:\n        train_protein_means[protein] = train[mask]['label'].mean()\n\n# Predict test using average of the two proteins' means\ntest_predictions_prot_mean = []\nfor _, row in test.iterrows():\n    a, b = row['protein_a'], row['protein_b']\n    mean_a = train_protein_means.get(a, 0.5)\n    mean_b = train_protein_means.get(b, 0.5)\n    pred = (mean_a + mean_b) / 2\n    test_predictions_prot_mean.append(pred)\n\nprot_mean_auroc = roc_auc_score(y_test, test_predictions_prot_mean)\nprint(f\"Per-protein mean AUROC: {prot_mean_auroc:.4f}\")\n\n# Check for correlation with simple features\nprint(f\"\\n=== Feature-label correlations ===\")\nprint(f\"Correlation(coexpression_z, label) in train: {train['coexpression_z'].corr(train['label']):.4f}\")\nprint(f\"Correlation(coexpression_z, label) in test: {test['coexpression_z'].corr(test['label']):.4f}\")\n\n# Split random pairs into proteins - does it leak?\nprint(f\"\\n=== Protein Pair Composition ===\")\nprint(f\"Total possible pairs from 60 training proteins: {60*59//2}\")\nprint(f\"Total possible pairs from 20 test proteins: {20*19//2}\")\nprint(f\"Actual training pairs: {len(train)}\")\nprint(f\"Actual test pairs: {len(test)}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python audit_analysis.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/investigate_model.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, roc_curve\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.calibration import CalibratedClassifierCV\nimport matplotlib.pyplot as plt\n\n# Load data\ntrain = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_train.csv')\ntest = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_test.csv')\npredictions = pd.read_csv('/tmp/review-zsmn81uz/analysis/predictions_test.csv')\n\nX_train = train[['coexpression_z']].values\ny_train = train['label'].values\nX_test = test[['coexpression_z']].values\ny_test = test['label'].values\n\n# Merge predictions with true labels\npred_with_labels = predictions.merge(test[['protein_a', 'protein_b', 'label']],\n                                     on=['protein_a', 'protein_b'], how='left')\n\nprint(\"=== Investigating the Reported Model ===\")\nprint(f\"Reported AUROC: 0.81\")\nprint(f\"Actual AUROC from predictions: {roc_auc_score(pred_with_labels['label'], pred_with_labels['score']):.4f}\")\n\n# Try different LR configurations\nprint(f\"\\n=== Logistic Regression Variants ===\")\n\n# Standard LR\nlr = LogisticRegression()\nlr.fit(X_train, y_train)\nlr_pred = lr.predict_proba(X_test)[:, 1]\nlr_auroc = roc_auc_score(y_test, lr_pred)\nprint(f\"Standard LR: {lr_auroc:.4f}\")\n\n# LR with different regularization\nfor C in [0.001, 0.01, 0.1, 1, 10, 100, 1000]:\n    lr_c = LogisticRegression(C=C)\n    lr_c.fit(X_train, y_train)\n    lr_c_pred = lr_c.predict_proba(X_test)[:, 1]\n    lr_c_auroc = roc_auc_score(y_test, lr_c_pred)\n    print(f\"LR with C={C}: {lr_c_auroc:.4f}\")\n\n# With calibration\nprint(f\"\\n=== Calibrated LR ===\")\nlr_base = LogisticRegression()\nlr_calib = CalibratedClassifierCV(lr_base, cv=5)\nlr_calib.fit(X_train, y_train)\nlr_calib_pred = lr_calib.predict_proba(X_test)[:, 1]\nlr_calib_auroc = roc_auc_score(y_test, lr_calib_pred)\nprint(f\"Calibrated LR: {lr_calib_auroc:.4f}\")\n\n# Check if the issue is cross-validation during training\nprint(f\"\\n=== Cross-validation during training ===\")\nfrom sklearn.model_selection import cross_val_score, StratifiedKFold\n\ncv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\ncv_scores = cross_val_score(LogisticRegression(), X_train, y_train,\n                            cv=cv, scoring='roc_auc')\nprint(f\"CV scores: {cv_scores}\")\nprint(f\"Mean CV score: {cv_scores.mean():.4f} +/- {cv_scores.std():.4f}\")\n\n# Check if results match simple threshold\nprint(f\"\\n=== Checking if predicted scores are just thresholded coexpression ===\")\nreported_scores = pred_with_labels['score'].values\nactual_coexp = pred_with_labels['coexpression_z'].values\n\n# Try to find a transformation\n# If reported_scores = sigmoid(a * coexpression_z + b)\nfrom scipy.special import expit\n# Fit a simple sigmoid transformation\nfrom scipy.optimize import minimize\n\ndef neg_mse(params):\n    a, b = params\n    predicted_probs = expit(a * actual_coexp + b)\n    mse = np.mean((predicted_probs - reported_scores)**2)\n    return mse\n\nresult = minimize(neg_mse, [1, 0], method='Nelder-Mead')\na_opt, b_opt = result.x\ntransformed = expit(a_opt * actual_coexp + b_opt)\nmse = np.mean((transformed - reported_scores)**2)\nprint(f\"Sigmoid transformation (z-score -> probability):\")\nprint(f\"  a={a_opt:.4f}, b={b_opt:.4f}\")\nprint(f\"  MSE: {mse:.6f}\")\n\n# The standard sigmoid for logistic regression\nlr_standard = LogisticRegression()\nlr_standard.fit(X_train, y_train)\npredicted_probs_lr = lr_standard.predict_proba(X_test)[:, 1]\nprint(f\"\\nStandard LR predictions vs reported scores:\")\nprint(f\"  Correlation: {np.corrcoef(predicted_probs_lr, reported_scores)[0,1]:.4f}\")\n\n# Compare calibrated vs uncalibrated\nprint(f\"\\nFirst 10 comparisons (reported vs standard LR):\")\nfor i in range(min(10, len(reported_scores))):\n    print(f\"  Reported: {reported_scores[i]:.4f}, Standard LR: {predicted_probs_lr[i]:.4f}\")\n\n# Check if the reported scores might be from a different random seed or CV fold\nprint(f\"\\n=== Testing multiple random seeds ===\")\nseeds = [42, 0, 1, 2, 3]\nfor seed in seeds:\n    lr_seed = LogisticRegression(random_state=seed)\n    lr_seed.fit(X_train, y_train)\n    lr_seed_pred = lr_seed.predict_proba(X_test)[:, 1]\n    lr_seed_auroc = roc_auc_score(y_test, lr_seed_pred)\n    print(f\"Seed {seed}: {lr_seed_auroc:.4f}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python investigate_model.py"
+      }
+    },
+    {
+      "name": "Edit",
+      "input": {
+        "replace_all": false,
+        "file_path": "/tmp/review-zsmn81uz/analysis/investigate_model.py",
+        "old_string": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, roc_curve\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.calibration import CalibratedClassifierCV\nimport matplotlib.pyplot as plt",
+        "new_string": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, roc_curve\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.calibration import CalibratedClassifierCV"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python investigate_model.py"
+      }
+    },
+    {
+      "name": "Edit",
+      "input": {
+        "replace_all": false,
+        "file_path": "/tmp/review-zsmn81uz/analysis/investigate_model.py",
+        "old_string": "# Merge predictions with true labels\npred_with_labels = predictions.merge(test[['protein_a', 'protein_b', 'label']], \n                                     on=['protein_a', 'protein_b'], how='left')\n\nprint(\"=== Investigating the Reported Model ===\")\nprint(f\"Reported AUROC: 0.81\")\nprint(f\"Actual AUROC from predictions: {roc_auc_score(pred_with_labels['label'], pred_with_labels['score']):.4f}\")\n\n# Try different LR configurations\nprint(f\"\\n=== Logistic Regression Variants ===\")\n\n# Standard LR\nlr = LogisticRegression()\nlr.fit(X_train, y_train)\nlr_pred = lr.predict_proba(X_test)[:, 1]\nlr_auroc = roc_auc_score(y_test, lr_pred)\nprint(f\"Standard LR: {lr_auroc:.4f}\")\n\n# LR with different regularization\nfor C in [0.001, 0.01, 0.1, 1, 10, 100, 1000]:\n    lr_c = LogisticRegression(C=C)\n    lr_c.fit(X_train, y_train)\n    lr_c_pred = lr_c.predict_proba(X_test)[:, 1]\n    lr_c_auroc = roc_auc_score(y_test, lr_c_pred)\n    print(f\"LR with C={C}: {lr_c_auroc:.4f}\")\n\n# With calibration\nprint(f\"\\n=== Calibrated LR ===\")\nlr_base = LogisticRegression()\nlr_calib = CalibratedClassifierCV(lr_base, cv=5)\nlr_calib.fit(X_train, y_train)\nlr_calib_pred = lr_calib.predict_proba(X_test)[:, 1]\nlr_calib_auroc = roc_auc_score(y_test, lr_calib_pred)\nprint(f\"Calibrated LR: {lr_calib_auroc:.4f}\")\n\n# Check if the issue is cross-validation during training\nprint(f\"\\n=== Cross-validation during training ===\")\nfrom sklearn.model_selection import cross_val_score, StratifiedKFold\n\ncv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\ncv_scores = cross_val_score(LogisticRegression(), X_train, y_train, \n                            cv=cv, scoring='roc_auc')\nprint(f\"CV scores: {cv_scores}\")\nprint(f\"Mean CV score: {cv_scores.mean():.4f} +/- {cv_scores.std():.4f}\")\n\n# Check if results match simple threshold\nprint(f\"\\n=== Checking if predicted scores are just thresholded coexpression ===\")\nreported_scores = pred_with_labels['score'].values\nactual_coexp = pred_with_labels['coexpression_z'].values",
+        "new_string": "# Merge predictions with true labels and coexpression\npred_with_labels = predictions.merge(test[['protein_a', 'protein_b', 'label', 'coexpression_z']],\n                                     on=['protein_a', 'protein_b'], how='left')\n\nprint(\"=== Investigating the Reported Model ===\")\nprint(f\"Reported AUROC: 0.81\")\nprint(f\"Actual AUROC from predictions: {roc_auc_score(pred_with_labels['label'], pred_with_labels['score']):.4f}\")\n\n# Try different LR configurations\nprint(f\"\\n=== Logistic Regression Variants ===\")\n\n# Standard LR\nlr = LogisticRegression()\nlr.fit(X_train, y_train)\nlr_pred = lr.predict_proba(X_test)[:, 1]\nlr_auroc = roc_auc_score(y_test, lr_pred)\nprint(f\"Standard LR: {lr_auroc:.4f}\")\n\n# LR with different regularization\nfor C in [0.001, 0.01, 0.1, 1, 10, 100, 1000]:\n    lr_c = LogisticRegression(C=C)\n    lr_c.fit(X_train, y_train)\n    lr_c_pred = lr_c.predict_proba(X_test)[:, 1]\n    lr_c_auroc = roc_auc_score(y_test, lr_c_pred)\n    print(f\"LR with C={C}: {lr_c_auroc:.4f}\")\n\n# With calibration\nprint(f\"\\n=== Calibrated LR ===\")\nlr_base = LogisticRegression()\nlr_calib = CalibratedClassifierCV(lr_base, cv=5)\nlr_calib.fit(X_train, y_train)\nlr_calib_pred = lr_calib.predict_proba(X_test)[:, 1]\nlr_calib_auroc = roc_auc_score(y_test, lr_calib_pred)\nprint(f\"Calibrated LR: {lr_calib_auroc:.4f}\")\n\n# Check if the issue is cross-validation during training\nprint(f\"\\n=== Cross-validation during training ===\")\nfrom sklearn.model_selection import cross_val_score, StratifiedKFold\n\ncv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\ncv_scores = cross_val_score(LogisticRegression(), X_train, y_train,\n                            cv=cv, scoring='roc_auc')\nprint(f\"CV scores: {cv_scores}\")\nprint(f\"Mean CV score: {cv_scores.mean():.4f} +/- {cv_scores.std():.4f}\")\n\n# Check if results match simple threshold\nprint(f\"\\n=== Checking if predicted scores are just thresholded coexpression ===\")\nreported_scores = pred_with_labels['score'].values\nactual_coexp = pred_with_labels['coexpression_z'].values"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/investigate_model.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, roc_curve\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.calibration import CalibratedClassifierCV\nfrom sklearn.model_selection import cross_val_score, StratifiedKFold\nfrom scipy.special import expit\nfrom scipy.optimize import minimize\n\n# Load data\ntrain = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_train.csv')\ntest = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_test.csv')\npredictions = pd.read_csv('/tmp/review-zsmn81uz/analysis/predictions_test.csv')\n\nX_train = train[['coexpression_z']].values\ny_train = train['label'].values\nX_test = test[['coexpression_z']].values\ny_test = test['label'].values\n\n# Merge predictions with true labels and coexpression\npred_with_labels = predictions.merge(test[['protein_a', 'protein_b', 'label', 'coexpression_z']],\n                                     on=['protein_a', 'protein_b'], how='left')\n\nprint(\"=== Investigating the Reported Model ===\")\nprint(f\"Reported AUROC: 0.81\")\nprint(f\"Actual AUROC from predictions: {roc_auc_score(pred_with_labels['label'], pred_with_labels['score']):.4f}\")\n\n# Try different LR configurations\nprint(f\"\\n=== Logistic Regression Variants ===\")\n\n# Standard LR\nlr = LogisticRegression()\nlr.fit(X_train, y_train)\nlr_pred = lr.predict_proba(X_test)[:, 1]\nlr_auroc = roc_auc_score(y_test, lr_pred)\nprint(f\"Standard LR: {lr_auroc:.4f}\")\n\n# LR with different regularization\nfor C in [0.001, 0.01, 0.1, 1, 10, 100, 1000]:\n    lr_c = LogisticRegression(C=C)\n    lr_c.fit(X_train, y_train)\n    lr_c_pred = lr_c.predict_proba(X_test)[:, 1]\n    lr_c_auroc = roc_auc_score(y_test, lr_c_pred)\n    print(f\"LR with C={C}: {lr_c_auroc:.4f}\")\n\n# With calibration\nprint(f\"\\n=== Calibrated LR ===\")\nlr_base = LogisticRegression()\nlr_calib = CalibratedClassifierCV(lr_base, cv=5)\nlr_calib.fit(X_train, y_train)\nlr_calib_pred = lr_calib.predict_proba(X_test)[:, 1]\nlr_calib_auroc = roc_auc_score(y_test, lr_calib_pred)\nprint(f\"Calibrated LR: {lr_calib_auroc:.4f}\")\n\n# Check if the issue is cross-validation during training\nprint(f\"\\n=== Cross-validation during training ===\")\ncv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\ncv_scores = cross_val_score(LogisticRegression(), X_train, y_train,\n                            cv=cv, scoring='roc_auc')\nprint(f\"CV scores: {cv_scores}\")\nprint(f\"Mean CV score: {cv_scores.mean():.4f} +/- {cv_scores.std():.4f}\")\n\n# Check if results match simple threshold\nprint(f\"\\n=== Checking if predicted scores are just thresholded coexpression ===\")\nreported_scores = pred_with_labels['score'].values\nactual_coexp = pred_with_labels['coexpression_z'].values\n\n# Try to find a transformation\n# If reported_scores = sigmoid(a * coexpression_z + b)\ndef neg_mse(params):\n    a, b = params\n    predicted_probs = expit(a * actual_coexp + b)\n    mse = np.mean((predicted_probs - reported_scores)**2)\n    return mse\n\nresult = minimize(neg_mse, [1, 0], method='Nelder-Mead')\na_opt, b_opt = result.x\ntransformed = expit(a_opt * actual_coexp + b_opt)\nmse = np.mean((transformed - reported_scores)**2)\nprint(f\"Sigmoid transformation (z-score -> probability):\")\nprint(f\"  a={a_opt:.4f}, b={b_opt:.4f}\")\nprint(f\"  MSE: {mse:.6f}\")\n\n# The standard sigmoid for logistic regression\nlr_standard = LogisticRegression()\nlr_standard.fit(X_train, y_train)\npredicted_probs_lr = lr_standard.predict_proba(X_test)[:, 1]\nprint(f\"\\nStandard LR predictions vs reported scores:\")\nprint(f\"  Correlation: {np.corrcoef(predicted_probs_lr, reported_scores)[0,1]:.4f}\")\n\n# Compare calibrated vs uncalibrated\nprint(f\"\\nFirst 10 comparisons (reported vs standard LR):\")\nfor i in range(min(10, len(reported_scores))):\n    print(f\"  Reported: {reported_scores[i]:.4f}, Standard LR: {predicted_probs_lr[i]:.4f}\")\n\n# Check if the reported scores might be from a different random seed or CV fold\nprint(f\"\\n=== Testing multiple random seeds ===\")\nseeds = [42, 0, 1, 2, 3]\nfor seed in seeds:\n    lr_seed = LogisticRegression(random_state=seed)\n    lr_seed.fit(X_train, y_train)\n    lr_seed_pred = lr_seed.predict_proba(X_test)[:, 1]\n    lr_seed_auroc = roc_auc_score(y_test, lr_seed_pred)\n    print(f\"Seed {seed}: {lr_seed_auroc:.4f}\")\n\n# Key finding: is the reported result worse than what it should be?\nprint(f\"\\n=== CRITICAL: Model performance comparison ===\")\nprint(f\"Reported test AUROC: 0.8127\")\nprint(f\"Expected from trained model: 0.8545\")\nprint(f\"Difference: {0.8545 - 0.8127:.4f}\")\nprint(f\"Reported is {0.8127/0.8545*100:.1f}% of expected performance\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python investigate_model.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "protein interaction prediction"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "baseline comparison missing"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F06"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F03"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F12"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/test_baselines.py",
+        "content": "import pandas as pd\nimport numpy as np\n\n# Create combined data\ntrain = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_train.csv')\ntest = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_test.csv')\n\n# Add set indicator\ntrain['set'] = 'train'\ntest['set'] = 'test'\n\n# Combine\ndata = pd.concat([train, test], ignore_index=True)\n\n# Save for the ml-genomics-failures tool\ntrain.to_csv('/tmp/review-zsmn81uz/analysis/train_combined.csv', index=False)\ntest.to_csv('/tmp/review-zsmn81uz/analysis/test_combined.csv', index=False)\n\nprint(\"Data prepared for ML genomics failures tools\")\nprint(f\"Total rows: {len(data)}\")\nprint(f\"Train rows: {len(train)}\")\nprint(f\"Test rows: {len(test)}\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python test_baselines.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "columns": [
+          "protein_a",
+          "protein_b"
+        ],
+        "train_path": "/tmp/review-zsmn81uz/analysis/pairs_train.csv",
+        "test_path": "/tmp/review-zsmn81uz/analysis/pairs_test.csv",
+        "label": "label",
+        "model_score": 0.8127
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/comprehensive_review.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.metrics import roc_auc_score, roc_curve, precision_recall_curve, auc\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold\n\n# Load data\ntrain = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_train.csv')\ntest = pd.read_csv('/tmp/review-zsmn81uz/analysis/pairs_test.csv')\npredictions = pd.read_csv('/tmp/review-zsmn81uz/analysis/predictions_test.csv')\n\n# Merge predictions\npred_with_labels = predictions.merge(test[['protein_a', 'protein_b', 'label']],\n                                     on=['protein_a', 'protein_b'], how='left')\n\nX_train = train[['coexpression_z']].values\ny_train = train['label'].values\nX_test = test[['coexpression_z']].values\ny_test = test['label'].values\n\nprint(\"=\" * 70)\nprint(\"COMPREHENSIVE REVIEW OF PROTEIN-PROTEIN INTERACTION PREDICTION\")\nprint(\"=\" * 70)\n\nprint(\"\\n1. CLAIM ANALYSIS\")\nprint(\"-\" * 70)\nprint(\"Main claim: Co-expression predicts physical interaction (AUROC 0.81)\")\nprint(\"             for proteins never seen in training (protein-disjoint split).\")\nprint(\"\\nProtein-level split verification: \u2713 CLEAN\")\nprint(\"  - Train proteins: P000-P059 (60 unique)\")\nprint(\"  - Test proteins: P060-P079 (20 unique)\")\nprint(\"  - Overlap: 0 (perfectly disjoint)\")\n\nprint(\"\\n2. BASELINE COMPARISON (Critical Missing Element)\")\nprint(\"-\" * 70)\nprint(f\"Reported result:        AUROC {roc_auc_score(pred_with_labels['label'], pred_with_labels['score']):.4f}\")\nprint(f\"Simple LR (no tuning):   AUROC {roc_auc_score(y_test, LogisticRegression().fit(X_train, y_train).predict_proba(X_test)[:, 1]):.4f}\")\nprint(f\"Training CV mean:        AUROC {StratifiedKFold(n_splits=5, shuffle=True, random_state=42).get_n_splits() * 0.20} fold cross-val\")\n\nlr = LogisticRegression()\nfrom sklearn.model_selection import cross_val_score\ncv_scores = cross_val_score(lr, X_train, y_train, cv=5, scoring='roc_auc')\nprint(f\"                         AUROC {cv_scores.mean():.4f} \u00b1 {cv_scores.std():.4f}\")\n\nprint(f\"\\nFINDING: Reported AUROC (0.81) is LOWER than expected (0.85)\")\nprint(f\"This is unusual and suggests potential issues:\")\nprint(f\"  - Model may be underperforming\")\nprint(f\"  - Possible calibration/confidence issues\")\nprint(f\"  - Or different train/test preprocessing than expected\")\n\nprint(\"\\n3. FEATURE-LABEL RELATIONSHIP\")\nprint(\"-\" * 70)\ncorr_train = train['coexpression_z'].corr(train['label'])\ncorr_test = test['coexpression_z'].corr(test['label'])\nprint(f\"Correlation(coexpression_z, label):\")\nprint(f\"  - Training set: {corr_train:.4f}\")\nprint(f\"  - Test set:    {corr_test:.4f}\")\nprint(f\"\\nInterpretation: Strong correlation ({corr_train:.3f}) indicates coexpression\")\nprint(f\"is highly predictive. A feature with such high correlation should achieve\")\nprint(f\"better than 0.81 AUROC with logistic regression (0.85 is more typical).\")\n\nprint(\"\\n4. PREDICTION DISTRIBUTION\")\nprint(\"-\" * 70)\nscores = pred_with_labels['score'].values\nlabels = pred_with_labels['label'].values\nprint(f\"Predicted probabilities:\")\nprint(f\"  Mean: {scores.mean():.4f}, Std: {scores.std():.4f}\")\nprint(f\"  For label=0: mean={scores[labels==0].mean():.4f}\")\nprint(f\"  For label=1: mean={scores[labels==1].mean():.4f}\")\nprint(f\"  Separation: {scores[labels==1].mean() - scores[labels==0].mean():.4f}\")\n\nprint(\"\\n5. EVIDENCE QUALITY CHECKLIST\")\nprint(\"-\" * 70)\nchecklist = {\n    \"Unit of independence (protein-level split)\": \"\u2713 PASS - Clean disjoint protein sets\",\n    \"Baseline comparison\": \"\u2717 FAIL - No baselines reported; reported < expected\",\n    \"Null control\": \"\u2717 FAIL - No control/ablation reported\",\n    \"Label distribution\": f\"\u2713 PASS - Train 227/373 (38%), Test 61/89 (41%)\",\n    \"Generalization claim\": \"\u2713 FAIR - Protein-disjoint, but no cross-species/context test\",\n    \"Feature-label correlation\": \"\u2713 GOOD - Strong correlation (0.60) supports predictability\",\n}\n\nfor item, status in checklist.items():\n    print(f\"  {item:.<45} {status}\")\n\nprint(\"\\n6. KEY ISSUES IDENTIFIED\")\nprint(\"-\" * 70)\nissues = [\n    (\"CRITICAL\", \"No baseline comparison\",\n     \"Reported 0.81 AUROC without comparing to simple logistic regression (0.85 expected).\"),\n\n    (\"MAJOR\", \"Underperformance relative to feature\",\n     \"Coexpression has r=0.60 with label; LR should achieve ~0.85, not 0.81.\"),\n\n    (\"MODERATE\", \"No null control\",\n     \"No permutation test or shuffled label control reported to rule out chance.\"),\n\n    (\"MODERATE\", \"Single feature, narrow domain\",\n     \"Only coexpression tested; no ablation or alternative features; only yeast.\"),\n\n    (\"MINOR\", \"Model details not specified\",\n     \"No mention of hyperparameters, cross-validation strategy, or model selection.\")\n]\n\nfor severity, issue, description in issues:\n    print(f\"\\n  [{severity}] {issue}\")\n    print(f\"      {description}\")\n\nprint(\"\\n7. VERDICT ASSESSMENT\")\nprint(\"-\" * 70)\nprint(\"\\nClaim: 'Co-expression predicts physical interaction (AUROC 0.81) for\")\nprint(\"        proteins never seen in training.'\")\nprint(\"\\nSupporting evidence:\")\nprint(\"  + Protein-disjoint split is clean and valid\")\nprint(\"  + Strong coexpression-label correlation (0.60) supports predictability\")\nprint(\"  + Reported AUROC (0.81) is non-trivial\")\nprint(\"\\nCountering evidence:\")\nprint(\"  - No baseline comparison (critical omission)\")\nprint(\"  - Reported AUROC lower than expected for the feature strength\")\nprint(\"  - No null control (permutation test, label shuffling)\")\nprint(\"  - No validation across different conditions/datasets\")\nprint(\"  - Model appears to underperform reasonable expectations\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"CONCLUSION\")\nprint(\"=\" * 70)\nprint(\"\\nThe protein-level split is sound, validating the 'never seen' claim.\")\nprint(\"However, the lack of baseline comparisons is a critical flaw. The reported\")\nprint(\"0.81 AUROC is lower than a simple logistic regression achieves (0.85),\")\nprint(\"raising questions about model implementation or evaluation.\")\nprint(\"\\nWithout baselines and null controls, the evidence is INSUFFICIENT to\")\nprint(\"support the claim as written for a high-stakes application (e.g., 'useful\")\nprint(\"prior for ranking candidates'). The result might still hold, but the\")\nprint(\"analysis needs to demonstrate superiority or non-triviality via baselines.\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python comprehensive_review.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-zsmn81uz/analysis/REVIEW_SUMMARY.md",
+        "content": "# Peer Review: Protein-Protein Interaction Prediction from Co-expression\n\n**Analyzed:** February 2025  \n**Data:** pairs_train.csv (600 pairs, 60 proteins), pairs_test.csv (150 pairs, 20 proteins)  \n**Claim:** Co-expression predicts physical interaction with AUROC 0.81 on protein-disjoint test set\n\n---\n\n## Audit Checklist Results\n\n### 1. Unit of Independence \u2713 PASS\n- **Split level:** Protein-disjoint (no test protein appears in training)\n- **Train proteins:** P000\u2013P059 (60 unique)\n- **Test proteins:** P060\u2013P079 (20 unique)\n- **Overlap:** 0 pairs\n- **Status:** The split is clean and valid at the unit of independence. The claim \"never seen in training\" is accurate.\n\n### 2. Shortcut Inventory \u2713 PASS (with caveat)\n- **Features used:** Single feature (coexpression_z)\n- **Correlation with label:** r = 0.601 (train), r = 0.592 (test)\n- **No obvious non-biological shortcuts** (no batch, distance, or other confounders present)\n- **Status:** Feature is legitimately biological, but strong correlation might inflate reported performance\n\n### 3. Claim vs Test Axis \u2713 FAIR\n- **Claim:** \"Co-expression predicts physical interaction across proteins never seen in training\"\n- **Test:** Held-out proteins (correct axis)\n- **Limitation:** No test of generalization across different conditions, organisms, or interaction types\n- **Status:** The test matches the claim axis, but scope is narrow (single organism, single condition)\n\n### 4. Baselines \u2717 **CRITICAL FAILURE**\n- **Reported:** AUROC 0.8127\n- **Simple Logistic Regression:** AUROC 0.8545\n- **5-fold CV on training:** AUROC 0.8734 \u00b1 0.013\n- **Status:** **No baselines reported.** The simple LR baseline actually outperforms the reported result. This is highly unusual and a critical omission per case F06.\n\n| Baseline | AUROC |\n|----------|-------|\n| Reported model | 0.8127 |\n| Logistic regression (raw) | 0.8545 |\n| Training CV mean | 0.8734 |\n| Per-protein label mean | 0.5000 (chance) |\n| Label distribution alone | ~0.5 |\n\n**Finding:** The reported result is worse than what a standard logistic regression achieves. This suggests:\n1. Model implementation issues, or\n2. Different preprocessing/evaluation than expected, or  \n3. The predictions are not from a properly trained LR\n\n### 5. Null Control \u2717 **MISSING**\n- **Reported:** None\n- **What's needed:** Permutation test (shuffle labels at protein level), or label corruption control\n- **Status:** No evidence that performance drops below chance under label shuffling\n\n### 6. Control Information \u2717 **MISSING**\n- No ablations reported\n- No variants (e.g., different LR regularization, alternative features)\n- Cannot assess what information each component uses\n\n### 7. Circularity \u2713 PASS\n- Data sources and label origin not discussed but likely straightforward biological assertion\n- No obvious label leakage through preprocessing or benchmark reuse\n- Status: Unclear but not obviously circular\n\n### 8. Variance / Sample Size \u2713 FAIR\n- **Test set:** 150 pairs (61 positive, 89 negative)\n- **Adequate for:** Estimating AUROC \u00b1 ~0.05 (95% CI)\n- **Insufficient for:** Cross-validation or multiple-seed robustness\n- **Status:** Adequate for the main claim, but limited for confidence in generalization\n\n---\n\n## Key Findings\n\n### \u2717 Critical Issues\n\n1. **No Baseline Comparison (Class B, case F06)**\n   - The analysis reports 0.81 AUROC with zero comparison to simple baselines\n   - A standard logistic regression on the same feature achieves 0.8545 AUROC\n   - This is a major methodological flaw in machine learning work\n\n2. **Reported Result Underperforms Expectation**\n   - Feature-label correlation is r = 0.60, which is strong\n   - For such a strong univariate predictor, 0.85+ AUROC is expected with LR\n   - Reported 0.81 is suspiciously low, raising implementation questions\n\n3. **No Null Control**\n   - No permutation test (shuffle labels) to verify non-triviality\n   - Without this, cannot rule out chance or systematic bias\n\n### \u2713 Strengths\n\n1. **Clean Protein-Level Split**\n   - No test protein in training set\n   - Validates the \"never seen\" claim for protein pairs\n\n2. **Strong Feature-Label Association**\n   - Coexpression correlation 0.60 supports biological plausibility\n   - Consistent across train/test\n\n---\n\n## ML Genomics Failures Context\n\n- **Case F06** (Perturbation-effect models don't beat linear baselines): Directly applicable \u2014 comparison against simple baselines is mandatory and this analysis lacks it.\n- **Case F03** (Enhancer-promoter leakage): Not directly applicable \u2014 split is protein-disjoint, not pair-random.\n- **Case F12** (Sequence homology): Not applicable \u2014 no sequences used.\n\n---\n\n## Evidence Assessment\n\n### For the Claim: \"Co-expression predicts physical interaction (AUROC 0.81) on protein-disjoint test set\"\n\n**Evidence Quality: INSUFFICIENT**\n\n| Aspect | Status |\n|--------|--------|\n| Protein-level generalization | \u2713 Supported (clean disjoint split) |\n| Feature predictiveness | \u2713 Supported (r = 0.60) |\n| Model performs as expected | \u2717 Not supported (0.81 < 0.85 baseline) |\n| Baselines present | \u2717 Missing (required by best practices) |\n| Null control present | \u2717 Missing |\n| Scope adequacy | \u2713 Adequate for narrow scope |\n\nThe protein-level generalization claim is valid. **However, the absence of baseline comparisons is a critical methodological flaw** that prevents proper assessment of whether the model adds value beyond the strong univariate signal. The reported AUROC is also suspiciously lower than expected, suggesting possible implementation issues.\n\n---\n\n## Recommendations for Revision\n\n1. **Report baselines:**\n   - Simple logistic regression: 0.8545 expected\n   - Per-protein mean baseline: 0.50 expected\n   - Permutation test (shuffle labels at protein level): 0.50 expected\n\n2. **Investigate the discrepancy:**\n   - Why does reported (0.81) < standard LR (0.85)?\n   - Check model implementation, hyperparameters, preprocessing\n\n3. **Add null control:**\n   - Permute test labels at protein level, recompute AUROC\n   - Should fall to ~0.50\n\n4. **Expand scope (optional but strengthens claim):**\n   - Test on second organism or experimental dataset\n   - Vary coexpression source (different conditions, timepoints)\n   - Report per-gene or per-pathway performance\n\n5. **Specify model details:**\n   - Which LR implementation (sklearn, custom)?\n   - Regularization (L2, C value)?\n   - How were hyperparameters chosen?\n   - Was any cross-validation on test data done (data leakage check)?\n\n---\n\n## Conclusion\n\nThe claim that \"co-expression predicts physical interaction for proteins never seen in training\" is **partially supported** by the protein-disjoint split, which is valid. However, the **analysis lacks the baseline comparisons required by machine learning best practices** (case F06). The reported AUROC (0.81) is also unexpectedly low compared to what a simple logistic regression achieves (0.85), raising questions about model implementation.\n\n**The main claim is plausible but the evidence presentation is insufficient for a high-stakes or novel application context.**\n"
+      }
+    }
+  ]
+}

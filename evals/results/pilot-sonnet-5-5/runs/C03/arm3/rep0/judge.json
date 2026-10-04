@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": false,
+  "rationale": "The reviewer reached SUPPORTED and checked the right things: composition baselines at chance, weak single-motif position rules (0.54), no leakage, and a valid permuted null. Calling the shuffle control order-agnostic and suggesting a motif-swap control is a reasonable addition, not a claim that the controls are invalid; the extra motif copies and the 0.995 rule baseline are minor wording points rather than important flaws.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

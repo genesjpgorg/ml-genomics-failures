@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "UNCLEAR",
+  "detected": false,
+  "quantified": true,
+  "fix": false,
+  "other_valid_issue": false,
+  "rationale": "The agent headlined a held-out AUROC of about 0.8, then said it is mostly batch signal and 'would overstate' performance only 'if batch reflects how the assay was run'. That hedge leaves the verdict unclear. It identified the batch\u2013label confound and measured that every test protein also appears in training. But it never treated the protein overlap or per-protein memorization as a reason the score fails, so it named only one of the two required flaws. Its suggested fix was a within-batch AUROC alone, with no protein-disjoint split.",
+  "final_verdict": "UNCLEAR",
+  "verdict_correct": false,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

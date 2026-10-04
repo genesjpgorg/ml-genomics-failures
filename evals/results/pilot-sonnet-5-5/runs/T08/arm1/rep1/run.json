@@ -1,0 +1,57 @@
+{
+  "task": "T08",
+  "arm": "1",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 20.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The claim isn't supported. The 0.99 AUROC comes from selecting genes on the full dataset before cross-validation, and with selection done properly the signal disappears.\n\n**What I ran** (`check.py`, in this directory):\n\n| Setup | AUROC |\n|---|---|\n| Colleague's pipeline (top 20 genes chosen on all 60 patients, then 5-fold CV) | 0.988 |\n| Same pipeline with gene selection inside each CV fold (5 seeds) | 0.51 |\n| Leaky pipeline on randomly permuted labels (20 runs) | 0.987 |\n| Nested pipeline on randomly permuted labels (20 runs) | 0.506 |\n\nThe data is 60 patients \u00d7 5,000 genes, with a 50% response rate.\n\n**Why it fails.** This is the leakage-through-shared-entities problem (class L in the audit). The test patients' labels influence which 20 genes are chosen. With 5,000 noise genes and 60 samples, some genes will correlate with any labelling by chance. The leaky pipeline gets 0.99 even when the labels are shuffled, so the metric cannot distinguish a real signal from none. That is the failed true-null check from audit step 5, and it shows that the 0.99 is produced by the method. Nested CV gives chance level (0.51), so the data show no evidence of a predictive signature.\n\n**Other issues that matter:**\n- **No external validation.** All 60 biopsies come from one cohort, and batch or site is not described. Any claim of predicting response needs an independent cohort (F10).\n- **No baselines or variance reporting.** There is no comparison with known signatures (e.g. IFN-\u03b3 or TMB), no clinical covariates, and no CIs. With n=60, an AUROC has a very wide interval.\n- **Gene filtering.** Choosing the \"5,000 most variable genes\" is unsupervised, so it is a smaller concern. It should still be done inside the training folds, or at least documented.\n- **The recommendation to test prospectively** is unjustified. The README should be rewritten as a null result, or the analysis redone on a larger cohort with nested selection and an external test set.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.054501,
+  "duration_s": 19.6,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cat analysis.py results.json; head -c 300 expression.csv; echo; cat response.csv | head -5"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cat > check.py <<'E'\nimport pandas as pd, numpy as np\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nx = pd.read_csv(\"expression.csv\").set_index(\"patient\")\ny = pd.read_csv(\"response.csv\").set_index(\"patient\").loc[x.index,\"responder\"].values\nX=x.values; print(X.shape, y.mean())\ndef run(yy,leak,seed=0):\n    cv=StratifiedKFold(5,shuffle=True,random_state=seed)\n    if leak:\n        Z=SelectKBest(f_classif,k=20).fit_transform(X,yy)\n        m=LogisticRegression(max_iter=1000)\n    else:\n        Z=X; m=make_pipeline(SelectKBest(f_classif,k=20),LogisticRegression(max_iter=1000))\n    p=cross_val_predict(m,Z,yy,cv=cv,method=\"predict_proba\")[:,1]\n    return roc_auc_score(yy,p)\nprint(\"leaky\",run(y,True),\"nested\",np.mean([run(y,False,s) for s in range(5)]))\nrng=np.random.default_rng(0)\nprint(\"perm leaky\",np.mean([run(rng.permutation(y),True) for _ in range(20)]))\nprint(\"perm nested\",np.mean([run(rng.permutation(y),False) for _ in range(20)]))\nE\npython check.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ki4_yp_4/analysis/check.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.feature_selection import SelectKBest, f_classif\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_predict\nx = pd.read_csv(\"expression.csv\").set_index(\"patient\")\ny = pd.read_csv(\"response.csv\").set_index(\"patient\").loc[x.index,\"responder\"].values\nX=x.values; print(X.shape, y.mean())\ndef run(yy,leak,seed=0):\n    cv=StratifiedKFold(5,shuffle=True,random_state=seed)\n    if leak:\n        Z=SelectKBest(f_classif,k=20).fit_transform(X,yy)\n        m=LogisticRegression(max_iter=1000)\n    else:\n        Z=X; m=make_pipeline(SelectKBest(f_classif,k=20),LogisticRegression(max_iter=1000))\n    p=cross_val_predict(m,Z,yy,cv=cv,method=\"predict_proba\")[:,1]\n    return roc_auc_score(yy,p)\nprint(\"leaky\",run(y,True),\"nested\",np.mean([run(y,False,s) for s in range(5)]))\nrng=np.random.default_rng(0)\nprint(\"perm leaky\",np.mean([run(rng.permutation(y),True) for _ in range(20)]))\nprint(\"perm nested\",np.mean([run(rng.permutation(y),False) for _ in range(20)]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python check.py"
+      }
+    }
+  ]
+}

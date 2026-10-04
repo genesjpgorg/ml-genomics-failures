@@ -1,0 +1,49 @@
+{
+  "task": "T02",
+  "arm": "1",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 22.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. SpliceScore's AUROC of 0.94 mostly reflects which gene a variant is in, not anything about the variant itself.\n\nI checked this against `variants.csv` (1,079 variants, 80 genes, 215 in the test split) with `a.py`, which I wrote in this directory.\n\n**What I found**\n- **Gene leakage (L):** The split is random across variants, so every test variant (100%) is in a gene that also has training variants. Variants in the same gene share a label tendency (F09).\n- **Gene-only baseline (S):** A score that uses only the gene's training label rate, with no variant information, reaches AUROC 0.926 on the test set. The model scores 0.941, so the gene identity alone accounts for almost all of it.\n- **No variant-level signal:** When I subtract each gene's mean score, the model's AUROC on test variants drops to 0.54. I restricted this to the 45 genes that have both labels, which leaves 136 test variants. That is close to chance.\n- **Gene-pure genes inflate the score:** The remaining 35 genes have only one label. A model gets those right just by recognizing the gene. Restricting to the 45 mixed-label genes lowers the raw AUROC to 0.87, and that figure still includes between-gene differences.\n- **Conservation:** The one feature in the file, `conservation`, gets AUROC 0.55 on its own. It tells you little about labels.\n- **Wrong axis (A):** The claim is that the model prioritizes variants of uncertain significance in diagnostic pipelines. Those variants will often be in genes with no training labels, or in genes where the question is which variant is pathogenic. A random split does not test either case.\n\n**What I could not check**\n- The 140-feature matrix isn't included, so I couldn't retrain the model or test a gene-held-out split directly.\n- I also didn't check whether the minigene compendium overlaps with the training data of other tools (C).\n- There is only one split and one seed, with no confidence intervals.\n\n**What the paper needs before the claim can stand**\n- Split by gene (GroupKFold) and report AUROC on unseen genes.\n- Report the within-gene AUROC and the gene-prior baseline next to the headline number.\n- Add simple baselines such as logistic regression on splice-site strength and distance to exon boundary.\n- Include a true null, such as permuting labels at the gene level.\n\nVERDICT: NOT SUPPORTED\n\nMost important issues:\n1. The random variant-level split leaks genes, and a gene-label-rate baseline reaches 0.926 of the 0.941 AUROC.\n2. Within-gene AUROC is 0.54, so there is no evidence the model learned variant-level determinants.\n3. The diagnostic-use claim needs an unseen-gene evaluation, which wasn't run and can't be run with the shared data (the feature matrix is missing).",
+  "is_error": false,
+  "cost_usd": 0.050208800000000005,
+  "duration_s": 21.7,
+  "turns": 5,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-l_eqoroc/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-l_eqoroc/analysis; head -5 variants.csv; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd=pd.read_csv('variants.csv');print(d.shape,d.columns.tolist());print(d.split.value_counts())\nprint(d.iloc[:,:].describe(include='all').T)\nlab=[c for c in d.columns if 'label' in c][0];sc=[c for c in d.columns if 'score' in c][0]\nt=d[d.split=='test'];tr=d[d.split=='train']\nprint('auc',A(t[lab],t[sc]),'cons',A(t[lab],t.conservation))\nprint('genes',d.gene.nunique(),'test genes in train',t.gene.isin(tr.gene).mean())\ng=tr.groupby('gene')[lab].agg(['mean','count'])\np=t.gene.map(g['mean']).fillna(tr[lab].mean());print('gene prior auc',A(t[lab],p))\n# loo gene prior on test excluding self irrelevant; within-gene\ngs=d.groupby('gene')[lab].agg(['mean','count']);mixed=gs[(gs['mean']>0)&(gs['mean']<1)].index\nprint('mixed genes',len(mixed),'of',len(gs))\nm=t[t.gene.isin(mixed)];print('test in mixed',len(m),A(m[lab],m[sc]) if m[lab].nunique()>1 else None)\n# within-gene demeaned auc\nt2=t.copy();t2['s']=t2[sc]-t2.groupby('gene')[sc].transform('mean');t2['l']=t2[lab]\nmm=t2[t2.gene.isin(mixed)];print('within-gene',A(mm[lab],mm.s))\nprint(d[lab].mean(),gs['count'].describe())\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-l_eqoroc/analysis/a.py",
+        "content": "import pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\nd=pd.read_csv('variants.csv');print(d.shape,d.columns.tolist());print(d.head());print(d.split.value_counts())\nlab=[c for c in d.columns if 'label' in c][0];sc=[c for c in d.columns if 'score' in c][0]\nt=d[d.split=='test'];tr=d[d.split=='train']\nprint('auc',A(t[lab],t[sc]),'cons',A(t[lab],t.conservation))\nprint('genes',d.gene.nunique(),'test variants w/ gene in train',t.gene.isin(tr.gene).mean())\ng=tr.groupby('gene')[lab].agg(['mean','count'])\np=t.gene.map(g['mean']).fillna(tr[lab].mean());print('gene prior auc',A(t[lab],p))\ngs=d.groupby('gene')[lab].agg(['mean','count']);mixed=gs[(gs['mean']>0)&(gs['mean']<1)].index\nprint('mixed genes',len(mixed),'of',len(gs))\nt2=t.copy();t2['s']=t2[sc]-t2.groupby('gene')[sc].transform('mean')\nmm=t2[t2.gene.isin(mixed)];print('within-gene n',len(mm),A(mm[lab],mm.s))\nm=t[t.gene.isin(mixed)];print('mixed-genes raw',A(m[lab],m[sc]))\nprint(d[lab].mean());print(gs['count'].describe())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-l_eqoroc/analysis; python a.py"
+      }
+    }
+  ]
+}

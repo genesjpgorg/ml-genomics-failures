@@ -1,0 +1,56 @@
+{
+  "task": "T05",
+  "arm": "1",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 27.9,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "GC content alone separates the classes perfectly, so the claim isn't supported.\n\n**What I checked** (`audit.py` in this directory):\n- **Data:** train has 200 contigs and test has 100, each balanced between phage and bacterial. Every contig is 1500 bp. I found no exact duplicates and no shared 50-mers between train and test, so leakage isn't the problem.\n- **GC shortcut (S):** mean GC is 0.55 for bacterial contigs and 0.41 for phage, with standard deviations of about 0.027. The GC ranges don't overlap in train (bacterial minimum 0.456, phage maximum 0.465, so they nearly touch), and a one-feature logistic regression on GC gets **1.00 test accuracy**.\n- **Composition baselines (B):** logistic regression on k-mer frequencies at k=1, 2, 4 and 6 also gets 1.00 on test. The reported 0.99 on 100 test contigs is therefore no better than a one-feature baseline.\n\n**Issues that matter most**\n1. **The headline metric is explained by GC content.** A trivial baseline matches or beats PhageFormer, so 0.99 says nothing about gene content or learned phage features.\n2. **The data looks easy by construction.** I don't know how the contigs were made, but real phage and bacterial contigs in gut metagenomes overlap heavily in GC. Many gut phages match their host's GC. So this set can't support a claim about real-world performance.\n3. **The novel-phage claim is untested.** Nothing compares against homology-based tools (BLAST, HMMs, geNomad, VirSorter2). There is no held-out set of divergent phages, and no split by taxon or by sequence cluster (F12). A score on a GC-separable test set can't show discovery where homology fails.\n4. **\"Attention highlights phage genes\" is anecdotal.** The README gives no quantitative check, such as overlap with annotated genes or an attention-shuffle control. If GC is the signal, attention will follow composition, not genes (F02).\n5. **No controls or variance.** There is no true null such as shuffled labels, no multi-seed runs, and no model code or predictions in the directory. The 100-contig test set has a \u00b11% granularity, and I couldn't rerun PhageFormer itself.\n\n**Needed before publication**\n- Report the GC-only and k-mer baselines next to the model.\n- Build a GC-matched benchmark, with negatives sampled to match the phage GC distribution.\n- Split by sequence cluster or taxon.\n- Compare against geNomad and VirSorter2 on divergent phages.\n- Quantify the attention claim.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.061270200000000004,
+  "duration_s": 27.1,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ubq_vok8/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ubq_vok8/analysis; cat results.json; head -c 600 train.csv; python -c \"\nimport pandas as pd;a=pd.read_csv('train.csv');b=pd.read_csv('test.csv');print(a.shape,b.shape,a.columns.tolist());print(a.iloc[:,1].value_counts(),b.iloc[:,1].value_counts())\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ubq_vok8/analysis; cat > audit.py <<'E'\nimport pandas as pd,numpy as np\nfrom itertools import product\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\na=pd.read_csv('train.csv');b=pd.read_csv('test.csv')\nfor d in (a,b):\n    d['y']=(d.label=='phage').astype(int);d['len']=d.sequence.str.len()\n    d['gc']=d.sequence.apply(lambda s:(s.count('G')+s.count('C'))/len(s))\nprint(a.groupby('label')[['len','gc']].describe().T)\nprint(b.groupby('label')[['len','gc']].mean())\nprint('exact dup train/test',len(set(a.sequence)&set(b.sequence)),'dups within train',a.sequence.duplicated().sum())\ndef kv(s,k):\n    ks=[''.join(p) for p in product('ACGT',repeat=k)];i={x:j for j,x in enumerate(ks)};v=np.zeros(len(ks))\n    for j in range(len(s)-k+1):\n        if s[j:j+k] in i:v[i[s[j:j+k]]]+=1\n    return v/v.sum()\nfor k in (1,2,4,6):\n    X=np.array([kv(s,k) for s in a.sequence]);Xt=np.array([kv(s,k) for s in b.sequence])\n    m=LogisticRegression(C=100,max_iter=3000).fit(X,a.y);print('k',k,'test acc',m.score(Xt,b.y))\nm=LogisticRegression().fit(a[['gc']],a.y);print('gc only',m.score(b[['gc']],b.y))\n# shared 50-mer between test and train (near-dups)\ntr=set(s[i:i+50] for s in a.sequence for i in range(0,len(s)-49,10))\nhit=[any(s[i:i+50] in tr for i in range(len(s)-49)) for s in b.sequence]\nprint('test seqs sharing 50-mer w/ train',sum(hit))\nE\npython audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-ubq_vok8/analysis/audit.py",
+        "content": "import pandas as pd,numpy as np\nfrom itertools import product\nfrom sklearn.linear_model import LogisticRegression\na=pd.read_csv('train.csv');b=pd.read_csv('test.csv')\nfor d in (a,b):\n    d['y']=(d.label=='phage').astype(int);d['len']=d.sequence.str.len()\n    d['gc']=d.sequence.apply(lambda s:(s.count('G')+s.count('C'))/len(s))\nprint(a.groupby('label')[['len','gc']].describe().T)\nprint(b.groupby('label')[['len','gc']].mean())\nprint('exact dup train/test',len(set(a.sequence)&set(b.sequence)),'dups within train',a.sequence.duplicated().sum())\ndef kv(s,k):\n    ks=[''.join(p) for p in product('ACGT',repeat=k)];i={x:j for j,x in enumerate(ks)};v=np.zeros(len(ks))\n    for j in range(len(s)-k+1):\n        if s[j:j+k] in i:v[i[s[j:j+k]]]+=1\n    return v/v.sum()\nfor k in (1,2,4,6):\n    X=np.array([kv(s,k) for s in a.sequence]);Xt=np.array([kv(s,k) for s in b.sequence])\n    m=LogisticRegression(C=100,max_iter=3000).fit(X,a.y);print('k',k,'test acc',m.score(Xt,b.y))\nm=LogisticRegression().fit(a[['gc']],a.y);print('gc only',m.score(b[['gc']],b.y))\ntr=set(s[i:i+50] for s in a.sequence for i in range(0,len(s)-49,10))\nhit=[any(s[i:i+50] in tr for i in range(len(s)-49)) for s in b.sequence]\nprint('test seqs sharing 50-mer w/ train',sum(hit))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-ubq_vok8/analysis; python audit.py"
+      }
+    }
+  ]
+}

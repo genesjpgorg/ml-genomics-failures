@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": false,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent saw that the split was by pair, not by protein: 59 of 60 proteins appear in both train and test, which roughly matches the key's ~100% overlap. It also said per-protein propensity features would overstate performance on unseen proteins, so it left protein identity out and presented its co-expression-only AUROC of 0.65 as the held-out result. It never proposed a protein-disjoint split or a breakdown by how many of a pair's proteins were seen in training, and it didn't run the propensity baseline.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": false,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

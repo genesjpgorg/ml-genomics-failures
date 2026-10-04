@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent named both flaws. It found that every test pair has both proteins in training, and a per-protein label-rate baseline reaches 0.827. It found that batch is confounded with the label, with batch alone giving AUROC 0.771. It recommended a split that holds out whole proteins and balances batches, and it declined to say the model learned anything about protein interactions.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

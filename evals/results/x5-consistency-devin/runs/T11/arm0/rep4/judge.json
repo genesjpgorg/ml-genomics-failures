@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent found that plate is confounded with case status, with 51 of 60 cases (85%) on plates 1-2. It showed that the plate indicator alone gives AUROC 0.81, matching the naive CV score of 0.82, so it declined to report 0.82 as a cancer signature. It recommended balancing or randomizing cases and controls across plates and run dates, which is equivalent to the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

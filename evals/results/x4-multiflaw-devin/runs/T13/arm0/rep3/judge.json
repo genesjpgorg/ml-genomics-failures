@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent's headline AUROC of 0.794 comes with a clear statement that it is driven by the batch confound, not biology. It measured a batch-only AUROC of 0.771 (key: about 0.77) and put the realistic AUROC nearer 0.55\u20130.65, which rejects the claim. It also named the second flaw: every test pair's proteins appear in training, matching the key's ~100%, so a split by protein would likely score lower. It reported within-batch AUROCs and pointed to a protein-disjoint split as the remedy, though it hedged on that point and never ran the split.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

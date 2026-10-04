@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found that plate/run date is confounded with case status: 54 of 60 cases were on plates 1\u20132 versus 8 of 60 controls, and a plate-only model reached AUROC 0.887. It also showed the signal disappears within plate groups and recommended randomizing across plates or validating on an independent cohort, which matches the key. It mentioned feature selection outside CV, but the key already covers that, so it doesn't count as an extra issue.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

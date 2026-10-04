@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found that plate is confounded with case status and that the 0.82 AUROC comes from plate effects, not disease biology. It backed this with a plate-only AUROC of 0.78 and a cross-tab: 51/60 cases (85%) on plates 1-2 vs 12/60 controls (20%), close to the key's ~85% vs ~15%. Its proposed fix was to re-randomize cases and controls across plates or use bridging samples, which is equivalent to the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

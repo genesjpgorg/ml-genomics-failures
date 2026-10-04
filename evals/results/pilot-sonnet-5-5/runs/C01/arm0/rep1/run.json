@@ -1,0 +1,86 @@
+{
+  "task": "C01",
+  "arm": "0",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 66.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim holds up. Co-expression does rank interacting pairs well on proteins the model never saw. The reported 0.81 is a bit conservative, and the write-up leaves out some details.\n\n**What I checked**\n- **Split:** the train and test sets share no proteins (0 overlap among 60 train and 20 test proteins). There are no duplicate pairs and no missing values. Labels are balanced (38% positive in train, 41% in test).\n- **AUROC:** I refit a logistic regression on the train set and scored the test set. That gave AUROC 0.854, not 0.81.\n- **Score file:** `predictions_test.csv` gives 0.813, matching the README. Its scores follow the same slope as the refit model (about 2.0 in log-odds). They also carry extra noise (residual SD about 0.56 in log-odds, Spearman 0.96 with `coexpression_z`). So the stored scores were not produced by the simple one-feature model the README describes, and the write-up doesn't explain the difference.\n- **Protein-level confound:** I wanted to know whether the signal is a per-protein effect, such as hub proteins that are both highly co-expressed and highly interacting, rather than a pair effect. If it were, it wouldn't help rank partners of one uncharacterized protein.\n  - Protein mean z does correlate with protein interaction rate (r = 0.66 in train, 0.41 in test).\n  - But the signal survives within proteins. Mean AUROC across individual proteins is 0.84 on test, and AUROC after subtracting each protein's mean z is 0.85.\n  - So the per-protein ranking use case is supported.\n- **Uncertainty:** test pairs share proteins (150 pairs among 20 proteins), so they are not independent. A protein-level bootstrap gives a 95% interval of about 0.75\u20130.94 for AUROC, wider than a pair-level interval would suggest. The README gives no interval.\n\n**Issues to fix before the paper**\n1. **Mismatch between model and scores.** Either regenerate the predictions from the stated model (0.85) or describe how the stored scores were made. Report one number, with the exact code.\n2. **No uncertainty reported.** Add a protein-clustered bootstrap interval. Only 20 test proteins is a small sample.\n3. **Overreach in the claim.** The data are 750 pairs among 80 proteins, and the pairs appear to be sampled, since 600 of the 1,770 possible train pairs are present. The 38\u201341% positive rate is far above real PPI base rates. The AUROC is therefore not evidence for \"useful prior\" on a genome-scale candidate set. Report precision at realistic prevalence, or soften the claim.\n4. **No baselines and a single feature.** Compare against a protein-degree or abundance baseline. The protein-level correlation above suggests such a baseline could be strong. Also say how the labels were defined and whether the 300 conditions overlap with how the interactions were curated.\n\nVERDICT: SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0781876,
+  "duration_s": 65.6,
+  "turns": 10,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-snju4qqf/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-snju4qqf/analysis; head -4 *.csv; wc -l *.csv"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-snju4qqf/analysis/check.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');pr=pd.read_csv('predictions_test.csv')\nprint(set(tr.protein_a)|set(tr.protein_b)>=set(), len((set(tr.protein_a)|set(tr.protein_b))&(set(te.protein_a)|set(te.protein_b))))\nprint(tr.label.mean(),te.label.mean(), tr.isna().sum().sum(), te.duplicated(['protein_a','protein_b']).sum())\nm=LogisticRegression().fit(tr[['coexpression_z']],tr.label)\nprint(m.coef_,m.intercept_)\np=m.predict_proba(te[['coexpression_z']])[:,1]\nprint('refit auc',roc_auc_score(te.label,p))\nmm=te.merge(pr,on=['protein_a','protein_b'])\nprint('pred auc',roc_auc_score(mm.label,mm.score), np.corrcoef(p,mm.score)[0,1])\nprint('train auc',roc_auc_score(tr.label,tr.coexpression_z))\n# per-protein structure\nfor d,n in((tr,'tr'),(te,'te')):\n    long=pd.concat([d[['protein_a','label','coexpression_z']].rename(columns={'protein_a':'p'}),d[['protein_b','label','coexpression_z']].rename(columns={'protein_b':'p'})])\n    g=long.groupby('p').agg(n=('label','size'),rate=('label','mean'),z=('coexpression_z','mean'))\n    print(n,g.describe().loc[['mean','std','min','max']])\n    print(np.corrcoef(g.rate,g.z)[0,1])\n# bootstrap by protein / permutation holding protein\nrng=np.random.default_rng(0)\nprots=sorted(set(te.protein_a)|set(te.protein_b))\na=[]\nfor _ in range(1000):\n    s=rng.choice(prots,len(prots));\n    w=pd.Series(s).value_counts()\n    wt=te.protein_a.map(w).fillna(0)*te.protein_b.map(w).fillna(0)\n    if te.label[wt>0].nunique()<2: continue\n    a.append(roc_auc_score(te.label,te.coexpression_z,sample_weight=wt) if False else roc_auc_score(te.label[wt>0],te.coexpression_z[wt>0],sample_weight=wt[wt>0]))\nprint(np.percentile(a,[2.5,50,97.5]))\n# within-protein-partner shuffle-free: AUC after removing protein means of the score\n# label-rate by degree in test: baseline using protein degree\nlong=pd.concat([te[['protein_a','label']].rename(columns={'protein_a':'p'}),te[['protein_b','label']].rename(columns={'protein_b':'p'})])\nr=long.groupby('p').label.mean()\nprint(r.sort_values().tail(8))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-snju4qqf/analysis; python check.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-snju4qqf/analysis; cat > c2.py <<'E'\nimport pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score\nfrom scipy.stats import spearmanr\nte=pd.read_csv('pairs_test.csv');pr=pd.read_csv('predictions_test.csv')\nm=te.merge(pr,on=['protein_a','protein_b'])\nprint(len(m),spearmanr(m.score,m.coexpression_z))\nprint(roc_auc_score(m.label,m.coexpression_z))\nd=m.assign(l=np.log(m.score/(1-m.score)))\nprint(np.polyfit(d.coexpression_z,d.l,1), (d.l-np.polyval(np.polyfit(d.coexpression_z,d.l,1),d.coexpression_z)).std())\nprint((pr[['protein_a','protein_b']].values==te[['protein_a','protein_b']].values).all())\nE\npython c2.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-snju4qqf/analysis/c2.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score\nfrom scipy.stats import spearmanr\nte=pd.read_csv('pairs_test.csv');pr=pd.read_csv('predictions_test.csv')\nm=te.merge(pr,on=['protein_a','protein_b'])\nprint(len(m),spearmanr(m.score,m.coexpression_z))\nprint(roc_auc_score(m.label,m.coexpression_z))\nl=np.log(m.score/(1-m.score))\nf=np.polyfit(m.coexpression_z,l,1)\nprint(f,(l-np.polyval(f,m.coexpression_z)).std())\nprint((pr[['protein_a','protein_b']].values==te[['protein_a','protein_b']].values).all())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-snju4qqf/analysis; python c2.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-snju4qqf/analysis/c3.py",
+        "content": "import pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score\nte=pd.read_csv('pairs_test.csv');tr=pd.read_csv('pairs_train.csv')\nfor d,n in((tr,'train'),(te,'test')):\n    long=pd.concat([d[['protein_a','label','coexpression_z']].rename(columns={'protein_a':'p'}),\n                    d[['protein_b','label','coexpression_z']].rename(columns={'protein_b':'p'})])\n    a=[]\n    for p,g in long.groupby('p'):\n        if g.label.nunique()==2: a.append(roc_auc_score(g.label,g.coexpression_z))\n    print(n,'mean within-protein AUC',np.mean(a),len(a))\n    # protein-mean-centred z\n    long['zc']=long.coexpression_z-long.groupby('p').coexpression_z.transform('mean')\n    print(n,'pooled AUC of centred z',roc_auc_score(long.label,long.zc))\n    # label-permuting protein-level: shuffle labels within protein not possible; instead protein-level AUC\n    gm=long.groupby('p').agg(r=('label','mean'),z=('coexpression_z','mean'))\n    print(n,'corr of protein mean z vs label rate',np.corrcoef(gm.r,gm.z)[0,1])\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-snju4qqf/analysis; python c3.py"
+      }
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "task": "T03",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 29.3,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "Cross-validation is not the problem here. Processing batch is almost perfectly confounded with case/control status, and the 0.90 AUROC is mostly that confound. The data don't support the claim that the signature detects early pancreatic cancer.\n\n**Checks I ran** (`audit.py` in this directory; the checklist and case F10 from the MCP server)\n\n- **Batch layout.** Plates 1 and 2 (run in March) hold 54 cases and 8 controls. Plates 3 and 4 (run in April) hold 6 cases and 52 controls. Run date and plate are the same variable, so there is effectively one batch split.\n- **Batch alone.** Plate or run date, with no protein data, gives a cross-validated AUROC of 0.915 (`check_shortcuts`). That is above the reported 0.896, so it accounts for 105% of the model's gain over chance. This matches F10 (batch effects confounded with the outcome).\n- **Proteins track batch.** Across the 200 proteins, the per-protein F-statistic for batch correlates 0.92 with the F-statistic for case/control. All 12 signature proteins separate the batches strongly: single-protein batch AUROC is 0.85\u20130.94, or 0.02\u20130.16 for the proteins that go the other way. A batch effect on the instrument would produce this pattern.\n- **Within-batch performance.** In the March batch, which has enough controls to test (n=62), nested-selection AUROC is 0.56. In the April batch there are only 6 cases, so the 0.68 there means little. Neither is close to 0.90. The within-batch numbers are the ones that speak to the biology, and they show little to no signal.\n- **Selection leakage (secondary).** The 12 proteins were picked on all 120 samples before cross-validation. With the labels permuted, that approach gives an AUROC of 0.73 instead of 0.5. When I redo the selection inside each fold, the real-label AUROC is 0.89 and the permuted-label AUROC is 0.47. This leak is small next to the batch confound, because batch makes the real labels easy to predict whichever way the proteins are chosen.\n\n**What's wrong with the claim**\n\n1. The study design confounds batch with outcome (F10), so the CV score cannot show the signature detects cancer. Random stratified folds put both batches in train and test, which lets the model learn batch.\n2. The claim is about detecting cancer. The test doesn't hold batch fixed (the audit's \"wrong axis\" check). There is no split by batch, no external cohort, and no batch correction inside folds.\n3. There are no baselines or null controls reported. A batch-only baseline already beats the model.\n4. The README says nothing about the plate imbalance or about how the \"matched controls\" were matched. They are not balanced on run.\n5. \"Ready for validation as a screening test\" is premature. The cases are also \"early-stage\" but there is no stage information in the data. 60 versus 60 samples is also small for choosing 12 features from 200.\n\n**What would fix it:** re-run the samples with cases and controls randomized across plates. At minimum, report performance within each batch and leave-one-batch-out. Do the feature selection inside the cross-validation folds. Report the batch-only baseline next to the model.\n\nVERDICT: NOT SUPPORTED\n\nMost important issues:\n- Plate and run date alone give an AUROC of 0.915, above the model's 0.896.\n- Within the March batch, which has enough controls to test, AUROC is only 0.56.\n- The signature proteins are batch-driven, with single-protein batch AUROC of 0.85\u20130.94.\n- Features were selected on all samples before cross-validation, which inflates a permuted-label AUROC to 0.73.\n- No batch-held-out validation or external cohort exists.",
+  "is_error": false,
+  "cost_usd": 0.0720634,
+  "duration_s": 27.9,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__check_shortcuts",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch",
+    "check_shortcuts"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-8gal5_t1/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-8gal5_t1/analysis; cat results.json; head -5 samples.csv; head -c 400 protein_matrix.csv; python -c \"\nimport pandas as pd\ns=pd.read_csv('samples.csv');print(s.columns.tolist());\nfor c in s.columns[1:]:\n  if s[c].nunique()<20: print(pd.crosstab(s[c],s.iloc[:,1]))\n\""
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F10"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "table_path": "/tmp/review-8gal5_t1/analysis/samples.csv",
+        "label": "status",
+        "features": [
+          "plate",
+          "run_date"
+        ],
+        "model_score": 0.896
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-8gal5_t1/analysis/audit.py",
+        "content": "import numpy as np, pandas as pd\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.feature_selection import f_classif\n\ns = pd.read_csv('samples.csv'); X = pd.read_csv('protein_matrix.csv')\nassert (s.sample_id == X.sample_id).all()\nX = X.drop(columns='sample_id'); y = (s.status == 'case').astype(int).values\nbatch = (s.plate >= 3).astype(int).values  # early (Mar) vs late (Apr) runs\n\ndef cv(Xv, y, select, seeds=5, k=12):\n    out = []\n    for sd in range(seeds):\n        p = np.zeros(len(y))\n        for tr, te in StratifiedKFold(5, shuffle=True, random_state=sd).split(Xv, y):\n            cols = np.argsort(f_classif(Xv[tr], y[tr])[0])[-k:] if select else slice(None)\n            m = LogisticRegression(max_iter=1000).fit(Xv[tr][:, cols], y[tr])\n            p[te] = m.predict_proba(Xv[te][:, cols])[:, 1]\n        out.append(roc_auc_score(y, p))\n    return np.mean(out)\n\nXv = X.values\nprint('nested selection CV AUROC', cv(Xv, y, True))\nprint('label-permuted, selection inside CV', cv(Xv, np.random.RandomState(0).permutation(y), True))\n# leaky selection on all data, permuted labels\nyp = np.random.RandomState(1).permutation(y)\ntop = np.argsort(f_classif(Xv, yp)[0])[-12:]\nprint('permuted labels, selection on all data', cv(Xv[:, top], yp, False))\n# batch alone\nprint('AUROC of batch for label', roc_auc_score(y, batch))\n# signature vs batch\nsig = ['prot001','prot006','prot091','prot092','prot095','prot101','prot113','prot134','prot166','prot168','prot176','prot181']\nprint('sig CV', cv(X[sig].values, y, False))\nFb = f_classif(Xv, batch)[0]; Fy = f_classif(Xv, y)[0]\nprint('corr of F(batch) with F(label) across proteins', np.corrcoef(Fb, Fy)[0, 1])\nprint('sig proteins batch AUROC:', [round(roc_auc_score(batch, X[c]), 2) for c in sig])\n# within batch\nfor b in (0, 1):\n    m = batch == b\n    print('within batch', b, 'n', m.sum(), 'cases', y[m].sum(), 'AUROC (sel inside)', cv(Xv[m], y[m], True) if y[m].sum() > 5 else None)\n# signature within-batch univariate\nfor b in (0, 1):\n    m = batch == b\n    print(b, 'sig mean |AUC-.5| label within batch', np.mean([abs(roc_auc_score(y[m], X[c][m]) - .5) for c in sig]))\n# train on one batch, test on other\nm0, m1 = batch == 0, batch == 1\nprint('batch label-balance', y[m0].mean(), y[m1].mean())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-8gal5_t1/analysis; python audit.py"
+      }
+    }
+  ]
+}

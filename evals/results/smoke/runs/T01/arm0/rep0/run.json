@@ -1,0 +1,56 @@
+{
+  "task": "T01",
+  "arm": "0",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 22.5,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "**The main claim is not supported.** The 0.79 AUROC is real, but it doesn't show that PairNet learned sequence determinants or that it generalizes to new proteins.\n\n**What I checked** (script `r.py` in this directory):\n- I recomputed the AUROC from `predictions_test.csv` joined to `pairs_test.csv`. It is 0.790 on 140 pairs, so the number reproduces.\n- The split is a random split by pair. All 140 test pairs have both proteins in the training set, and the 60 proteins appear in both splits. There are no duplicate pairs across the splits, so this isn't plain pair leakage.\n- I built a baseline that uses no sequence information. It scores a test pair as the sum of each protein's positive-label rate in the training pairs. It reaches **AUROC 0.795**, slightly above PairNet's 0.79.\n- Protein positive rates vary a lot: the standard deviation is 0.18 around a mean of 0.18, ranging from 0 to 0.67. For example, P013 is positive in 67% of its 24 training pairs. Some proteins are simply \"hubs\" and others almost never interact.\n\n**Issues that matter most**\n1. **Protein identity explains the result.** Hub-versus-non-hub labels are enough to match PairNet. The model may have only memorized which proteins are promiscuous, which is a well-known shortcut in PPI benchmarks. Nothing here shows it uses sequence features of the pair.\n2. **The split doesn't test the stated use.** The plan is to predict partners for uncharacterized proteins, which have no training labels. The evaluation never tests that case. You would need splits where one protein is unseen, or both are unseen, such as a cold-protein split or one clustered by sequence homology. I expect performance to drop toward chance for those pairs, because the per-protein rate shortcut isn't available. I didn't run that, since I don't have the embeddings or the model.\n3. **The sample is small.** 140 test pairs with about 32 positives gives a wide confidence interval around 0.79. The data also has only 60 proteins, so the paper's generalization claim rests on very little diversity.\n4. **The negatives are weak.** \"Tested, no interaction\" labels in a curated screen can be false negatives. Their distribution may also differ from what you'd see when scoring uncharacterized proteins.\n5. **There are no controls.** The write-up has no baseline comparison, no ablation such as shuffled embeddings or a degree-only model, and no variance across seeds or splits.\n\n**What to do before the paper:** report the degree-only baseline next to PairNet. Re-evaluate with protein-disjoint, and ideally homology-disjoint, splits. Add confidence intervals. Only then make claims about generalization to new proteins.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0496062,
+  "duration_s": 21.7,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p6k25pvy/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p6k25pvy/analysis; head -4 *.csv; wc -l *.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p6k25pvy/analysis; cat > r.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(tr.label.mean(),te.label.mean())\nm=te.merge(p,on=['protein_a','protein_b']);print(len(m),A(m.label,m.score))\nst=set(tr.protein_a)|set(tr.protein_b);print(len(st),[(r.protein_a in st,r.protein_b in st) for r in te.itertuples()].count((True,True)))\n# dups / reversed\nk=lambda d:set(map(frozenset,zip(d.protein_a,d.protein_b)))\nprint(len(k(tr)&k(te)),len(tr),len(k(tr)))\n# per-protein label rate baseline\nlong=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})])\nr=long.groupby('p').label.agg(['mean','count']);g=tr.label.mean()\nf=lambda x:r['mean'].get(x,g)\ns=[f(a)+f(b) for a,b in zip(m.protein_a,m.protein_b)]\nprint('protein-rate baseline',A(m.label,s))\nprint(r.sort_values('mean').iloc[[0,1,2,-3,-2,-1]], r['mean'].describe())\nE\npython r.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-p6k25pvy/analysis/r.py",
+        "content": "import pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(tr.label.mean(),te.label.mean())\nm=te.merge(p,on=['protein_a','protein_b']);print(len(m),A(m.label,m.score))\nst=set(tr.protein_a)|set(tr.protein_b);print(len(st),[(r.protein_a in st,r.protein_b in st) for r in te.itertuples()].count((True,True)))\nk=lambda d:set(map(frozenset,zip(d.protein_a,d.protein_b)))\nprint(len(k(tr)&k(te)),len(tr),len(k(tr)))\na=tr[['protein_a','label']];a.columns=['p','label']\nb=tr[['protein_b','label']];b.columns=['p','label']\nlong=pd.concat([a,b])\nr=long.groupby('p').label.agg(['mean','count']);g=tr.label.mean()\nf=lambda x:r['mean'].get(x,g)\ns=[f(x)+f(y) for x,y in zip(m.protein_a,m.protein_b)]\nprint('protein-rate baseline',A(m.label,s))\nprint(r['mean'].describe())\nprint(r.sort_values('mean').tail(8))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p6k25pvy/analysis; python r.py"
+      }
+    }
+  ]
+}

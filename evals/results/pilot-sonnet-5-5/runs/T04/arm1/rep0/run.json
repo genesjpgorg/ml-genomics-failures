@@ -1,0 +1,71 @@
+{
+  "task": "T04",
+  "arm": "1",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 30.4,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "I reviewed the colleague's analysis and checked it against the data. The claim is not supported: about three quarters of the test promoters are near-copies of training promoters, and the accuracy comes from those. This is the F12 pattern (homologous sequences on both sides of the split).\n\n**What I checked** (scripts `a.py` and `b.py` in this directory):\n- **Reported accuracy:** 0.85 reproduces from `labels.csv` and `predictions_test.csv`. The test set is balanced, 50 active and 50 inactive.\n- **Exact duplicates:** none between train and test.\n- **Near-duplicates:** most test promoters share large amounts of sequence with a training promoter.\n  - The median test promoter shares 190 of its 289 12-mers with its closest training promoter.\n  - 73 of 100 share more than 2 12-mers.\n  - The random split described in the README did not separate these related sequences.\n- **Nearest-neighbour baseline:** copying the label of the most similar training promoter gives 0.81 accuracy. PromoNet gets 0.85, and agrees with that baseline on 84 of 100 test promoters.\n- **Accuracy by similarity to training:**\n\n| Test promoters (by similarity quartile) | n | Nearest-neighbour accuracy | PromoNet accuracy |\n|---|---|---|---|\n| Closest quartiles (>190 shared 12-mers) | 50 | 1.00 | 1.00 |\n| Middle (3\u2013190 shared 12-mers) | 23 | 0.91 | 0.91 |\n| No close training relative (\u22642 shared 12-mers) | 27 | 0.37 | 0.52 |\n\n- **Composition baseline:** a logistic regression on 4-mer frequencies gets 0.50. So the signal is not simple sequence composition. It is recall of related training sequences.\n\n**Issues that matter most:**\n1. **Leakage (F12, L).** The split is random with no similarity filtering, so test accuracy mostly measures recall of training examples. On the 27 promoters with no close relative in training, PromoNet scores 0.52, which is chance. Only 27 promoters is a small sample, but the drop from 1.00 to chance is too large to be noise.\n2. **Missing baseline (B).** The paper needs a nearest-neighbour baseline, a one-hot CNN and a k-mer baseline next to PromoNet. The 0.85 beats the nearest-neighbour baseline by only 4 points on 100 test promoters, which is within noise.\n3. **Claim does not match the test (A).** \"Regulatory grammar\" and \"new, unseen sequences\" require held-out sequences that are not similar to training. Re-split by sequence cluster (MMseqs2 or CD-HIT) or by promoter family. Report accuracy against distance to the nearest training sequence, with several seeds.\n4. **No null control.** Add a label-permutation control, and a motif or ablation analysis if grammar is to be claimed.\n5. **Small sample.** There are 300 training and 100 test promoters, with one split and no variance estimate.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0788764,
+  "duration_s": 29.6,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-4jqnmezx/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-4jqnmezx/analysis; head -5 labels.csv predictions_test.csv; head -c 400 test.fa"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-4jqnmezx/analysis; tail -3 labels.csv; cat > a.py <<'E'\nimport pandas as pd,numpy as np,itertools\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\ndef fa(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l[0]=='>':k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr=fa('train.fa');te=fa('test.fa')\nlab=pd.read_csv('labels.csv');print(lab.split.value_counts());print(lab.groupby('split').activity.value_counts())\nprint(lab.id.head(3).tolist(),lab[lab.split=='test'].id.head(3).tolist())\npr=pd.read_csv('predictions_test.csv')\nprint(len(tr),len(te),list(tr)[:2],list(te)[:2])\n# labels for test\nlt=lab[lab.split=='test'].reset_index(drop=True)\nprint(len(lt))\ny=lt.activity.values\nif len(lt)==100:\n    print('acc id-order',(pr.predicted.values==y).mean())\nprint(pr.predicted.value_counts())\n# overlap\nS=set(tr.values());print('exact dup',sum(s in S for s in te.values()))\ndef kmers(s,k=4):\n    ks=[''.join(p) for p in itertools.product('ACGT',repeat=k)];c=dict.fromkeys(ks,0)\n    for i in range(len(s)-k+1):c[s[i:i+k]]+=1\n    return [c[x]/len(s) for x in ks]\nltr=lab[lab.split=='train'].set_index('id').activity\nXtr=np.array([kmers(tr[i]) for i in ltr.index]);ytr=(ltr.values=='active')\nXte=np.array([kmers(te[i]) for i in te])\nprint(len(ltr))\nm=LogisticRegression(C=10,max_iter=2000).fit(Xtr,ytr)\nprint('kmer test acc',(m.predict(Xte)==(y=='active')).mean() if len(y)==100 else None)\n# near-duplicate: shared 20-mers\ndef sh(s):return {s[i:i+20] for i in range(len(s)-19)}\ntrs={k:sh(v) for k,v in tr.items()}\nbest=[max(len(sh(v)&t) for t in trs.values()) for v in te.values()]\nprint('max shared 20mers',np.percentile(best,[0,50,90,100]))\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-4jqnmezx/analysis/a.py",
+        "content": "import pandas as pd,numpy as np,itertools\nfrom sklearn.linear_model import LogisticRegression\ndef fa(f):\n    d={};k=None\n    for l in open(f):\n        l=l.strip()\n        if l[0]=='>':k=l[1:];d[k]=''\n        else:d[k]+=l\n    return d\ntr=fa('train.fa');te=fa('test.fa')\nlab=pd.read_csv('labels.csv');print(lab.split.value_counts());print(lab.groupby('split').activity.value_counts())\npr=pd.read_csv('predictions_test.csv')\nprint(len(tr),len(te),list(tr)[:2],list(te)[:2])\nprint(lab[lab.split=='test'].id.head(3).tolist())\nlt=lab[lab.split=='test'].reset_index(drop=True)\ny=lt.activity.values\nif len(lt)==100 and (lt.id.values==pr.id.values).all():\n    print('acc',(pr.predicted.values==y).mean())\nprint(pr.predicted.value_counts())\nS=set(tr.values());print('exact dup',sum(s in S for s in te.values()))\ndef kmers(s,k=4):\n    ks=[''.join(p) for p in itertools.product('ACGT',repeat=k)];c=dict.fromkeys(ks,0)\n    for i in range(len(s)-k+1):c[s[i:i+k]]+=1\n    return [c[x]/len(s) for x in ks]\nltr=lab[lab.split=='train'].set_index('id').activity\nXtr=np.array([kmers(tr[i]) for i in ltr.index]);ytr=(ltr.values=='active')\nXte=np.array([kmers(te[i]) for i in te])\nm=LogisticRegression(C=10,max_iter=2000).fit(Xtr,ytr)\nprint('kmer test acc',(m.predict(Xte)==(y=='active')).mean())\ndef sh(s):return {s[i:i+20] for i in range(len(s)-19)}\ntrs={k:sh(v) for k,v in tr.items()}\nbest=[max(len(sh(v)&t) for t in trs.values()) for v in te.values()]\nprint('max shared 20mers',np.percentile(best,[0,50,90,100]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-4jqnmezx/analysis; python a.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-4jqnmezx/analysis/b.py",
+        "content": "import pandas as pd,numpy as np\nexec(open('a.py').read().split(\"lab=pd.read_csv\")[0])\nlab=pd.read_csv('labels.csv').set_index('id').activity\npr=pd.read_csv('predictions_test.csv').set_index('id').predicted\ndef sh(s):return {s[i:i+12] for i in range(len(s)-11)}\ntrs={k:sh(v) for k,v in tr.items()}\nrows=[]\nfor k,v in te.items():\n    s=sh(v);b=max(trs,key=lambda t:len(s&trs[t]));n=len(s&trs[b])\n    ident=np.mean([a==c for a,c in zip(v,tr[b])])\n    rows.append((k,b,n,ident,lab[b],lab[k],pr[k]))\nd=pd.DataFrame(rows,columns='id nn n12 ident nnlab lab pred'.split())\nprint(d.n12.describe())\nprint('NN-label acc',(d.nnlab==d.lab).mean(),'model acc',(d.pred==d.lab).mean())\nd['bin']=pd.qcut(d.n12,4,duplicates='drop')\nprint(d.groupby('bin').apply(lambda g:pd.Series({'n':len(g),'nn':(g.nnlab==g.lab).mean(),'model':(g.pred==g.lab).mean()})))\nprint('model==nnlab',(d.pred==d.nnlab).mean())\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-4jqnmezx/analysis; python b.py 2>&1 | grep -v Warn"
+      }
+    }
+  ]
+}

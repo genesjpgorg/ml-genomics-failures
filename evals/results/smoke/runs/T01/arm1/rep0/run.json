@@ -1,0 +1,56 @@
+{
+  "task": "T01",
+  "arm": "1",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 24.2,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim isn't supported. A baseline that uses no sequence at all matches PairNet's score.\n\n**What I checked** (script: `a.py`, run on the files in this directory)\n- I reproduced the reported AUROC of 0.79 from `predictions_test.csv` (0.790).\n- Every test pair has both of its proteins in the training set. The 140 test pairs involve the same 60 proteins that make up the 560 training pairs, so each protein appears in about 19 training pairs on average. No pair is duplicated across the split. This is the shared-entity leakage in F03, F04 and F09.\n- I scored each test pair using only the training-set interaction rate of its two proteins. This baseline ignores sequence entirely.\n  - Averaging the two rates gives AUROC 0.795.\n  - Multiplying them gives AUROC 0.812.\n  - Both are at or above PairNet's 0.79.\n- The per-protein interaction rate varies a lot (SD 0.18, range 0 to 0.67; many proteins have 0 positives). A model can therefore score well just by learning which proteins are \"sticky\" or \"inert\".\n- PairNet's test scores correlate 0.98 with this protein-rate baseline. That fits PairNet having learned protein identity (F04's per-gene label imbalance).\n\n**Issues that matter most**\n1. **Leakage through shared proteins (L).** The random pair-level split puts the same proteins on both sides. The 0.79 measures how well PairNet recalls per-protein tendencies, not whether it predicts interactions for new proteins.\n2. **Shortcut matches the headline (S).** The sequence-free per-protein prior reaches 0.79\u20130.81. Nothing in the evidence shows PairNet uses sequence information beyond that.\n3. **The test doesn't match the claim (A).** The claim is to predict partners for uncharacterized proteins, which means proteins unseen in training. Only a split with whole proteins held out tests that, and none was run.\n4. **Missing baselines and nulls (B, K).** The write-up has no baselines (degree prior, k-mer or one-hot model, sequence-similarity nearest neighbour) and no null control (for example, shuffling embeddings between proteins). Homologous or paralogous proteins among the 60 may add further leakage (F12).\n5. **Small and unreplicated (variance).** There are only 140 test pairs, about 32 of them positive, from one split and one seed. No confidence interval is given.\n\n**To fix before the paper**\n- Split by protein. Test on pairs where neither protein, or at least one protein, is unseen, and report both settings separately.\n- Report the per-protein-prior and sequence-only baselines next to PairNet.\n- Use cross-validation with several seeds and give confidence intervals.\n- Cluster the proteins by sequence identity before splitting.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.092331,
+  "duration_s": 23.4,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qdp3n22h/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qdp3n22h/analysis; head -4 *.csv; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nprint(tr.shape,te.shape,p.shape,tr.columns.tolist(),p.columns.tolist())\nc=tr.columns[:2].tolist();print(c)\nd=te.merge(p) if len(set(te.columns)&set(p.columns)) else pd.concat([te,p],axis=1)\nprint(d.head())\nlab=[x for x in d.columns if 'label' in x or x=='y'][0];sc=[x for x in p.columns if x not in te.columns or 'score' in x or 'pred' in x][-1]\nprint(lab,sc,A(d[lab],d[sc]))\na,b=c\nptr=set(tr[a])|set(tr[b]);print('test proteins seen',np.mean([x in ptr and y in ptr for x,y in zip(te[a],te[b])]))\nal=pd.concat([tr,te]);\nfrom collections import defaultdict\n# protein-level label rate from train\ndeg=defaultdict(list)\nfor x,y,l in zip(tr[a],tr[b],tr[lab]):deg[x].append(l);deg[y].append(l)\nm=tr[lab].mean()\ns=[np.mean([np.mean(deg.get(x,[m])),np.mean(deg.get(y,[m]))]) for x,y in zip(te[a],te[b])]\nprint('protein prior AUROC',A(te[lab],s), 'pos rate',m, len(set(al[a])|set(al[b])))\nE\npython a.py"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qdp3n22h/analysis; head -4 pairs_train.csv pairs_test.csv predictions_test.csv"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-qdp3n22h/analysis/a.py",
+        "content": "import pandas as pd, numpy as np\nfrom collections import defaultdict\nfrom sklearn.metrics import roc_auc_score as A\ntr = pd.read_csv('pairs_train.csv'); te = pd.read_csv('pairs_test.csv'); p = pd.read_csv('predictions_test.csv')\nd = te.merge(p, on=['protein_a', 'protein_b'])\nprint(tr.shape, te.shape, d.shape, 'pos rate', tr.label.mean(), te.label.mean())\nprint('model AUROC', A(d.label, d.score))\nptr = set(tr.protein_a) | set(tr.protein_b)\nprint('test pairs with both proteins in train', np.mean([x in ptr and y in ptr for x, y in zip(te.protein_a, te.protein_b)]))\npairs = set(map(frozenset, zip(tr.protein_a, tr.protein_b)))\nprint('duplicate pairs across split', sum(frozenset(t) in pairs for t in zip(te.protein_a, te.protein_b)))\ndeg = defaultdict(list)\nfor x, y, l in zip(tr.protein_a, tr.protein_b, tr.label):\n    deg[x].append(l); deg[y].append(l)\nm = tr.label.mean()\ndef r(x): return np.mean(deg[x]) if x in deg else m\ns = [(r(x) + r(y)) / 2 for x, y in zip(te.protein_a, te.protein_b)]\nprint('per-protein train label-rate AUROC', A(te.label, s))\ns2 = [r(x) * r(y) for x, y in zip(te.protein_a, te.protein_b)]\nprint('product', A(te.label, s2))\ncnt = pd.concat([tr.protein_a, tr.protein_b]).value_counts()\nprint('proteins', len(ptr), 'pairs/protein', cnt.describe()[['min', 'mean', 'max']].tolist())\n# protein-level label rate spread\nrates = pd.Series({k: np.mean(v) for k, v in deg.items()})\nprint(rates.describe())\n# combined with model\nprint('corr model vs prior', np.corrcoef(d.score, s)[0, 1])\n# unseen-protein-style check: hold out proteins\nrng = np.random.default_rng(0)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-qdp3n22h/analysis; python a.py"
+      }
+    }
+  ]
+}

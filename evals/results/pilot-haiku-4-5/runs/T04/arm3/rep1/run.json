@@ -1,0 +1,178 @@
+{
+  "task": "T04",
+  "arm": "3",
+  "rep": 1,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 93.0,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "---\n\n## Review Summary\n\nI've conducted a comprehensive audit of the PromoNet analysis using the ml-genomics-failures framework. Here are the critical findings:\n\n### **Critical Issues Found**\n\n**1. Leakage (F12 - Class L):** 64 out of 100 test sequences (64%!) have a training sequence at \u226595% estimated identity:\n- test041 is 99.64% identical to prom093\n- test029 is 99.47% identical to prom227  \n- Dozens more examples with >99% identity\n\nThe \"random split\" did not prevent homology leakage\u2014a well-known pitfall where near-identical sequences appear in both train and test sets.\n\n**2. Missing Composition Baseline (F08 - Class B):** Simple k-mer composition achieves nearly the same performance as the model:\n- K-mer 5-mer nearest neighbor: 0.83 accuracy\n- Logistic regression on composition: 0.81 accuracy\n- K-mer AUROC baseline: 0.7044 (explains 58% of the model's gain)\n- **Model advantage: only ~2 percentage points**\n\nThe model provides minimal improvement over what sequence composition alone can achieve.\n\n**3. No Controls:** The analysis includes no ablations, permutation tests, or null controls to show what the model actually learned beyond composition patterns.\n\n### **What the Data Shows**\n\n- Training/test accuracy verified: 0.85 is correct\n- But: 64% of test examples are near-identical to training  \n- And: ~81-83% accuracy is achievable from composition alone\n- Gap: Model only beats baseline by 2 pp, not the 35 pp suggested by comparison to 50% chance\n\n### **Supporting Evidence**\n\nThe ml-genomics-failures database confirms this is a known pattern (cases F08 and F12). The audit tools confirm:\n- **F12 verification:** Check identified 64 sequences at \u226595% identity\n- **F08 verification:** K-mer baseline reached 0.70 AUROC\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\nThe main claim that \"PromoNet has learned the regulatory grammar of HepG2 promoters\" is not supported. The model's performance is largely explained by:\n1. **Leakage** from near-identical homologous sequences in the test set\n2. **Composition memorization** rather than learning regulatory principles\n\nThe analysis would need sequence clustering, baseline comparisons, and null controls before the claim could be credible.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.1440259,
+  "duration_s": 91.6,
+  "turns": 21,
+  "tool_calls": [
+    "Read",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Glob",
+    "Read",
+    "Read",
+    "Read",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__search",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__fetch",
+    "Write",
+    "Bash",
+    "mcp__ml-genomics-failures__check_sequence_similarity",
+    "mcp__ml-genomics-failures__kmer_baseline",
+    "Write",
+    "Bash",
+    "Write"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "search",
+    "search",
+    "fetch",
+    "fetch",
+    "fetch",
+    "check_sequence_similarity",
+    "kmer_baseline"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Glob",
+      "input": {
+        "pattern": "/tmp/review-5jfi73rq/analysis/*"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/labels.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/predictions_test.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/train.fa",
+        "limit": 50
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/audit.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom collections import Counter\nimport subprocess\nimport sys\n\n# Load data\nlabels = pd.read_csv('labels.csv')\npredictions = pd.read_csv('predictions_test.csv')\n\n# Read FASTA files\ndef read_fasta(filename):\n    seqs = {}\n    with open(filename) as f:\n        current_id = None\n        for line in f:\n            line = line.strip()\n            if line.startswith('>'):\n                current_id = line[1:]\n            else:\n                seqs[current_id] = line.upper()\n    return seqs\n\ntrain_seqs = read_fasta('train.fa')\ntest_seqs = read_fasta('test.fa')\n\nprint(\"=\" * 80)\nprint(\"AUDIT 1: VERIFY REPORTED ACCURACY\")\nprint(\"=\" * 80)\n\n# Get test labels\ntest_labels = labels[labels['split'] == 'test'].set_index('id')['activity'].to_dict()\ntest_preds = predictions.set_index('id')['predicted'].to_dict()\n\n# Calculate accuracy\ncorrect = sum(1 for test_id in test_labels\n              if test_labels[test_id] == test_preds[test_id])\ntotal = len(test_labels)\naccuracy = correct / total\n\nprint(f\"Test accuracy: {accuracy:.2f} ({correct}/{total})\")\nprint(f\"Expected from README: 0.85\")\nprint()\n\nprint(\"=\" * 80)\nprint(\"AUDIT 2: SEQUENCE COMPOSITION BASELINE (F01, F08)\")\nprint(\"=\" * 80)\n\n# Calculate GC content and k-mer composition for training data\ntrain_labels_dict = labels[labels['split'] == 'train'].set_index('id')['activity'].to_dict()\n\ndef gc_content(seq):\n    gc = seq.count('G') + seq.count('C')\n    return gc / len(seq) if seq else 0\n\ndef get_kmers(seq, k=5):\n    \"\"\"Return k-mer frequencies\"\"\"\n    kmers = Counter()\n    for i in range(len(seq) - k + 1):\n        kmers[seq[i:i+k]] += 1\n    return dict(kmers)\n\n# Collect training data\ntrain_data = []\nfor prom_id in sorted(train_labels_dict.keys()):\n    seq = train_seqs[prom_id]\n    label = train_labels_dict[prom_id]\n    gc = gc_content(seq)\n    train_data.append({'id': prom_id, 'gc': gc, 'label': label == 'active', 'seq': seq})\n\ntrain_df = pd.DataFrame(train_data)\n\n# Collect test data\ntest_data = []\nfor test_id in sorted(test_labels.keys()):\n    seq = test_seqs[test_id]\n    label = test_labels[test_id]\n    gc = gc_content(seq)\n    test_data.append({'id': test_id, 'gc': gc, 'label': label == 'active', 'seq': seq})\n\ntest_df = pd.DataFrame(test_data)\n\n# Test 1: GC content baseline using nearest neighbor\nprint(\"\\n1. GC content baseline (nearest neighbor):\")\nfrom sklearn.metrics import accuracy_score\n\n# For each test sequence, find nearest training sequence by GC content\ngc_preds = []\nfor idx, test_row in test_df.iterrows():\n    test_gc = test_row['gc']\n    # Find nearest training sequence\n    min_dist = float('inf')\n    nearest_label = None\n    for train_idx, train_row in train_df.iterrows():\n        dist = abs(train_row['gc'] - test_gc)\n        if dist < min_dist:\n            min_dist = dist\n            nearest_label = train_row['label']\n    gc_preds.append(nearest_label)\n\ngc_accuracy = accuracy_score(test_df['label'], gc_preds)\nprint(f\"   GC-based NN accuracy: {gc_accuracy:.3f}\")\n\n# Test 2: K-mer composition baseline\nprint(\"\\n2. K-mer frequency baseline (5-mers, cosine similarity):\")\nfrom sklearn.metrics.pairwise import cosine_similarity\nfrom sklearn.feature_extraction.text import TfidfVectorizer\n\n# Create k-mer representations\ndef get_kmer_string(seq, k=5):\n    return ' '.join([seq[i:i+k] for i in range(len(seq) - k + 1)])\n\ntrain_kmer_strings = [get_kmer_string(s) for s in train_df['seq']]\ntest_kmer_strings = [get_kmer_string(s) for s in test_df['seq']]\n\n# TF-IDF vectorization\nvectorizer = TfidfVectorizer(analyzer='word', lowercase=False, token_pattern=r'\\S+')\ntrain_vectors = vectorizer.fit_transform(train_kmer_strings)\ntest_vectors = vectorizer.transform(test_kmer_strings)\n\n# NN classification based on k-mers\nkmer_preds = []\nfor i in range(len(test_df)):\n    similarities = cosine_similarity(test_vectors[i], train_vectors)[0]\n    nearest_idx = np.argmax(similarities)\n    kmer_preds.append(train_df.iloc[nearest_idx]['label'])\n\nkmer_accuracy = accuracy_score(test_df['label'], kmer_preds)\nprint(f\"   K-mer (5-mer) NN accuracy: {kmer_accuracy:.3f}\")\n\n# Test 3: Simple logistic regression on GC + k-mer features\nprint(\"\\n3. Composition-based logistic regression:\")\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.preprocessing import StandardScaler\n\n# Extract features for training\ntrain_features = []\nfor idx, row in train_df.iterrows():\n    gc = row['gc']\n    kmers = get_kmers(row['seq'], k=5)\n    feat = {'gc': gc}\n    # Add top 20 k-mers by frequency\n    for kmer, count in list(kmers.items())[:20]:\n        feat[f'kmer_{kmer}'] = count\n    train_features.append(feat)\n\n# Extract features for test\ntest_features = []\nfor idx, row in test_df.iterrows():\n    gc = row['gc']\n    kmers = get_kmers(row['seq'], k=5)\n    feat = {'gc': gc}\n    for kmer, count in list(kmers.items())[:20]:\n        feat[f'kmer_{kmer}'] = count\n    test_features.append(feat)\n\n# Create matrices\nall_features = set()\nfor f in train_features + test_features:\n    all_features.update(f.keys())\nall_features = sorted(list(all_features))\n\ntrain_X = np.array([[f.get(feat, 0) for feat in all_features] for f in train_features])\ntest_X = np.array([[f.get(feat, 0) for feat in all_features] for f in test_features])\n\n# Normalize\nscaler = StandardScaler()\ntrain_X = scaler.fit_transform(train_X)\ntest_X = scaler.transform(test_X)\n\n# Train logistic regression\nlr = LogisticRegression(max_iter=1000)\nlr.fit(train_X, train_df['label'].values)\ncomposition_accuracy = lr.score(test_X, test_df['label'].values)\nprint(f\"   Composition-based LR accuracy: {composition_accuracy:.3f}\")\n\nprint()\nprint(\"=\" * 80)\nprint(\"AUDIT 3: SEQUENCE SIMILARITY / HOMOLOGY LEAKAGE (F12)\")\nprint(\"=\" * 80)\n\n# Use k-mer containment to check for homologous sequences\ndef count_shared_kmers(seq1, seq2, k=15):\n    \"\"\"Count shared k-mers between two sequences\"\"\"\n    kmers1 = set(seq1[i:i+k] for i in range(len(seq1) - k + 1))\n    kmers2 = set(seq2[i:i+k] for i in range(len(seq2) - k + 1))\n    return len(kmers1 & kmers2)\n\nprint(\"\\nChecking for identical or near-identical sequences between train and test:\")\n\n# Check for exact matches\nidentical_count = 0\nfor test_id, test_seq in sorted(test_seqs.items()):\n    for train_id, train_seq in sorted(train_seqs.items()):\n        if test_seq == train_seq:\n            print(f\"  IDENTICAL: {test_id} == {train_id}\")\n            identical_count += 1\n\nif identical_count == 0:\n    print(f\"  No identical sequences found\")\n\n# Check for high k-mer overlap (15-mer, identity proxy)\nprint(\"\\nChecking for high k-mer overlap (15-mers):\")\nhigh_similarity = 0\nfor test_id, test_seq in sorted(test_seqs.items()):\n    best_overlap = 0\n    best_train = None\n    for train_id, train_seq in sorted(train_seqs.items()):\n        overlap = count_shared_kmers(test_seq, train_seq, k=15)\n        total_kmers = len(test_seq) - 15 + 1\n        frac = overlap / total_kmers if total_kmers > 0 else 0\n        if frac > 0.8:  # >80% k-mer overlap\n            print(f\"  {test_id} has {frac:.1%} overlap with {train_id}\")\n            high_similarity += 1\n            break\n\nif high_similarity == 0:\n    print(f\"  No sequences with >80% k-mer overlap found\")\n\nprint()\nprint(\"=\" * 80)\nprint(\"AUDIT 4: LABEL BALANCE\")\nprint(\"=\" * 80)\n\ntrain_active = (train_df['label'] == True).sum()\ntrain_total = len(train_df)\ntest_active = (test_df['label'] == True).sum()\ntest_total = len(test_df)\n\nprint(f\"Training: {train_active}/{train_total} active ({train_active/train_total:.1%})\")\nprint(f\"Test: {test_active}/{test_total} active ({test_active/test_total:.1%})\")\nprint(f\"Random guessing accuracy (chance): ~{max(train_active, train_total-train_active)/train_total:.2f}\")\n\nprint()\nprint(\"=\" * 80)\nprint(\"SUMMARY\")\nprint(\"=\" * 80)\nprint(f\"Model accuracy: {accuracy:.3f}\")\nprint(f\"Composition baseline (GC NN): {gc_accuracy:.3f}\")\nprint(f\"Composition baseline (k-mer NN): {kmer_accuracy:.3f}\")\nprint(f\"Composition baseline (LR): {composition_accuracy:.3f}\")\n\n# Check if composition explains most of the performance\nmax_baseline = max(gc_accuracy, kmer_accuracy, composition_accuracy)\ngap = accuracy - max_baseline\n\nprint(f\"\\nMax composition baseline: {max_baseline:.3f}\")\nprint(f\"Gap (model - baseline): {gap:.3f}\")\n\nif gap < 0.10:\n    print(\"\u26a0\ufe0f  WARNING: Composition explains most of the model's performance (B class)\")\nelse:\n    print(\"\u2713 Model performs substantially better than composition baseline\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "DNA language model embeddings k-mer baseline composition"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "homologous sequences leakage split"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F08"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F12"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F01"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/prepare_data_for_mcp.py",
+        "content": "import pandas as pd\n\n# Read FASTA files\ndef read_fasta(filename):\n    seqs = {}\n    with open(filename) as f:\n        current_id = None\n        for line in f:\n            line = line.strip()\n            if line.startswith('>'):\n                current_id = line[1:]\n            else:\n                seqs[current_id] = line.upper()\n    return seqs\n\ntrain_seqs = read_fasta('train.fa')\ntest_seqs = read_fasta('test.fa')\nlabels = pd.read_csv('labels.csv')\n\n# Create train CSV for MCP\ntrain_labels_dict = labels[labels['split'] == 'train'].set_index('id')['activity'].to_dict()\ntrain_data = []\nfor prom_id in sorted(train_labels_dict.keys()):\n    train_data.append({\n        'id': prom_id,\n        'label': train_labels_dict[prom_id],\n        'sequence': train_seqs[prom_id]\n    })\ntrain_df = pd.DataFrame(train_data)\ntrain_df.to_csv('train_for_mcp.csv', index=False)\n\n# Create test CSV for MCP\ntest_labels_dict = labels[labels['split'] == 'test'].set_index('id')['activity'].to_dict()\npredictions = pd.read_csv('predictions_test.csv').set_index('id')['predicted'].to_dict()\ntest_data = []\nfor test_id in sorted(test_labels_dict.keys()):\n    is_correct = test_labels_dict[test_id] == predictions[test_id]\n    test_data.append({\n        'id': test_id,\n        'label': test_labels_dict[test_id],\n        'sequence': test_seqs[test_id]\n    })\ntest_df = pd.DataFrame(test_data)\ntest_df.to_csv('test_for_mcp.csv', index=False)\n\nprint(\"Created train_for_mcp.csv and test_for_mcp.csv\")\nprint(f\"Train: {len(train_df)} sequences\")\nprint(f\"Test: {len(test_df)} sequences\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python prepare_data_for_mcp.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_sequence_similarity",
+      "input": {
+        "train_fasta_path": "/tmp/review-5jfi73rq/analysis/train.fa",
+        "test_fasta_path": "/tmp/review-5jfi73rq/analysis/test.fa",
+        "k": 15
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__kmer_baseline",
+      "input": {
+        "train_path": "/tmp/review-5jfi73rq/analysis/train_for_mcp.csv",
+        "test_path": "/tmp/review-5jfi73rq/analysis/test_for_mcp.csv",
+        "model_score": 0.85,
+        "k": 5
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/detailed_analysis.py",
+        "content": "import pandas as pd\nimport numpy as np\n\n# Load data\nlabels = pd.read_csv('labels.csv')\npredictions = pd.read_csv('predictions_test.csv')\n\n# Get test split\ntest_labels = labels[labels['split'] == 'test'].copy()\ntest_labels = test_labels.set_index('id')\n\n# Merge with predictions\ntest_predictions = predictions.set_index('id')\ntest_merged = test_labels.join(test_predictions)\n\nprint(\"=\" * 80)\nprint(\"ACCURACY BREAKDOWN\")\nprint(\"=\" * 80)\n\n# Calculate correct predictions\ntest_merged['correct'] = test_merged['activity'] == test_merged['predicted']\ncorrect_count = test_merged['correct'].sum()\ntotal_count = len(test_merged)\naccuracy = correct_count / total_count\n\nprint(f\"\\nOverall accuracy: {accuracy:.3f} ({correct_count}/{total_count})\")\n\n# Breakdown by label\nprint(\"\\n--- By actual label ---\")\nfor label in ['active', 'inactive']:\n    subset = test_merged[test_merged['activity'] == label]\n    n = len(subset)\n    correct = subset['correct'].sum()\n    print(f\"{label:10s}: {correct:3d}/{n:3d} = {correct/n:.3f}\")\n\n# Calculate baseline accuracies\nprint(\"\\n\" + \"=\" * 80)\nprint(\"BASELINE ACCURACIES\")\nprint(\"=\" * 80)\n\ntrain_labels = labels[labels['split'] == 'train']\nactive_train = (train_labels['activity'] == 'active').sum()\ntotal_train = len(train_labels)\ninactive_train = total_train - active_train\n\nprint(f\"\\nTraining set composition:\")\nprint(f\"  Active: {active_train}/{total_train} = {active_train/total_train:.1%}\")\nprint(f\"  Inactive: {inactive_train}/{total_train} = {inactive_train/total_train:.1%}\")\n\ntest_active = (test_merged['activity'] == 'active').sum()\ntest_total = len(test_merged)\n\nprint(f\"\\nTest set composition:\")\nprint(f\"  Active: {test_active}/{test_total} = {test_active/test_total:.1%}\")\nprint(f\"  Inactive: {test_total - test_active}/{test_total} = {(test_total - test_active)/test_total:.1%}\")\n\n# Always-predict-majority baseline\nmajority_baseline = max(test_active, test_total - test_active) / test_total\nprint(f\"\\nAlways-predict-majority baseline: {majority_baseline:.3f}\")\n\n# Baseline from prior (predict test distribution from training)\nprior_baseline = active_train / total_train * 1.0 + inactive_train / total_train * 0.0\nif prior_baseline < 0.5:\n    prior_baseline = 1 - prior_baseline\n\nprint(f\"Prior-based baseline: {prior_baseline:.3f}\")\n\n# Model vs baseline\nprint(f\"\\n\" + \"=\" * 80)\nprint(f\"Model accuracy: {accuracy:.3f}\")\nprint(f\"Majority baseline: {majority_baseline:.3f}\")\nprint(f\"Improvement over majority: {(accuracy - majority_baseline) / (1 - majority_baseline):.1%}\")\nprint()\n\n# With composition baseline (AUROC 0.7044)\n# Let's estimate accuracy from AUROC\n# If AUROC = 0.7044, that's the area under the ROC curve\n# For a balanced classification this roughly corresponds to ~60-65% accuracy\nprint(\"Composition-based k-mer baseline (AUROC=0.7044)\")\nprint(\"  This would typically correspond to ~63-68% accuracy on binary classification\")\nprint(\"  Given that model achieves 85%, the margin is ~17-22 percentage points\")\nprint()\n\n# Check for overfitting indicators\nprint(\"=\" * 80)\nprint(\"KEY QUESTIONS FOR EVALUATION\")\nprint(\"=\" * 80)\nprint()\nprint(\"1. Leakage (F12): 64/100 test examples have >=95% identity to training\")\nprint(\"   - test041: 99.64% identical to prom093\")\nprint(\"   - test029: 99.47% identical to prom227\")\nprint(\"   - ... 62 other high-similarity pairs\")\nprint()\nprint(\"2. Missing baselines (F08): k-mer composition reaches AUROC 0.7044\")\nprint(\"   - Composition alone explains 58% of model's gain over chance\")\nprint(\"   - Model only improves by ~2% on our accuracy calculations\")\nprint()\nprint(\"3. No controls: No ablation showing what the model learned beyond composition\")\nprint()\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python detailed_analysis.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-5jfi73rq/analysis/AUDIT_REPORT.md",
+        "content": "# PromoNet Analysis Audit Report\n\n## Summary\n**VERDICT: NOT SUPPORTED**\n\nThe main claim that \"PromoNet has learned the regulatory grammar of HepG2 promoters\" is **not supported** by the evidence. The analysis violates two critical pitfalls in genomics ML:\n\n1. **Class L - Leakage through homologous sequences (F12)**\n2. **Class B - Missing composition baseline (F08, F01)**\n\n---\n\n## Critical Issues\n\n### 1. LEAKAGE: 64% of test sequences are near-identical to training sequences (F12)\n\n**Finding:** 64 out of 100 test sequences (64%) have a training sequence at >=95% estimated identity based on k-mer containment.\n\n**Most affected examples:**\n- test041: 99.64% identical to prom093 (k-mer overlap: 94.76%)\n- test029: 99.47% identical to prom227 (k-mer overlap: 92.31%)\n- test047: 99.26% identical to prom005 (k-mer overlap: 89.51%)\n- test055: 99.26% identical to prom268 (k-mer overlap: 89.51%)\n- test027: 99.21% identical to prom132 (k-mer overlap: 88.81%)\n- ... 59 more examples with >=95% identity\n\n**Impact:** The reported test accuracy of 0.85 partly measures the model's ability to recall near-identical training sequences, not its ability to generalize to truly new sequences. This violates the stated split criterion: \"promoters were randomly sampled into train and test sets\" - random splits do not prevent homology leakage across sequence families.\n\n**Quote from F12:** \"Random splits put near-identical sequences (paralogs, orthologs, repeats, close homologs) in both training and test, so test accuracy partly measures recall of training examples.\"\n\n---\n\n### 2. MISSING BASELINE: Composition alone explains most of the model's performance (F08, F01)\n\n**Finding:** A k-mer composition baseline achieves AUROC 0.7044 (58% of the model's gain over chance), while the model achieves 0.85 accuracy.\n\n**Composition-only results:**\n- **GC content (NN): 0.47 accuracy** - fails completely\n- **K-mer composition (5-mer NN): 0.83 accuracy** - nearly matches the model\n- **Composition (logistic regression): 0.81 accuracy** - nearly matches the model\n- **K-mer baseline (AUROC): 0.7044** - explains 58% of gain\n\n**Gap between model and baseline:** Only ~2 percentage points of advantage over a simple k-mer nearest-neighbor classifier.\n\n**What should have been reported:**\n- One-hot CNN baseline (capacity-matched)\n- K-mer composition baseline \u2717 MISSING\n- Other simple baselines \u2717 MOSTLY MISSING\n\n**Quote from F08:** \"DNA language model embeddings don't beat one-hot CNNs. On six cell-type-specific regulatory tasks, representations from LMs pretrained on whole genomes gave no noticeable advantage over one-hot sequence with a conventional supervised network.\"\n\nThe same likely applies here - the model may not beat a simpler baseline of similar capacity.\n\n---\n\n### 3. NO CONTROLS\n\nThe analysis provides:\n- \u2717 No ablation studies\n- \u2717 No permutation tests\n- \u2717 No controls showing what the model learned beyond composition\n- \u2717 No sensitivity analysis by sequence identity\n\nStandard controls that should exist:\n- Shuffle token positions (should drop accuracy to chance)\n- Permute labels at the sequence level (should drop accuracy to chance)\n- Train on shuffled sequences as a control\n- Report performance by distance to nearest training sequence\n\n---\n\n## Detailed Findings\n\n### Audit Checklist Results\n\n| Question | Finding |\n|----------|---------|\n| **Unit of independence** | Violated - sequences are split randomly, not by identity cluster |\n| **Shortcut inventory** | K-mers/GC clearly predict labels; composition-only methods reach 81-83% accuracy |\n| **Claim vs test axis** | Test doesn't vary what the claim is about - unclear if predicting HepG2-specific biology or just sequence similarity |\n| **Baselines** | Composition baselines present but not in original README; no one-hot CNN |\n| **True null** | No null controls present |\n| **What each control keeps** | N/A - no controls exist |\n| **Circularity** | Unclear; labels from same reporter assay, not independent |\n| **Variance** | Only 100 test examples; 64 have leakage |\n\n---\n\n## Data Characteristics\n\n```\nTraining: 300 promoters\n  Active:    137 (45.7%)\n  Inactive:  163 (54.3%)\n\nTest: 100 promoters  \n  Active:     50 (50.0%)\n  Inactive:   50 (50.0%)\n\nModel accuracy: 0.850 (85/100)\nMajority baseline: 0.500\nPrior baseline: 0.543\n```\n\n---\n\n## What Would Support the Claim\n\nTo support the claim that PromoNet learned regulatory grammar, the analysis would need to show:\n\n1. **No leakage:** Cluster sequences by identity (MMseqs2/CD-HIT) and split by cluster\n2. **Beats composition baselines:** \n   - Show model >> one-hot CNN >> k-mer NN\n   - Model should have clear advantage (>10 pp) over composition alone\n3. **Null controls pass:**\n   - Shuffle-token permutation drops to chance\n   - Label permutation drops to chance\n4. **Performance by distance:**\n   - Report accuracy binned by distance to nearest training sequence\n   - Should not degrade with distance if truly learning biology\n5. **Biological interpretation:**\n   - Show that learned features correlate with known regulatory elements\n   - Test on data from other cell types\n\n---\n\n## References (from ml-genomics-failures)\n\n- **F08:** DNA language model embeddings don't beat one-hot CNNs (Class B)\n- **F12:** Homologous sequences on both sides of the split (Class L)\n- **F01:** Genome \u2192 organism image learns phylogeny, not phenotype (Class S, A)\n\n---\n\n## Conclusion\n\nThe reported accuracy of 0.85 is inflated by:\n1. **Leakage:** 64% of test sequences are >95% identical to training sequences\n2. **Composition:** Most of the signal comes from sequence composition, which simple k-mer baselines capture\n\nThe claim that the model \"learned the regulatory grammar\" is **not supported** by this evidence. The model appears to be largely memorizing or exploiting composition, not learning biology specific to HepG2 promoters.\n\n**Recommendation:** Rerun the analysis with proper sequence clustering, formal baseline comparisons, and null controls before publication.\n"
+      }
+    }
+  ]
+}

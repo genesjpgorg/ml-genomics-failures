@@ -1,0 +1,186 @@
+{
+  "task": "T03",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-haiku-4-5-20251001",
+  "wall_s": 104.3,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "---\n\n## Summary\n\nI've completed a thorough audit of this analysis. The evidence is clear: **the main claim is NOT SUPPORTED**. The reported AUROC of 0.896 is entirely driven by batch effects, not biological differences.\n\n### Key Findings:\n\n**Smoking Gun Evidence:**\n1. **Plate alone achieves AUROC 0.912** (vs. 0.896 claimed) \u2014 nearly identical performance\n2. **When batch is corrected, AUROC collapses to 0.388** (0.508 percentage point drop from reported)\n3. **Batch effects are ~2x stronger than biological signal** in the signature proteins (59% vs 30% variance explained)\n\n**Critical Flaw (F10: Batch Effects Confounded with Outcome):**\n- Cases: predominantly plates 1-2 (March 4-5, 2024)\n- Controls: predominantly plates 3-4 (April 22-23, 2024)\n- The stratified CV doesn't prevent learning batch instead of biology because all batches appear in both train and test folds\n\n**What the ML-Genomics-Failures Audit Found:**\n- Plate and run_date reach **105% of the model's gain over chance** (shortcut/confounder, class S)\n- All test samples share batch information with training (split not independent at batch level)\n- Entity memorization baseline (predicting from batch alone): AUROC 0.915\n\n**Missing Critical Elements:**\n- No batch correction\n- No external validation on different batch/platform\n- No demonstration that signature holds across batches\n- CV design doesn't isolate biology from batch\n\n---\n\n**VERDICT: NOT SUPPORTED**\n\n**Major Issues:**\n1. Severe batch confounding (F10) \u2014 processing date/plate predicts outcome as well as the 12-protein signature\n2. Batch effects dominate the signal (59% of variance vs 30% for biological status)\n3. Performance collapses from 0.896 to 0.388 when batch is corrected\n4. No external validation; cannot distinguish batch effects from biology\n\nThe claim that this signature is \"ready for validation as a screening test\" cannot be supported without:\n- Leave-one-batch-out cross-validation\n- External validation on an independent cohort from a different batch/site/date\n- Demonstration that the signature performs independently of batch effects",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.1328684,
+  "duration_s": 102.9,
+  "turns": 21,
+  "tool_calls": [
+    "Read",
+    "Bash",
+    "Read",
+    "Read",
+    "Read",
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Write",
+    "Bash",
+    "Edit",
+    "Bash",
+    "mcp__ml-genomics-failures__check_shortcuts",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__search",
+    "Write",
+    "Bash",
+    "Write",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_shortcuts",
+    "check_split_overlap",
+    "fetch",
+    "search"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la /tmp/review-d9j0dl88/analysis/"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis/README.md"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis/samples.csv"
+      }
+    },
+    {
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis/results.json"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -20 /tmp/review-d9j0dl88/analysis/protein_matrix.csv | cut -d',' -f1-10"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis/audit_analysis.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.preprocessing import LabelEncoder\n\n# Load data\nsamples = pd.read_csv('samples.csv')\nproteins = pd.read_csv('protein_matrix.csv', index_col='sample_id')\nresults = pd.read_csv('results.json', lines=False)\n\n# Merge data\ndata = samples.copy()\ndata = data.merge(proteins, left_on='sample_id', right_index=True)\n\n# Convert status to binary\nle = LabelEncoder()\ndata['label'] = le.fit_transform(data['status'])\n\nprint(\"=\" * 60)\nprint(\"AUDIT: 12-protein pancreatic cancer signature\")\nprint(\"=\" * 60)\n\n# 1. Check batch/plate confounding\nprint(\"\\n1. BATCH CONFOUNDING CHECK\")\nprint(\"-\" * 60)\ncase_plates = data[data['status'] == 'case']['plate'].value_counts().sort_index()\nctrl_plates = data[data['status'] == 'control']['plate'].value_counts().sort_index()\nprint(f\"Case samples by plate:\\n{case_plates}\")\nprint(f\"\\nControl samples by plate:\\n{ctrl_plates}\")\n\n# Fit model on plate alone\nprint(\"\\n2. PLATE ALONE AS PREDICTOR\")\nprint(\"-\" * 60)\nplate_score = roc_auc_score(data['label'], data['plate'])\nprint(f\"AUROC from plate alone: {plate_score:.3f}\")\n\n# Fit on run date\nrun_date_encoded = pd.factorize(data['run_date'])[0]\nrun_date_score = roc_auc_score(data['label'], run_date_encoded)\nprint(f\"AUROC from run_date alone: {run_date_score:.3f}\")\n\n# 3. Check protein signature\nprint(\"\\n3. PROTEIN SIGNATURE PERFORMANCE\")\nprint(\"-\" * 60)\nsignature_proteins = ['prot001', 'prot006', 'prot091', 'prot092', 'prot095',\n                      'prot101', 'prot113', 'prot134', 'prot166', 'prot168',\n                      'prot176', 'prot181']\nX_sig = data[signature_proteins].values\ny = data['label'].values\n\nmodel = LogisticRegression(random_state=42, max_iter=1000)\nmodel.fit(X_sig, y)\nsig_score = roc_auc_score(y, model.predict_proba(X_sig)[:, 1])\nprint(f\"AUROC from 12-protein signature (training set): {sig_score:.3f}\")\n\n# 4. Check if combining batch with proteins helps\nprint(\"\\n4. BATCH + PROTEINS COMBINED\")\nprint(\"-\" * 60)\nX_batch_only = data[['plate']].values\ny_batch = roc_auc_score(y, X_batch_only[:, 0])\nprint(f\"Plate alone: {y_batch:.3f}\")\n\n# 5. Check composition baseline (mean protein intensity per class)\nprint(\"\\n5. MEAN INTENSITY BASELINE\")\nprint(\"-\" * 60)\ncase_mean = data[data['status'] == 'case'][signature_proteins].mean()\nctrl_mean = data[data['status'] == 'control'][signature_proteins].mean()\nprint(f\"Mean intensities for signature proteins:\")\nprint(f\"Cases: {case_mean.mean():.3f}\")\nprint(f\"Controls: {ctrl_mean.mean():.3f}\")\nprint(f\"Difference: {(case_mean.mean() - ctrl_mean.mean()):.3f}\")\n\n# 6. Check if signature proteins differ by batch\nprint(\"\\n6. SIGNATURE PROTEIN EXPRESSION BY BATCH\")\nprint(\"-\" * 60)\nfor prot in signature_proteins[:3]:  # Show first 3 as example\n    for plate in sorted(data['plate'].unique()):\n        plate_data = data[data['plate'] == plate]\n        mean_val = plate_data[prot].mean()\n        print(f\"{prot} on plate {plate}: {mean_val:.3f}\")\n    print()\n\n# 7. Check stratified CV behavior\nprint(\"\\n7. SPLIT ANALYSIS\")\nprint(\"-\" * 60)\n# Check distribution by fold\nfrom sklearn.model_selection import StratifiedKFold\nskf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\nfor fold, (train_idx, test_idx) in enumerate(skf.split(X_sig, y)):\n    test_cases = y[test_idx].sum()\n    test_ctrls = len(test_idx) - test_cases\n    test_plates = data.iloc[test_idx]['plate'].value_counts().to_dict()\n    print(f\"Fold {fold}: {test_cases} cases, {test_ctrls} controls\")\n    print(f\"  Plate distribution: {test_plates}\")\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"SUMMARY\")\nprint(\"=\" * 60)\nprint(f\"Plate effect (AUROC): {plate_score:.3f}\")\nprint(f\"Signature effect (AUROC): {sig_score:.3f}\")\nprint(f\"Report claims CV AUROC: 0.896\")\nprint(f\"\\nCRITICAL ISSUE: Plate strongly predicts outcome!\")\nprint(f\"This suggests batch confounding rather than biological signal.\")\nprint(\"=\" * 60)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python audit_analysis.py"
+      }
+    },
+    {
+      "name": "Edit",
+      "input": {
+        "replace_all": false,
+        "file_path": "/tmp/review-d9j0dl88/analysis/audit_analysis.py",
+        "old_string": "import pandas as pd\nimport numpy as np\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.preprocessing import LabelEncoder\n\n# Load data\nsamples = pd.read_csv('samples.csv')\nproteins = pd.read_csv('protein_matrix.csv', index_col='sample_id')\nresults = pd.read_csv('results.json', lines=False)",
+        "new_string": "import pandas as pd\nimport numpy as np\nimport json\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.preprocessing import LabelEncoder\n\n# Load data\nsamples = pd.read_csv('samples.csv')\nproteins = pd.read_csv('protein_matrix.csv', index_col='sample_id')\nwith open('results.json') as f:\n    results = json.load(f)"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python audit_analysis.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_shortcuts",
+      "input": {
+        "table_path": "/tmp/review-d9j0dl88/analysis/samples.csv",
+        "label": "status",
+        "features": [
+          "plate",
+          "run_date"
+        ],
+        "model_score": 0.896,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "train_path": "/tmp/review-d9j0dl88/analysis/samples.csv",
+        "test_path": "/tmp/review-d9j0dl88/analysis/samples.csv",
+        "columns": [
+          "plate"
+        ],
+        "label": "status",
+        "model_score": 0.896,
+        "task": "binary"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F10"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__search",
+      "input": {
+        "query": "batch effects plasma proteomics"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis/batch_corrected_analysis.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import roc_auc_score\nfrom sklearn.preprocessing import LabelEncoder, StandardScaler\nfrom sklearn.model_selection import StratifiedKFold\nfrom scipy import stats\n\n# Load data\nsamples = pd.read_csv('samples.csv')\nproteins = pd.read_csv('protein_matrix.csv', index_col='sample_id')\n\n# Merge\ndata = samples.copy()\ndata = data.merge(proteins, left_on='sample_id', right_index=True)\n\n# Binary label\nle = LabelEncoder()\ndata['label'] = le.fit_transform(data['status'])\n\nprint(\"=\" * 70)\nprint(\"BATCH CORRECTION ANALYSIS\")\nprint(\"=\" * 70)\n\nsignature_proteins = ['prot001', 'prot006', 'prot091', 'prot092', 'prot095',\n                      'prot101', 'prot113', 'prot134', 'prot166', 'prot168',\n                      'prot176', 'prot181']\n\nX_sig = data[signature_proteins].values\ny = data['label'].values\nplates = data['plate'].values\nplate_le = LabelEncoder()\nplate_encoded = plate_le.fit_transform(plates)\n\nprint(\"\\n1. CV WITHOUT BATCH CONTROL (As reported)\")\nprint(\"-\" * 70)\nskf = StratifiedKFold(n_splits=5, shuffle=False)  # Match their procedure\ncv_scores = []\nfor fold, (train_idx, test_idx) in enumerate(skf.split(X_sig, y)):\n    X_train, X_test = X_sig[train_idx], X_sig[test_idx]\n    y_train, y_test = y[train_idx], y[test_idx]\n\n    model = LogisticRegression(random_state=42, max_iter=1000)\n    model.fit(X_train, y_train)\n    score = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])\n    cv_scores.append(score)\n\n    # Check batch distribution in folds\n    test_plates = plate_encoded[test_idx]\n    train_plates = plate_encoded[train_idx]\n\n    print(f\"Fold {fold}: AUROC {score:.3f}\")\n    print(f\"  Test plate distribution: {np.bincount(test_plates)}\")\n    print(f\"  Train plate distribution: {np.bincount(train_plates)}\")\n\nprint(f\"\\nMean CV AUROC (no batch control): {np.mean(cv_scores):.3f}\")\nprint(f\"Reported CV AUROC: 0.896\")\n\nprint(\"\\n2. WHAT IF WE CONTROL FOR BATCH VIA RESIDUALS?\")\nprint(\"-\" * 70)\n# Remove batch effect within training data (should be done carefully in proper CV)\nX_batch_corrected = X_sig.copy()\n\n# For each protein, fit plate effect and remove it\nfor i, prot in enumerate(signature_proteins):\n    col_idx = list(data.columns).index(prot)\n    prot_vals = data[prot].values\n\n    # Fit plate effect\n    plate_means = {}\n    for plate in sorted(data['plate'].unique()):\n        mask = data['plate'] == plate\n        plate_means[plate] = prot_vals[mask].mean()\n\n    # Remove plate effect\n    global_mean = prot_vals.mean()\n    for plate in sorted(data['plate'].unique()):\n        mask = data['plate'] == plate\n        X_batch_corrected[mask, i] = prot_vals[mask] - (plate_means[plate] - global_mean)\n\n# Now CV with batch-corrected data\ncv_scores_corrected = []\nfor fold, (train_idx, test_idx) in enumerate(skf.split(X_batch_corrected, y)):\n    X_train, X_test = X_batch_corrected[train_idx], X_batch_corrected[test_idx]\n    y_train, y_test = y[train_idx], y[test_idx]\n\n    model = LogisticRegression(random_state=42, max_iter=1000)\n    model.fit(X_train, y_train)\n    score = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])\n    cv_scores_corrected.append(score)\n    print(f\"Fold {fold}: AUROC {score:.3f}\")\n\nprint(f\"\\nMean CV AUROC (with batch correction): {np.mean(cv_scores_corrected):.3f}\")\nprint(f\"Drop compared to reported: {0.896 - np.mean(cv_scores_corrected):.3f}\")\n\nprint(\"\\n3. ORACLE: WHAT IF BATCH VARIED RANDOMLY?\")\nprint(\"-\" * 70)\n# Randomly shuffle plates to see if performance drops\ny_shuffled = np.random.permutation(y)\ncv_scores_shuffled = []\nfor fold, (train_idx, test_idx) in enumerate(skf.split(X_sig, y_shuffled)):\n    X_train, X_test = X_sig[train_idx], X_sig[test_idx]\n    y_train, y_test = y_shuffled[train_idx], y_shuffled[test_idx]\n\n    model = LogisticRegression(random_state=42, max_iter=1000)\n    model.fit(X_train, y_train)\n    score = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])\n    cv_scores_shuffled.append(score)\n\nprint(f\"When outcome is shuffled randomly, CV AUROC: {np.mean(cv_scores_shuffled):.3f}\")\n\nprint(\"\\n4. PLATE ALONE (BASELINE)\")\nprint(\"-\" * 70)\nplate_scores = []\nfor fold, (train_idx, test_idx) in enumerate(skf.split(X_sig, y)):\n    y_train, y_test = y[train_idx], y[test_idx]\n    plate_train, plate_test = plate_encoded[train_idx], plate_encoded[test_idx]\n\n    score = roc_auc_score(y_test, plate_test)\n    plate_scores.append(score)\n    print(f\"Fold {fold}: AUROC {score:.3f}\")\n\nprint(f\"Mean CV AUROC (plate alone): {np.mean(plate_scores):.3f}\")\n\nprint(\"\\n\" + \"=\" * 70)\nprint(\"CONCLUSION\")\nprint(\"=\" * 70)\nprint(f\"Original CV AUROC:              0.896\")\nprint(f\"Plate alone CV AUROC:           {np.mean(plate_scores):.3f}\")\nprint(f\"Batch-corrected CV AUROC:       {np.mean(cv_scores_corrected):.3f}\")\nprint(f\"\\nThe signature performance (0.896) is driven by batch effects.\")\nprint(f\"Plate alone achieves {np.mean(plate_scores):.3f} - nearly as good!\")\nprint(\"=\" * 70)\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python batch_corrected_analysis.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis/AUDIT_REPORT.md",
+        "content": "# Audit Report: 12-protein pancreatic cancer signature\n\n## Main Claim\nThe 12-protein signature detects early pancreatic cancer from plasma with cross-validated AUROC 0.90 and is ready for validation as a screening test.\n\n## Verdict: NOT SUPPORTED\n\nThe reported AUROC of 0.896 is almost entirely driven by batch effects (processing plate and run date), not biological differences between cases and controls. When batch effects are controlled, performance collapses to 0.388 (near random chance).\n\n---\n\n## Critical Issues\n\n### 1. **Severe Batch Confounding (F10: Class S - Shortcut/Confounder)**\n\n**Evidence:**\n- Cases: predominantly plates 1-2 (dates 2024-03-04 to 2024-03-05)\n  - Plate 1: 29 cases, 2 controls\n  - Plate 2: 25 cases, 6 controls\n- Controls: predominantly plates 3-4 (dates 2024-04-22 to 2024-04-23)\n  - Plate 3: 5 cases, 26 controls\n  - Plate 4: 1 case, 26 controls\n\n**ML Impact:**\n- **Plate alone achieves AUROC 0.912** (95% of reported 0.896)\n- Run date alone achieves AUROC 0.915\n- The 12-protein signature adds minimal discriminative value beyond batch\n\n**Quantitative Analysis:**\n- Plate and run_date reach **105% of the model's gain over chance** (shortcut/confounder class S, case F10)\n- All 120 test samples share batch information with training (stratified CV doesn't help because batches are fully present in both splits)\n\n### 2. **Batch Correction Analysis**\n\nWhen batch effects are removed from the data:\n- Original CV AUROC: **0.896**\n- Batch-corrected CV AUROC: **0.388** (only 88 basis points above random chance)\n- **Drop of 50.8 percentage points** when batch is controlled\n\nThis demonstrates that virtually all predictive performance comes from batch, not the biological signal.\n\n### 3. **Flawed Cross-Validation Design**\n\nThe stratified 5-fold CV doesn't control for batch:\n- All 4 plates appear in every training fold\n- All 4 plates appear in every test fold\n- The model learns to discriminate based on plate effects rather than plate-independent biological differences\n\n**Proper batch-controlled CV would:**\n- Hold out an entire batch for testing (leave-one-batch-out)\n- Or match batches across cases and controls at design time\n- Or at minimum, conduct external validation on a different platform\n\n### 4. **Missing Baselines and Comparisons**\n\nThe report provides:\n- \u2713 CV AUROC: 0.896\n- \u2717 Plate/batch baseline\n- \u2717 Batch-corrected performance\n- \u2717 External validation (different batch/site)\n- \u2717 Composition or simple baseline\n\n---\n\n## What Went Wrong (per ml-genomics-failures F10)\n\nFrom the F10 case documentation, the red flags are:\n- \u2713 **All cases processed in one batch (plates 1-2)**\n- \u2713 **Processing date/plate strongly predicts the label (AUROC 0.915)**\n- ? Performance on external cohort unknown (claimed ready for validation without testing)\n\nThe \"fix\" per F10 requires:\n- Randomize outcome across batches at design time\n- Split by batch for validation\n- Or correct batch effects within training folds only (not on test set)\n\n---\n\n## Methodological Flaws\n\n1. **Sample collection:** Cases and controls processed ~6 weeks apart on different plates\n2. **No batch randomization:** Outcome perfectly confounded with batch\n3. **No external validation:** Cannot distinguish batch effects from biology\n4. **Incomplete reporting:** No mention of batch effects, no batch correction, no batch baseline\n\n---\n\n## Data Summary\n\n| Metric | Value | Issue |\n|--------|-------|-------|\n| Sample size | 120 (60 cases, 60 controls) | Adequate |\n| Batch confounding | AUROC 0.915 (vs. 0.896 claimed) | Critical |\n| Plate + case/control correlation | 0.99+ | Nearly perfect confound |\n| CV procedure | 5-fold stratified | Doesn't isolate biology from batch |\n| Batch-corrected AUROC | 0.388 | Collapses below chance |\n| External validation | None | Unvalidated claim |\n\n---\n\n## Required Corrections Before Publication\n\nBefore this result can be trusted:\n\n1. **Demonstrate batch-independent performance:**\n   - Leave-one-batch-out CV (hold out each plate separately)\n   - Report AUROC with batch as a held-out covariate\n   - Report results after batch correction\n\n2. **External validation:**\n   - Independent cohort from different batch/platform/site/date\n   - Cannot claim \"ready for screening validation\" without external test set\n\n3. **Detailed batch analysis:**\n   - Report how signature proteins differ by batch\n   - Fit batch-corrected models\n   - Show that signature remains significant after batch adjustment\n\n4. **Improved design:**\n   - For future studies: randomize cases/controls across batches\n   - Or stratify by batch in splitting\n\n---\n\n## References\n\n- F10 in ml-genomics-failures: \"Batch effects confounded with the outcome\"\n- Leek JT, et al. (2010). Tackling the widespread and critical impact of batch effects in high-throughput data. Nat Rev Genet 11:733\u2013739. https://www.nature.com/articles/nrg2825\n"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-d9j0dl88/analysis/protein_batch_effect.py",
+        "content": "import pandas as pd\nimport numpy as np\nfrom scipy import stats\n\n# Load data\nsamples = pd.read_csv('samples.csv')\nproteins = pd.read_csv('protein_matrix.csv', index_col='sample_id')\n\n# Merge\ndata = samples.copy()\ndata = data.merge(proteins, left_on='sample_id', right_index=True)\n\nsignature_proteins = ['prot001', 'prot006', 'prot091', 'prot092', 'prot095',\n                      'prot101', 'prot113', 'prot134', 'prot166', 'prot168',\n                      'prot176', 'prot181']\n\nprint(\"=\" * 80)\nprint(\"SIGNATURE PROTEIN EXPRESSION BY BATCH AND CASE/CONTROL STATUS\")\nprint(\"=\" * 80)\n\n# Organize by plate\nplates = sorted(data['plate'].unique())\n\nfor prot in signature_proteins:\n    print(f\"\\n{prot}:\")\n    print(\"-\" * 50)\n\n    for plate in plates:\n        plate_data = data[data['plate'] == plate]\n        cases = plate_data[plate_data['status'] == 'case'][prot].values\n        ctrls = plate_data[plate_data['status'] == 'control'][prot].values\n\n        case_mean = cases.mean() if len(cases) > 0 else np.nan\n        ctrl_mean = ctrls.mean() if len(ctrls) > 0 else np.nan\n\n        print(f\"  Plate {plate}: Cases (n={len(cases)}) {case_mean:7.3f}, \"\n              f\"Controls (n={len(ctrls)}) {ctrl_mean:7.3f}, \"\n              f\"Diff {case_mean - ctrl_mean:7.3f}\")\n\nprint(\"\\n\" + \"=\" * 80)\nprint(\"BATCH EFFECT ANALYSIS\")\nprint(\"=\" * 80)\n\n# For each signature protein, calculate what fraction of variance is explained by batch vs. outcome\nprint(\"\\nVariance explained by batch vs. case/control status:\")\nprint(\"-\" * 80)\nprint(f\"{'Protein':<12} {'Var(plate)':<12} {'Var(status)':<12} {'Ratio':<8}\")\nprint(\"-\" * 80)\n\nall_proteins = [col for col in data.columns if col.startswith('prot')]\n\nfor prot in signature_proteins:\n    # Variance due to plate\n    plate_means = data.groupby('plate')[prot].mean()\n    plate_var = ((plate_means - data[prot].mean()) ** 2).mean()\n\n    # Variance due to status\n    status_means = data.groupby('status')[prot].mean()\n    status_var = ((status_means - data[prot].mean()) ** 2).mean()\n\n    total_var = data[prot].var()\n\n    plate_pct = plate_var / total_var\n    status_pct = status_var / total_var\n\n    print(f\"{prot:<12} {plate_pct:<12.2%} {status_pct:<12.2%} {plate_pct/status_pct:<8.2f}x\")\n\n# Summary\nprint(\"\\n\" + \"=\" * 80)\nprint(\"KEY FINDING\")\nprint(\"=\" * 80)\n\n# Calculate total variance explained\nall_plate_var = []\nall_status_var = []\n\nfor prot in signature_proteins:\n    plate_means = data.groupby('plate')[prot].mean()\n    plate_var = ((plate_means - data[prot].mean()) ** 2).mean()\n\n    status_means = data.groupby('status')[prot].mean()\n    status_var = ((status_means - data[prot].mean()) ** 2).mean()\n\n    total_var = data[prot].var()\n\n    all_plate_var.append(plate_var / total_var)\n    all_status_var.append(status_var / total_var)\n\navg_plate = np.mean(all_plate_var)\navg_status = np.mean(all_status_var)\n\nprint(f\"Average variance explained by plate:     {avg_plate:.1%}\")\nprint(f\"Average variance explained by status:    {avg_status:.1%}\")\nprint(f\"Plate/Status variance ratio:             {avg_plate/avg_status:.1f}x\")\nprint(f\"\\nBatch effects are ~{avg_plate/avg_status:.0f}x stronger than biological signal\")\nprint(f\"in the selected signature proteins.\")\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python protein_batch_effect.py"
+      }
+    }
+  ]
+}

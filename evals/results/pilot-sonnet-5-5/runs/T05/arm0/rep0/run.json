@@ -1,0 +1,56 @@
+{
+  "task": "T05",
+  "arm": "0",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 23.6,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "I couldn't find any evidence for the claim that PhageFormer learns phage gene content or finds novel phages. The 0.99 test accuracy is real, but a single GC-content feature scores 100% on the same split.\n\n**What I checked** (script: `chk.py`)\n- **Files.** The directory holds only `README.md`, `results.json` (accuracy 0.99, n=100), `train.csv` (200 contigs) and `test.csv` (100 contigs). There is no model code, no weights, no training log and no attention output.\n- **Leakage.** There are no duplicate sequences, and no 30-mer is shared between train and test, so this is not a simple train/test leak.\n- **GC content separates the classes completely.** Bacterial contigs average about 0.55 GC (max 0.60) and phage about 0.41 (max 0.465). The classes don't overlap.\n- **Simple baselines reach 100% test accuracy.** Logistic regression on GC content alone gets 1.0 on the test set. The same holds for logistic regression on 1-mer, 2-mer, 3-mer and 4-mer frequencies.\n\n**Issues that matter most**\n1. **The task is trivially separable by composition.** The 0.99 result says nothing about the transformer learning gene content or phage-specific features. The data looks synthetic: every contig is exactly 1500 bp, the two classes are tightly clustered in GC, and the sequences share no 30-mers. Real phage and bacterial contigs overlap heavily in GC and k-mer composition.\n2. **The novel-phage and homology claim is untested.** There is no comparison against homology tools (BLAST, VirSorter, geNomad, etc.) and no held-out set of divergent phages. Nothing shows that homology tools fail here or that PhageFormer succeeds where they do.\n3. **The claim about phage structural and replication genes has no support.** The README says attention maps highlight those genes, but no maps, annotations or analysis are provided. Attention is also not an explanation by default.\n4. **The evaluation is too small and underspecified.**\n   - n=100 test contigs, so 0.99 means 99 of 100 correct, with a wide confidence interval.\n   - No baselines, no seeds or variance, no precision/recall, and no information on how contigs were sampled.\n   - No split by taxonomy or similarity, and no check of real class balance. The 50/50 split is far from realistic gut metagenomes.\n5. **Not reproducible.** The model and training code aren't included, so the 0.99 can't be reproduced.\n\n**What would be needed**\n- Evaluate on real labeled contigs with a similarity-clustered split.\n- Report a GC/k-mer baseline and homology-tool comparisons.\n- Test on genuinely novel phages.\n- Provide the code and the gene-level attention validation.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0513514,
+  "duration_s": 22.7,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fkgoi0t5/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fkgoi0t5/analysis; cat results.json; head -c 600 train.csv; python -c \"\nimport pandas as pd\nfor f in ['train','test']:\n    d=pd.read_csv(f+'.csv');print(d.shape,d.columns.tolist());print(d.iloc[:,1].value_counts());print(d.iloc[:,2].str.len().describe())\n\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fkgoi0t5/analysis; cat > chk.py <<'E'\nimport pandas as pd,numpy as np\nfrom itertools import product\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\ntr=pd.read_csv('train.csv');te=pd.read_csv('test.csv')\nprint('dup seq within/between',tr.sequence.duplicated().sum(),te.sequence.duplicated().sum(),len(set(tr.sequence)&set(te.sequence)))\n# shared 50-mer overlap\ndef km(s,k=30):return {s[i:i+k] for i in range(0,len(s)-k+1)}\ntrk={}\nfor s,l in zip(tr.sequence,tr.label):\n    for x in km(s):trk[x]=l\nhit=[sum(x in trk for x in km(s)) for s in te.sequence];print('test seqs with shared 30mers',sum(h>0 for h in hit),max(hit))\ngc=lambda s:(s.count('G')+s.count('C'))/len(s)\nfor d in(tr,te):d['gc']=d.sequence.map(gc)\nprint(tr.groupby('label').gc.describe());print(te.groupby('label').gc.describe())\ndef feat(df,k=3):\n    ks=[''.join(p) for p in product('ACGT',repeat=k)]\n    return np.array([[s.count(a) for a in ks] for s in df.sequence],float)/1500\nfor k in(1,2,3,4):\n    m=LogisticRegression(max_iter=5000,C=10).fit(feat(tr,k),tr.label);print(k,m.score(feat(te,k),te.label))\nm=LogisticRegression().fit(tr[['gc']],tr.label);print('gc',m.score(te[['gc']],te.label))\nE\npython chk.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-fkgoi0t5/analysis/chk.py",
+        "content": "import pandas as pd,numpy as np\nfrom itertools import product\nfrom sklearn.linear_model import LogisticRegression\ntr=pd.read_csv('train.csv');te=pd.read_csv('test.csv')\nprint('dup seq within/between',tr.sequence.duplicated().sum(),te.sequence.duplicated().sum(),len(set(tr.sequence)&set(te.sequence)))\ndef km(s,k=30):return {s[i:i+k] for i in range(0,len(s)-k+1)}\ntrk={}\nfor s,l in zip(tr.sequence,tr.label):\n    for x in km(s):trk[x]=l\nhit=[sum(x in trk for x in km(s)) for s in te.sequence];print('test seqs with shared 30mers',sum(h>0 for h in hit),max(hit))\ngc=lambda s:(s.count('G')+s.count('C'))/len(s)\nfor d in(tr,te):d['gc']=d.sequence.map(gc)\nprint(tr.groupby('label').gc.describe());print(te.groupby('label').gc.describe())\ndef feat(df,k=3):\n    ks=[''.join(p) for p in product('ACGT',repeat=k)]\n    return np.array([[s.count(a) for a in ks] for s in df.sequence],float)/1500\nfor k in(1,2,3,4):\n    m=LogisticRegression(max_iter=5000,C=10).fit(feat(tr,k),tr.label);print(k,m.score(feat(te,k),te.label))\nm=LogisticRegression().fit(tr[['gc']],tr.label);print('gc',m.score(te[['gc']],te.label))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-fkgoi0t5/analysis; python chk.py"
+      }
+    }
+  ]
+}

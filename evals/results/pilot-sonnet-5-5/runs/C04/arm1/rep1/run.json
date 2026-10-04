@@ -1,0 +1,41 @@
+{
+  "task": "C04",
+  "arm": "1",
+  "rep": 1,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 15.0,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "I re-ran the evaluation from `gene_level_eval.csv`. The headline number reproduces, and the claim is worded to match what was tested.\n\n**What checks out**\n- Pearson r = 0.792 across 2,000 unique genes. Spearman is 0.774.\n- The result holds on each held-out chromosome: chr8 r = 0.82, chr9 r = 0.78, chr10 r = 0.78.\n- The README limits the claim to between-gene variation and explicitly disclaims individual-level and variant-effect prediction. That is the axis the test varies, so F05 (wrong axis) doesn't apply.\n\n**Issues that matter**\n1. **The predictions are miscalibrated.** They run about 0.94 log TPM below the observed values on average. RMSE is 1.58 and R\u00b2 is 0.36, against r\u00b2 = 0.63. Pearson r hides this, so the word \"explains much of the variation\" is stronger than the absolute fit supports. Report R\u00b2 or RMSE next to r, or recalibrate.\n2. **There are no baselines (F08, F06).** Between-gene expression is partly predictable from simple features: GC content, CpG density near the TSS, promoter k-mers, and gene-length features. A one-hot CNN or a k-mer ridge model on the same split is needed to show what the model adds. Without it, \"sequence explains expression\" is not attributable to ExprNet.\n3. **Possible homology leakage (F12).** Holding out whole chromosomes does not stop paralogs and repeat families that span chromosomes from sitting on both sides of the split. I can't test this from the CSV, since it has no sequences. Compute each test gene's sequence identity to its nearest training gene, and plot accuracy against it.\n4. **Chromosomes 8\u201310 are one split with one seed, and no confidence interval is given.** The per-chromosome results are consistent, but a bootstrap CI or a different held-out chromosome set would be better. I can't check the training procedure, since no code is included.\n5. **The README says the claim is for lymphoblastoid cells only.** It shouldn't be generalized to other cell types.\n\nThe central claim is narrow and the data reproduces it, but it is not yet shown that the sequence model is what produces the signal. Baselines and a homology check are what's missing.\n\nVERDICT: NOT SUPPORTED\n\nThe r = 0.79 reproduces, but the issues above (no simple baselines, no homology check, miscalibrated predictions) leave \"sequence explains much of the variation\" unestablished for a paper.",
+  "is_error": false,
+  "cost_usd": 0.0354102,
+  "duration_s": 13.9,
+  "turns": 4,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "head -5 gene_level_eval.csv && python -c \"\nimport pandas as pd;d=pd.read_csv('gene_level_eval.csv');print(d.describe(include='all'));print(d.select_dtypes('number').corr())\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "python -c \"\nimport pandas as pd,numpy as np;from scipy.stats import spearmanr\nd=pd.read_csv('gene_level_eval.csv');p,o=d.predicted_log_tpm,d.observed_log_tpm\nprint(spearmanr(p,o)[0],d.gene.is_unique)\nfor c,g in d.groupby('test_chromosome'):print(c,len(g),g.predicted_log_tpm.corr(g.observed_log_tpm))\nprint('rmse',np.sqrt(((p-o)**2).mean()),'r2',1-((p-o)**2).sum()/((o-o.mean())**2).sum())\nprint((o-p).mean())\""
+      }
+    }
+  ]
+}

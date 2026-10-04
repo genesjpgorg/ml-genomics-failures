@@ -1,0 +1,146 @@
+grading 72 runs with claude-opus-5-5
+C01/arm0/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm0/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm1/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm1/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm3/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm3/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm0/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm0/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm1/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm1/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm3/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm3/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C03/arm0/rep0: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=False
+C03/arm0/rep1: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=True
+C03/arm1/rep0: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=True
+C03/arm1/rep1: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=True
+C03/arm3/rep0: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=True
+C03/arm3/rep1: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=True
+C04/arm0/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm0/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm1/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm1/rep1: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=True
+C04/arm3/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm3/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+T01/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+grading 72 runs with claude-opus-5-5
+C01/arm0/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm0/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm1/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm1/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm3/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C01/arm3/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm0/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm0/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm1/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm1/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm3/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C02/arm3/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C03/arm0/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C03/arm0/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C03/arm1/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C03/arm1/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C03/arm3/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C03/arm3/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm0/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm0/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm1/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm1/rep1: verdict NOT SUPPORTED (WRONG), detected=None false_alarm=True
+C04/arm3/rep0: verdict SUPPORTED (ok), detected=None false_alarm=False
+C04/arm3/rep1: verdict SUPPORTED (ok), detected=None false_alarm=False
+T01/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T01/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T02/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T03/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T04/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T05/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T06/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T07/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm0/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm0/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm1/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm1/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm3/rep0: verdict NOT SUPPORTED (ok), detected=True false_alarm=None
+T08/arm3/rep1: verdict NOT SUPPORTED (ok), detected=True false_alarm=None

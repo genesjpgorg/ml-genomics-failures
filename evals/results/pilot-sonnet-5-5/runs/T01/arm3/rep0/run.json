@@ -1,0 +1,78 @@
+{
+  "task": "T01",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 20.2,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "**The claim is not supported.** The 0.79 AUROC reproduces, but a baseline that never looks at sequence gets almost all of it, and the split cannot show generalization to new proteins.\n\n**What I checked**\n- I recomputed the test AUROC from `predictions_test.csv` and got 0.790 on 140 pairs.\n- I ran `check_split_overlap` on the train and test pairs with the protein columns and the label. I did not run the sequence-similarity or k-mer checks. There are no sequences in the directory, only protein IDs.\n\n**Issues**\n1. **Proteins are shared across the split (class L, closest published case F04).**\n   - Pairs were split at random, but the real unit of independence is the protein, and there are only 60 of them.\n   - Every test pair has at least one protein that is also in training, and 99% have both. Only 1 test row has an unseen protein.\n   - This is not generalization to new proteins, and \"uncharacterized proteins\" are exactly the unseen case.\n2. **A no-learning baseline matches the model (classes L and S).**\n   - Predicting each test pair from the training label rates of its two proteins scores AUROC 0.771. No features and no model are involved.\n   - That is 93% of PairNet's gain over chance, so the 0.79 mostly reflects per-protein interaction rates (hub or promiscuous proteins), not sequence determinants of interaction.\n3. **The claim tests the wrong axis (class A).**\n   - The claim is about new pairs and new proteins. The test only varies pairs among already-seen proteins.\n   - The fix is to hold out proteins entirely, with both proteins unseen in the strictest case. I would also cluster proteins by homology (MMseqs2) so that paralogs don't leak across the split (F12).\n4. **Other gaps.**\n   - The test set is 140 pairs, and there is one run with no variance or confidence interval. The gap of about 0.02 AUROC over the baseline is well within noise.\n   - There are no sequence-only baselines (k-mer, one-hot), no true null such as permuting labels by protein, and no information on where the \"curated screen\" labels came from (circularity, class C).\n\n**To fix before publication:** re-split by protein, report the degree/rate baseline next to PairNet, and give a confidence interval. I would drop the claim that PairNet predicts partners for uncharacterized proteins unless it holds on the held-out-protein split.\n\nI wrote `audit.py` in the directory, but the sandbox blocked it, so it never ran. The overlap and baseline numbers above come from the MCP tool.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.0589726,
+  "duration_s": 18.9,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "Bash",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "check_split_overlap",
+    "fetch"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-jt2b3ey0/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-jt2b3ey0/analysis; head -4 *.csv"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-jt2b3ey0/analysis; cat > audit.py <<'E'\nimport pandas as pd, numpy as np\nfrom sklearn.metrics import roc_auc_score\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nte=te.merge(p,on=['protein_a','protein_b'])\nprint(len(tr),len(te),tr.label.mean(),te.label.mean(),roc_auc_score(te.label,te.score))\n# per-protein label rate from train\nlong=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})])\nrate=long.groupby('p').label.agg(['mean','count']);print(rate.describe())\ng=tr.label.mean()\nr=lambda x:rate['mean'].get(x,g)\nte['ent']=[ (r(a)+r(b))/2 for a,b in zip(te.protein_a,te.protein_b)]\nte['ent2']=[ 1-(1-r(a))*(1-r(b)) for a,b in zip(te.protein_a,te.protein_b)]\nprint('entity baseline AUROC',roc_auc_score(te.label,te.ent),roc_auc_score(te.label,te.ent2))\nprint('test proteins unseen:',sum((a not in rate.index) or (b not in rate.index) for a,b in zip(te.protein_a,te.protein_b)))\nprint('pair dup',len(set(zip(te.protein_a,te.protein_b))&set(zip(tr.protein_a,tr.protein_b))))\nE\npython audit.py"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "columns": [
+          "protein_a",
+          "protein_b"
+        ],
+        "train_path": "/tmp/review-jt2b3ey0/analysis/pairs_train.csv",
+        "test_path": "/tmp/review-jt2b3ey0/analysis/pairs_test.csv",
+        "label": "label",
+        "model_score": 0.79
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-jt2b3ey0/analysis; python -c \"\nimport pandas as pd\nfrom sklearn.metrics import roc_auc_score as a\nt=pd.read_csv('pairs_test.csv').merge(pd.read_csv('predictions_test.csv'),on=['protein_a','protein_b'])\nprint(len(t),a(t.label,t.score))\""
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F04"
+      }
+    }
+  ]
+}

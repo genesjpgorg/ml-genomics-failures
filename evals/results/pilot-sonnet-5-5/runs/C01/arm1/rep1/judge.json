@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": true,
+  "rationale": "The reviewer confirmed the split is protein-disjoint (0 shared proteins) and that co-expression alone gives about 0.85 AUROC, then correctly returned SUPPORTED without either false alarm; the sample-size and dependence points are acceptable caveats. They also raised legitimate issues the key omits: the shipped predictions (0.81) don't match a refit (0.854) and their provenance is undocumented, label and negative sampling are undocumented, and there is no homology filtering across the split.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

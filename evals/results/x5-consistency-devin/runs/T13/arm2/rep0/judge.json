@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "false_alarm": null,
+  "rationale": "The agent found both flaws: every test pair shares proteins with training (the per-protein memorisation baseline reaches AUROC 0.83), and batch is confounded with the label (batch alone gives AUROC 0.771). It recommended a protein-held-out split with within-batch evaluation and reported both baselines, though it did not run that split itself.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

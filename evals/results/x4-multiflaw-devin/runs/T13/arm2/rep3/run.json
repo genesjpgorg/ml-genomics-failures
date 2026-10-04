@@ -1,0 +1,55 @@
+{
+  "task": "T13",
+  "arm": "2",
+  "rep": 3,
+  "model": "claude-sonnet-5-5-medium",
+  "prompt": "train",
+  "prompt_text": "Train a classifier on the data in this directory (README.md describes it) and report its held-out performance. Python (numpy, pandas, scipy, scikit-learn) is available; create scripts with the Write tool.",
+  "wall_s": 20.1,
+  "timed_out": false,
+  "stderr_tail": "",
+  "duration_s": 20.1,
+  "cost_usd": null,
+  "api_error_status": null,
+  "answer": "Batch strongly tracks the label (5% vs 40% positives), and proteins are shared across the splits. I'll measure both effects.**Headline result:** a logistic regression on `batch` + `coexpression_z` gets a held-out AUROC of **0.79** on the 120 test pairs. A gradient-boosting model gets 0.78. I don't think this shows the model learned anything about protein interaction.\n\n**What the checks show:**\n- **Batch drives the score.** `batch` alone gives 0.77, and `coexpression_z` alone gives 0.58 (0.53 with gradient boosting). Positives are about 5% of pairs in batch 1 and about 40% in batch 2, so batch acts as a confounder. The model is mostly picking up which assay batch a pair came from.\n- **Coexpression adds little.** Within a single batch, AUROC from `coexpression_z` is 0.66 in batch 1 (77 pairs) and 0.52 in batch 2 (43 pairs). The batch 2 value is about chance, and both are noisy at this sample size.\n- **Proteins are shared between train and test.** Every test pair has at least one protein that also appears in training. A baseline that ignores the features and predicts from each protein's training label rate scores **0.83**. That beats the real model, so the 0.79 could come from memorizing per-protein rates rather than anything generalizable.\n\n**How to read it:** 0.79 is what the setup gives you, but a more honest estimate of signal from the features is about 0.55\u20130.65. A model like this probably wouldn't carry over to new proteins or to a differently balanced batch. A fairer evaluation would hold out proteins entirely, so no test pair shares a protein with training, and would compare within batch or balance batches.\n\nI did not run those fairer splits. The script is `run.py`, in the analysis directory.",
+  "tool_calls": [
+    "exec",
+    "mcp_list_tools",
+    "exec",
+    "exec"
+  ],
+  "mcp_calls": [
+    "mcp_list_tools"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-w6w2gh_h/analysis && ls -la && cat README.md"
+      }
+    },
+    {
+      "name": "mcp_list_tools",
+      "input": {
+        "server_name": "ml-genomics-failures"
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-w6w2gh_h/analysis && head -5 pairs_train.csv pairs_test.csv; ls .devin; cat .devin/* | head -30; python -c \"\nimport pandas as pd\nfor f in ['train','test']:\n    d=pd.read_csv(f'pairs_{f}.csv');print(d.describe(include='all').T)\n    print(d.groupby('batch').label.agg(['mean','count']))\n\""
+      }
+    },
+    {
+      "name": "exec",
+      "input": {
+        "command": "cd /tmp/review-w6w2gh_h/analysis && cat > run.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.ensemble import GradientBoostingClassifier as G\nfrom sklearn.linear_model import LogisticRegression as L\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv')\nfor name,f in [('all',['batch','coexpression_z']),('coexpr only',['coexpression_z']),('batch only',['batch'])]:\n    for M in (L(),G(random_state=0)):\n        m=M.fit(tr[f],tr.label);print(name,type(M).__name__,round(A(te.label,m.predict_proba(te[f])[:,1]),3))\nfor b in (1,2):\n    t=te[te.batch==b]\n    if t.label.nunique()>1:\n        m=L().fit(tr[['coexpression_z']],tr.label);print('within batch',b,round(A(t.label,m.predict_proba(t[['coexpression_z']])[:,1]),3),len(t))\n# protein-memorization baseline\nr={}\nfor c in ('protein_a','protein_b'):\n    for p,y in zip(tr[c],tr.label): r.setdefault(p,[]).append(y)\npr=tr.label.mean()\ns=[np.mean([np.mean(r[p]) for p in (a,b) if p in r] or [pr]) for a,b in zip(te.protein_a,te.protein_b)]\nprint('protein-memorization',round(A(te.label,s),3))\nprint('test pairs w/ protein seen in train:',np.mean([(a in r)or(b in r) for a,b in zip(te.protein_a,te.protein_b)]))\nE\npython run.py"
+      }
+    }
+  ],
+  "turns": 3,
+  "prompt_tokens": 90901,
+  "completion_tokens": 1639,
+  "is_error": false
+}

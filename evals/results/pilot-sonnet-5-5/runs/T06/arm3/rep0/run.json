@@ -1,0 +1,77 @@
+{
+  "task": "T06",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 19.7,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim is not supported. The control the claim rests on keeps the confounder it is meant to remove, and a composition-only baseline beats the CNN.\n\n**Findings**\n\n1. **The shuffled control is not a null (class K, case F02).**\n   - Dinucleotide shuffling keeps GC content and the full 2-mer spectrum. It removes only the order of motifs.\n   - Composition alone separates the classes. Mean GC is 0.58 for bound sequences and 0.45 for unbound ones.\n   - A shuffled-sequence AUROC of 0.86 therefore shows the CNN reads composition. The 0.03 gap to 0.89 is the only possible evidence of \"grammar\".\n   - That gap comes from one seed. It is small and unreplicated, and it is not tested against anything.\n\n2. **A composition baseline beats the CNN (class B/S).** I ran `kmer_baseline` on the train and test splits (600 train, 200 test, balanced).\n\n   | Predictor | Test AUROC |\n   |---|---|\n   | GC content alone (5-nearest-neighbour) | 0.964 |\n   | 2-mer frequencies (5-nearest-neighbour) | 0.973 |\n   | CNN (reported) | 0.89 |\n\n   - The CNN does worse than GC content alone, so there is no evidence it learned anything beyond composition.\n   - The negatives are \"random accessible regions\" with no GC matching. That is a shortcut built into the dataset design.\n\n3. **There is no real null and no motif-level test.**\n   - No label-permutation run is reported.\n   - No GC-matched negatives are used.\n   - There is no motif scan, spacing or orientation analysis, and no in-silico motif disruption.\n   - Without these, \"FOXA2 and co-factor grammar\" is not testable from this data.\n\n4. **Variance.** Each number is a single seed (seed 0), with 200 test sequences. A 0.03 AUROC difference cannot be interpreted from that.\n\n5. **Leakage not checked.** The test was a random split of ChIP-seq loci. I could not check homology between train and test because `check_sequence_similarity` errored on my input, so overlap and homology remain unchecked. Nothing in the README says the split was done by chromosome or locus.\n\n**To fix before it goes in a paper**\n- Use GC- and dinucleotide-matched negatives.\n- Report the k-mer logistic-regression baseline next to the CNN.\n- Run several seeds with confidence intervals.\n- Include a label-permutation null.\n- Split by chromosome.\n- Test grammar directly, for example by comparing intact sequences against ones where motif spacing or order is perturbed while the motifs themselves are kept.\n\nVERDICT: NOT SUPPORTED\n\nIssues that matter most:\n- The dinucleotide-shuffle control preserves composition, so beating it says nothing about grammar (K, F02).\n- GC alone gets AUROC 0.96 and 2-mers get 0.97, both above the CNN's 0.89 (B/S). The negatives are not composition-matched.\n- There is no true null and no motif-arrangement analysis.\n- Everything rests on one seed, and the split's independence (by locus or chromosome) is unverified.",
+  "is_error": false,
+  "api_error_status": null,
+  "cost_usd": 0.05341219999999999,
+  "duration_s": 18.3,
+  "turns": 8,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "Bash",
+    "mcp__ml-genomics-failures__kmer_baseline",
+    "mcp__ml-genomics-failures__check_sequence_similarity"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch",
+    "kmer_baseline",
+    "check_sequence_similarity"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-yl8pdfaf/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-yl8pdfaf/analysis; cat results.json; head -3 sequences.csv; python -c \"\nimport pandas as pd;d=pd.read_csv('sequences.csv');print(d.groupby(['split','bound']).size());d['gc']=d.sequence.str.count('[GC]')/d.sequence.str.len();print(d.groupby('bound').gc.mean(), d.sequence.str.len().describe())\""
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F02"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-yl8pdfaf/analysis; python -c \"\nimport pandas as pd\nd=pd.read_csv('sequences.csv')\nd['label']=d.bound\nd[d.split=='train'][['id','label','sequence']].to_csv('/tmp/tr.csv',index=False)\nd[d.split=='test'][['id','label','sequence']].to_csv('/tmp/te.csv',index=False)\n\""
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__kmer_baseline",
+      "input": {
+        "train_path": "/tmp/tr.csv",
+        "test_path": "/tmp/te.csv",
+        "model_score": 0.89,
+        "k": 2
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_sequence_similarity",
+      "input": {
+        "train_fasta_path": "/tmp/tr.csv",
+        "test_fasta_path": "/tmp/te.csv"
+      }
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "task": "T01",
+  "arm": "3",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 36.4,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "The main claim isn't supported. The reported AUROC 0.79 can be reproduced almost entirely without learning anything about interactions. I did not run my own script. The bash call was rejected, so everything below comes from the MCP overlap check and my reading of the files.\n\n**Leakage from a random pair split (class L, case F03).** The 700 pairs cover only 60 proteins, and pairs were assigned to train and test at random.\n- **Shared proteins:** every test pair has at least one protein that also appears in training (100% for `protein_a`, 99% for `protein_b`). Almost every test pair (99.3%) has both proteins seen in training.\n- **Scale of the overlap:** training has 56\u201357 unique proteins per column, and 46\u201348 of the test proteins are shared with them.\n- **Unit of independence:** the unit is the protein, not the pair, and the split ignores it.\n\n**A no-feature baseline reaches nearly the same score (class S).** I predicted each test pair only from the training label rates of its own two proteins. This uses no sequence and no learning. It scores AUROC 0.771, against PairNet's 0.79. That is about 93% of PairNet's gain over chance (0.5). A model could get this by memorizing how often each protein interacts, which is the same failure as F03 and F04. The gap of about 0.02 is within what a single seed and 140 test pairs can't resolve.\n\n**The test doesn't match the claim (class A).**\n- **What the claim needs:** the stated use is predicting partners for uncharacterized proteins. That requires held-out proteins, and ideally held-out proteins that aren't homologous to training proteins.\n- **What was tested:** only held-out pairs of proteins the model has already seen.\n- **Missing numbers:** the README reports no performance when one or both proteins are unseen.\n\n**Other gaps.**\n- **No baselines (B):** there are no sequence baselines such as k-mer or composition models, and no per-protein-rate baseline in the write-up. I did not run the k-mer baseline because the data has no sequences.\n- **No true null (K):** there is no label-permutation or protein-shuffled control. The README reports a single AUROC on 140 pairs, with no seeds or confidence interval.\n- **Homology and circularity (L, C):** I couldn't check homology between train and test proteins, because only IDs are provided. I also couldn't check whether the \"curated screen\" labels share a source with the pretrained embeddings.\n\n**Needed before this goes in a paper.**\n1. Re-split so no protein is on both sides. Use a cold-protein split, where both proteins in a test pair are unseen, and cluster by sequence identity.\n2. Report the per-protein-rate and k-mer baselines next to PairNet, with several seeds and confidence intervals.\n3. Rewrite the claim to match what is tested. As it stands, the README doesn't show that PairNet generalizes to new proteins.\n\nVERDICT: NOT SUPPORTED\n\nIssues that matter most:\n1. The random pair split puts the same proteins on both sides, so 99.3% of test pairs have both proteins seen in training.\n2. A protein-label-rate baseline with no features scores 0.771 against 0.79, about 93% of the model's gain.\n3. No cold-protein or homology-aware evaluation exists, so \"generalizes to uncharacterized proteins\" is untested.\n4. There are no sequence baselines, null control or variance estimates, and the test set is only 140 pairs.",
+  "is_error": false,
+  "cost_usd": 0.09159460000000001,
+  "duration_s": 35.1,
+  "turns": 7,
+  "tool_calls": [
+    "Bash",
+    "mcp__ml-genomics-failures__get_audit_checklist",
+    "Bash",
+    "mcp__ml-genomics-failures__fetch",
+    "mcp__ml-genomics-failures__check_split_overlap",
+    "Bash"
+  ],
+  "mcp_calls": [
+    "get_audit_checklist",
+    "fetch",
+    "check_split_overlap"
+  ],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-z90pc_1x/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__get_audit_checklist",
+      "input": {}
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-z90pc_1x/analysis; head -4 pairs_train.csv pairs_test.csv predictions_test.csv"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__fetch",
+      "input": {
+        "id": "F03"
+      }
+    },
+    {
+      "name": "mcp__ml-genomics-failures__check_split_overlap",
+      "input": {
+        "columns": [
+          "protein_a",
+          "protein_b"
+        ],
+        "train_path": "/tmp/review-z90pc_1x/analysis/pairs_train.csv",
+        "test_path": "/tmp/review-z90pc_1x/analysis/pairs_test.csv",
+        "label": "label",
+        "model_score": 0.79
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-z90pc_1x/analysis; cat > a.py <<'E'\nimport pandas as pd,numpy as np\nfrom sklearn.metrics import roc_auc_score as A\ntr=pd.read_csv('pairs_train.csv');te=pd.read_csv('pairs_test.csv');p=pd.read_csv('predictions_test.csv')\nte=te.merge(p,on=['protein_a','protein_b']);print(len(tr),len(te),te.label.mean(),tr.label.mean())\nprint('model',A(te.label,te.score))\n# per-protein label rate from train (either role)\nl=pd.concat([tr[['protein_a','label']].rename(columns={'protein_a':'p'}),tr[['protein_b','label']].rename(columns={'protein_b':'p'})])\nr=l.groupby('p').label.agg(['mean','count']);g=tr.label.mean()\nf=lambda x:r['mean'].get(x,g)\nte['pa']=te.protein_a.map(f);te['pb']=te.protein_b.map(f)\nte['b']=te.pa+te.pb;print('degree-rate baseline',A(te.label,te.b), 'prod',A(te.label,te.pa*te.pb))\nprint('corr model vs baseline',np.corrcoef(te.score,te.b)[0,1])\nprint(r.describe())\nprint('dup pairs',tr.duplicated(['protein_a','protein_b']).sum(), 'test pairs in train',te.merge(tr,on=['protein_a','protein_b']).shape[0])\n# rate dispersion\nprint(r['mean'].sort_values().iloc[[0,1,2,-3,-2,-1]])\nE\npython a.py"
+      }
+    }
+  ]
+}

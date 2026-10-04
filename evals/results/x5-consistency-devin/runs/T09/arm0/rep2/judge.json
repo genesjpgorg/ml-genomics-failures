@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": false,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent saw that test proteins also appear in training. It showed that one-hot protein identity lifts AUROC from 0.65 to 0.85 through memorized propensities rather than generalisation, so it declined to report the inflated figure and proposed a protein-disjoint split. It counted shared proteins (40 and 43) but never measured the share of test pairs with a protein seen in training (~100%), and it didn't run the per-protein label-rate baseline (~0.82).",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

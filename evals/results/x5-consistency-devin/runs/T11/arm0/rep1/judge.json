@@ -1,0 +1,14 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "other_valid_issue": false,
+  "rationale": "The agent found that plate/run date is confounded with case status, so the 0.86 AUROC reflects the batch rather than disease. It measured that plate alone gives AUROC 0.825, and its table shows 51/60 cases (85%) on plates 1-2. It proposed balancing cases and controls across plates or running a replication cohort on separate plates, which matches the key's fix.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

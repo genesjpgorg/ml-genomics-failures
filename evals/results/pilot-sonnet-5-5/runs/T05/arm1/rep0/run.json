@@ -1,0 +1,56 @@
+{
+  "task": "T05",
+  "arm": "1",
+  "rep": 0,
+  "model": "claude-sonnet-5-5",
+  "wall_s": 37.7,
+  "timed_out": false,
+  "stderr_tail": "",
+  "answer": "**The claim is not supported.** On this data, a single GC-content threshold classifies the test set perfectly, so the 0.99 accuracy doesn't show that PhageFormer learned phage gene content.\n\n**What I checked** (script: `audit.py`, run on `train.csv` and `test.csv`)\n- **GC content (S):** phage contigs average 40.7% GC and bacterial contigs 55.1%, with a standard deviation of 7.7 points. A threshold at the midpoint of the two training means scores **1.00** on the 100 test contigs.\n- **Other trivial baselines (B):** logistic regression and random forest on mono-, di-, tri-, 4- and 6-mer frequencies all score **1.00** on the test set. A 6-mer composition model already matches or beats PhageFormer's input representation.\n- **Leakage (L):** I found none. There are no exact duplicates, and no test contig shares a 31-mer with any training contig. The split is clean, so the problem is the shortcut, not a leak. The data set is also small (200 training contigs, 100 test contigs).\n- **Model and attention evidence:** `README.md` and `results.json` contain only the accuracy figure. There is no model code, no baseline comparison, no control, and no attention analysis. I couldn't check the model or the claim that attention highlights phage structural and replication genes.\n\n**Issues that matter most**\n1. **GC content alone separates the classes (S, B).** This is the headline problem. The 0.99 figure is what a one-feature baseline gets, so it is evidence of compositional separation and nothing more. The README reports no baselines.\n2. **The \"gene content\" claim has no support (K, A).** Nothing tests gene content. Attention maps are not evidence of what the model uses, and they were not compared with annotated genes. A shuffle control that preserves composition (see F02) would still score high, so it wouldn't be a null.\n3. **The \"novel phage discovery where homology tools fail\" claim is untested (A).** The test set was never compared with homology tools such as BLAST, geNomad, or VirSorter2. Nothing in it is hard or divergent: it is balanced 50/50, uses fixed 1.5 kb contigs, and shows an easy GC gap. Real metagenomes have far more bacterial than phage contigs, and many phages have GC content close to their hosts'. This is the claim the paper most needs to back up, and the evidence doesn't address it.\n4. **The test set is small, with one result (variance).** With 100 test contigs and no seeds or confidence interval, 0.99 means 99 of 100 correct. It says nothing about how the model does on other data.\n5. **The split is probably not independent.** The data may come from a source other than real gut metagenomes. I can't tell where the labels came from. The README doesn't say how phage or bacterial status was assigned, and if a tool or database labelled them, the benchmark could be circular (C).\n\n**What to do before this goes in a paper**\n- Report the GC-threshold and k-mer baselines next to PhageFormer.\n- Evaluate on GC-matched phage and bacterial contigs.\n- Split by host or phage cluster, and compare with homology and k-mer tools.\n- Add a true null, such as permuting labels.\n- Tie the attention maps to annotated genes, or remove that statement.\n\nVERDICT: NOT SUPPORTED",
+  "is_error": false,
+  "cost_usd": 0.06725900000000001,
+  "duration_s": 36.9,
+  "turns": 6,
+  "tool_calls": [
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Bash"
+  ],
+  "mcp_calls": [],
+  "contaminated": false,
+  "tool_inputs": [
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p_9_59mh/analysis; ls -la; cat README.md"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p_9_59mh/analysis; cat results.json; head -c 600 train.csv; python -c \"\nimport pandas as pd\nfor f in ['train','test']:\n    d=pd.read_csv(f+'.csv');print(d.shape,d.columns.tolist());print(d.iloc[:,1].value_counts());print(d.sequence.str.len().describe())\n\""
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p_9_59mh/analysis; cat > audit.py <<'E'\nimport pandas as pd,numpy as np\nfrom itertools import product\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.ensemble import RandomForestClassifier\ntr=pd.read_csv('train.csv');te=pd.read_csv('test.csv')\ny=(tr.label=='phage').values;yt=(te.label=='phage').values\ngc=lambda s:(s.count('G')+s.count('C'))/len(s)\ng=tr.sequence.map(gc);gt=te.sequence.map(gc)\nprint('GC mean',g[y].mean(),g[~y].mean(),'sd',g.std())\nthr=(g[y].mean()+g[~y].mean())/2;sgn=g[y].mean()>g[~y].mean()\nprint('GC thresh acc',((gt>thr)==yt).mean() if sgn else ((gt<thr)==yt).mean())\ndef kf(s,k):\n    ks=[''.join(p) for p in product('ACGT',repeat=k)];i={a:j for j,a in enumerate(ks)}\n    v=np.zeros(len(ks))\n    for j in range(len(s)-k+1):\n        if s[j:j+k] in i:v[i[s[j:j+k]]]+=1\n    return v/v.sum()\nfor k in(1,2,3,4,6):\n    X=np.array([kf(s,k) for s in tr.sequence]);Xt=np.array([kf(s,k) for s in te.sequence])\n    print(k,'LR',LogisticRegression(C=100,max_iter=3000).fit(X,y).score(Xt,yt),'RF',RandomForestClassifier(300,random_state=0).fit(X,y).score(Xt,yt))\n# overlap / near duplicates\ndef sh(s,k=31):return {s[i:i+k] for i in range(0,len(s)-k+1)}\ntrs=[sh(s) for s in tr.sequence];\nprint('dup exact',len(set(tr.sequence)&set(te.sequence)),'within test dup',te.sequence.duplicated().sum(),te.id.head(3).tolist())\nmx=[];\nfor s in te.sequence:\n    a=sh(s);mx.append(max(len(a&b)/len(a) for b in trs))\nmx=np.array(mx);print('31mer shared frac max: >0.1',(mx>0.1).sum(),'>0.5',(mx>0.5).sum(),np.percentile(mx,[50,90,100]))\nprint('shuffle null: ',end='')\nE\npython audit.py"
+      }
+    },
+    {
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/review-p_9_59mh/analysis/audit.py",
+        "content": "import pandas as pd,numpy as np\nfrom itertools import product\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.ensemble import RandomForestClassifier\ntr=pd.read_csv('train.csv');te=pd.read_csv('test.csv')\ny=(tr.label=='phage').values;yt=(te.label=='phage').values\ngc=lambda s:(s.count('G')+s.count('C'))/len(s)\ng=tr.sequence.map(gc);gt=te.sequence.map(gc)\nprint('GC mean phage/bact',g[y].mean(),g[~y].mean(),'sd',g.std())\nthr=(g[y].mean()+g[~y].mean())/2;sgn=g[y].mean()>g[~y].mean()\nprint('GC thresh acc',((gt>thr)==yt).mean() if sgn else ((gt<thr)==yt).mean())\ndef kf(s,k):\n    ks=[''.join(p) for p in product('ACGT',repeat=k)];i={a:j for j,a in enumerate(ks)}\n    v=np.zeros(len(ks))\n    for j in range(len(s)-k+1):\n        if s[j:j+k] in i:v[i[s[j:j+k]]]+=1\n    return v/v.sum()\nfor k in(1,2,3,4,6):\n    X=np.array([kf(s,k) for s in tr.sequence]);Xt=np.array([kf(s,k) for s in te.sequence])\n    print(k,'LR',LogisticRegression(C=100,max_iter=3000).fit(X,y).score(Xt,yt),'RF',RandomForestClassifier(300,random_state=0).fit(X,y).score(Xt,yt))\ndef sh(s,k=31):return {s[i:i+k] for i in range(0,len(s)-k+1)}\ntrs=[sh(s) for s in tr.sequence]\nprint('exact dup',len(set(tr.sequence)&set(te.sequence)))\nmx=np.array([max(len(sh(s)&b)/len(sh(s)) for b in trs) for s in te.sequence])\nprint('31mer shared frac >0.1:',(mx>0.1).sum(),'>0.5:',(mx>0.5).sum(),np.percentile(mx,[50,90,100]))\n"
+      }
+    },
+    {
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/review-p_9_59mh/analysis; python audit.py"
+      }
+    }
+  ]
+}

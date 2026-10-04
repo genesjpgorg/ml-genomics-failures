@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": null,
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The agent found the plate/batch confound and measured it on the data: batch alone gives AUROC ~0.88, and 54/60 cases vs 8/60 controls sit on plates 1\u20132. Both numbers match the key, and the agent proposed balancing cases and controls across plates and validating on an independent cohort. It argued that selection leakage was not the main issue, which goes against the key's side note, but its central diagnosis is correct.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "devin:claude-opus-5-5-medium"
+}

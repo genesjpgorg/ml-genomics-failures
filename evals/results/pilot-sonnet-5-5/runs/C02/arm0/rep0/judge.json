@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "SUPPORTED",
+  "expected_verdict": "SUPPORTED",
+  "verdict": "SUPPORTED",
+  "detected": null,
+  "quantified": null,
+  "fix": null,
+  "false_alarm": false,
+  "other_valid_issue": false,
+  "rationale": "The reviewer correctly found that plates are balanced against case status and that feature selection happens inside the CV folds, and backed this with a reproduction and a permutation null before returning SUPPORTED. The plate effect, external validation and sample size points match the acceptable caveats; the seed-variance and clinical-covariate notes are reasonable minor suggestions, not substantive new flaws.",
+  "final_verdict": "SUPPORTED",
+  "verdict_correct": true,
+  "flawed": false,
+  "judge_model": "claude-opus-5-5"
+}

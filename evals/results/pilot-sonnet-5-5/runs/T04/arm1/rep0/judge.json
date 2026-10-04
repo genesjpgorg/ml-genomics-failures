@@ -1,0 +1,15 @@
+{
+  "parsed_verdict": "NOT SUPPORTED",
+  "expected_verdict": "NOT SUPPORTED",
+  "verdict": "NOT SUPPORTED",
+  "detected": true,
+  "quantified": true,
+  "fix": true,
+  "false_alarm": null,
+  "other_valid_issue": false,
+  "rationale": "The reviewer identified train/test near-duplicate leakage and showed accuracy collapses to chance (0.52) on test promoters with no close training relative versus 1.00 on the closest ones. They measured 73/100 test sequences sharing substantial k-mers with training, close to the key's ~70/100. They proposed cluster-based re-splitting with MMseqs2/CD-HIT and reporting accuracy versus distance to the nearest training sequence; their other points (baselines, permutation control, sample size) are generic or follow from the leakage.",
+  "final_verdict": "NOT SUPPORTED",
+  "verdict_correct": true,
+  "flawed": true,
+  "judge_model": "claude-opus-5-5"
+}
