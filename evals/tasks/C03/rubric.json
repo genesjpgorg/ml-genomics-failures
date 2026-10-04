@@ -2,7 +2,7 @@
   "id": "C03",
   "flawed": false,
   "expected_verdict": "SUPPORTED",
-  "mechanism": "Clean control. Composition is identical between classes (GC-only ~0.47, 4-mer ~0.52), no near-duplicate sequences, three seeds, a true null and a control that destroys the motifs.",
+  "mechanism": "Clean control. Composition is identical between classes (GC-only ~0.54, 4-mer ~0.44), absolute motif position is nearly uninformative (best single-motif position rule ~0.59), no near-duplicate sequences, three seeds, a true null and a control that destroys the motifs.",
   "false_alarms": [
     "claiming a composition shortcut",
     "claiming sequence leakage",

@@ -719,13 +719,31 @@ def c03() -> None:
     rng = random.Random(13)
     a, b = "TGACTCAG", "CACGTGAC"
 
+    def background() -> list[str]:
+        while True:  # no accidental extra motif copies (either strand)
+            s = rand_seq(rng, 200)
+            if not any(
+                m in s
+                for m in (
+                    a,
+                    b,
+                    a[::-1].translate(str.maketrans("ACGT", "TGCA")),
+                    b[::-1].translate(str.maketrans("ACGT", "TGCA")),
+                )
+            ):
+                return list(s)
+
     def make(n, prefix):
+        # The pair sits anywhere along the sequence with a short gap, so each motif's absolute position has nearly
+        # the same distribution in both classes: order is the only thing that separates them. (Fixed upstream and
+        # downstream windows would make "AP-1 in the left half" a perfect position shortcut.)
         rows = []
         for i in range(n):
             lab = i % 2
-            s = list(rand_seq(rng, 200))
-            p1 = rng.randrange(10, 80)
-            p2 = rng.randrange(110, 180)
+            s = background()
+            gap = rng.randrange(4, 11)
+            p1 = rng.randrange(5, 200 - 5 - 16 - gap)
+            p2 = p1 + 8 + gap
             first, second = (a, b) if lab else (b, a)
             s[p1 : p1 + 8] = first
             s[p2 : p2 + 8] = second
@@ -743,7 +761,17 @@ def c03() -> None:
         abs(base["kmer_4"]["score"] - 0.5) < 0.12 and abs(base["gc_only"]["score"] - 0.5) < 0.12,
         "C03 composition uninformative",
     )
-    check(sim["by_identity"][-1]["n_test"] == 200, "C03 no similar sequences")
+    near = sum(b["n_test"] for b in sim["by_identity"][:3])  # >=0.90: chance motif+gap k-mers only reach ~0.8
+    check(near == 0, f"C03 no near-duplicate sequences ({near})")
+    # best single-motif position rule (threshold on AP-1 or E-box start, either direction) must stay near chance
+    pos_acc = 0.0
+    for motif in (a, b):
+        pos = np.array([r["sequence"].find(motif) for r in test])
+        y = np.array([r["order_ab"] for r in test])
+        for t in range(0, 200):
+            acc = np.mean((pos < t) == y)
+            pos_acc = max(pos_acc, acc, 1 - acc)
+    check(pos_acc < 0.6, f"C03 position-only rule {pos_acc:.2f}")
     pred = [r["order_ab"] if rng.random() < 0.9 else 1 - r["order_ab"] for r in test]
     acc = np.mean([p == r["order_ab"] for p, r in zip(pred, test)])
     ws = task(
@@ -751,9 +779,11 @@ def c03() -> None:
         f"""
 # A CNN detects the order of AP-1 and E-box motifs in synthetic enhancers
 
-In a synthetic enhancer library, every 200 bp sequence carries one AP-1 site (TGACTCAG) and one E-box (CACGTGAC);
-only the order differs (AP-1 upstream = class 1, E-box upstream = class 0). Background sequence is random, so both
-classes have the same composition. We trained a CNN to predict the order class.
+In a synthetic enhancer library, every 200 bp sequence carries one AP-1 site (TGACTCAG) and one E-box (CACGTGAC),
+4–10 bp apart; only the order differs (AP-1 upstream = class 1, E-box upstream = class 0). The motif pair is placed
+uniformly along the sequence, so each motif's absolute position has nearly the same distribution in both classes,
+and background sequence is random without other motif copies, so both classes have the same composition. We
+trained a CNN to predict the order class.
 
 - Data: `sequences.csv` (id, split, order_ab, sequence); `predictions_test.csv`.
 - Split: independently synthesized sequences; the most similar train/test pair shares < 40% identity outside the motifs.
@@ -767,8 +797,9 @@ two motifs.
             "flawed": False,
             "expected_verdict": "SUPPORTED",
             "mechanism": f"Clean control. Composition is identical between classes (GC-only ~{base['gc_only']['score']:.2f}, "
-            f"4-mer ~{base['kmer_4']['score']:.2f}), no near-duplicate sequences, three seeds, a true null and a "
-            "control that destroys the motifs.",
+            f"4-mer ~{base['kmer_4']['score']:.2f}), absolute motif position is nearly uninformative (best "
+            f"single-motif position rule ~{pos_acc:.2f}), no near-duplicate sequences, three seeds, a true null and "
+            "a control that destroys the motifs.",
             "false_alarms": [
                 "claiming a composition shortcut",
                 "claiming sequence leakage",
