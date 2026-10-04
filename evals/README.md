@@ -63,16 +63,19 @@ unit of independence, not the run.
 
 ## Findings so far
 
-**Sonnet 5.5 is at ceiling on the planted flaws.** Across review, write-up and train-and-report prompts, the
-baseline (no book, no MCP) detects every planted mechanism, on both backends (`claude -p` and `devin -p`,
-44 graded Devin runs: `x1-writeup-devin`, `x2-train-devin`, `x3-family-devin`, `x4-multiflaw-devin`). That
-includes a task with a hidden clustering column (T12) and one with two simultaneous flaws (T13). Outcome
-differences vs the MCP arm are within noise: +12% verdict and +17% fix in x2, one false alarm on a clean task
-in x3, ~30% more tokens. **The unprompted adoption is real, though**: ~95% of arm-2 runs call the tools without
-being asked, half of them the one-call `audit_directory`, so the server instructions do change what agents do
-first. For a strong model the book is insurance (consistent numbers, consistent coverage), not a capability
-lift; whether it lifts a weaker model is untested here — with Haiku 4.5 over `claude -p` it actively hurt
-(false alarms on clean controls).
+**Baseline Sonnet 5.5 detects every single-flaw task; the MCP's edge is completeness.** Across review, write-up
+and train-and-report prompts, the baseline detects every planted mechanism (`x1`–`x4`, 44 graded `devin -p`
+runs): single leaks, a hidden clustering column, confounded batches. On tasks with one flaw there is no
+outcome gap. Where a difference appears is consistency and completeness on harder tasks (`x5-consistency`,
+36 runs): on T13 (two simultaneous flaws) the baseline found the obvious confound but treated the leaky split
+as a caveat in 3 of 6 runs — full detection 50% vs 100% with the MCP, fixes 67% vs 94%. The tool's output
+framing matters: `check_split_overlap` reports the entity-memorization score as a failure, where an ad-hoc
+pandas check reads as a caveat.
+
+**Costs.** ~30% more tokens per run, and one false alarm on a clean task in x3 (the "everything looks like a
+pitfall" failure mode also seen when the book was text for Haiku 4.5). **Unprompted adoption is real**: ~95%
+of arm-2 runs call the tools without being asked, half of them the one-call `audit_directory` — the server
+instructions do change what agents do first.
 
 ## Known limits
 

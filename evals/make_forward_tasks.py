@@ -20,10 +20,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent / "src"))
 sys.path.insert(0, str(ROOT))
-from make_tasks import check, proteomics, rand_seq, task, write_csv  # noqa: E402
+from make_tasks import check, proteomics, rand_seq, task, write_csv
 
-from ml_genomics_failures import checks  # noqa: E402
-
+from ml_genomics_failures import checks
 
 # --- T09: PPI classifier, random pair split; only per-protein propensity predicts the label ------------------
 
