@@ -30,29 +30,34 @@ MASKS = [
     (re.compile(r"book of failures", re.IGNORECASE), "[reference]"),
 ]
 
-JUDGE = """You grade a reviewer's assessment of a scientific analysis against a hidden answer key. The reviewer saw \
-only the analysis files, not the key. Grade what the reviewer concluded and showed, not their writing style or length.
+JUDGE = """You grade an AI agent's response about a scientific analysis against a hidden answer key. The agent saw \
+only the analysis files, not the key. Grade what the agent concluded and showed, not its writing style or length.
+
+TASK GIVEN TO THE AGENT
+{task}
 
 ANSWER KEY
 {key}
 
-REVIEWER'S ANSWER
+AGENT'S RESPONSE
 <answer>
 {answer}
 </answer>
 
 Grade these fields (use null where a field doesn't apply to this task):
-- "verdict": the reviewer's final verdict on the main claim: "SUPPORTED", "NOT SUPPORTED" or "UNCLEAR".
-- "detected" (flawed tasks only): true if the reviewer identified the specific mechanism in the key's "mechanism" \
+- "verdict": the stance the response takes on the main claim: "SUPPORTED" if it presents or accepts the claim as \
+established (minor caveats are fine), "NOT SUPPORTED" if it rejects the claim or says a flaw undermines it (including \
+a write-up that declines to report it as claimed), "UNCLEAR" otherwise.
+- "detected" (flawed tasks only): true if the agent identified the specific mechanism in the key's "mechanism" \
 as a reason the claim fails (in their own words). Generic concerns ("small sample", "needs validation", "possible \
 confounding") don't count unless they name this mechanism.
-- "quantified" (flawed tasks only): true if the reviewer backed the mechanism with a number they measured on the \
+- "quantified" (flawed tasks only): true if the agent backed the mechanism with a number they measured on the \
 data that roughly matches one of the key's "quantify" items.
-- "fix" (flawed tasks only): true if the reviewer proposed the key's "fix" or an equivalent remedy.
-- "false_alarm" (clean tasks only): true if the reviewer asserted a serious flaw the key says is absent (see \
+- "fix" (flawed tasks only): true if the agent proposed the key's "fix" or an equivalent remedy.
+- "false_alarm" (clean tasks only): true if the agent asserted a serious flaw the key says is absent (see \
 "false_alarms"), or rejected the claim on grounds the data doesn't support. Caveats listed under \
 "acceptable_caveats", or minor suggestions, are not false alarms.
-- "other_valid_issue": true if the reviewer raised a real, important problem that the key doesn't mention.
+- "other_valid_issue": true if the agent raised a real, important problem that the key doesn't mention.
 - "rationale": one or two sentences.
 
 Return only a JSON object with exactly these keys."""
@@ -86,7 +91,7 @@ def grade(run_json: Path, model: str) -> dict:
         result |= {"verdict": "UNCLEAR", "detected": False if rubric["flawed"] else None, "error": "empty answer"}
     else:
         proc = subprocess.run(
-            ["claude", "-p", JUDGE.format(key=key_for(rubric), answer=answer), "--model", model, "--tools", "",
+            ["claude", "-p", JUDGE.format(task=mask(run.get("prompt_text", "Review the analysis: is the main claim supported?")), key=key_for(rubric), answer=answer), "--model", model, "--tools", "",
              "--strict-mcp-config", "--output-format", "json", "--no-session-persistence"],
             capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=600, check=False,
         )  # fmt: skip

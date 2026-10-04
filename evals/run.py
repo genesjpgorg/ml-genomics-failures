@@ -44,6 +44,12 @@ installed).
 
 End your answer with a line `VERDICT: SUPPORTED` or `VERDICT: NOT SUPPORTED`, followed by the issues that matter \
 most."""
+# The realistic case: the agent is asked to write the analysis up, and nobody mentions auditing it.
+WRITEUP = """Our analysis is in this directory (README.md and the files next to it). Draft the Results paragraph \
+for our paper, with the key numbers. Python (numpy, pandas, scipy, scikit-learn) is available if you need it; create \
+scripts with the Write tool."""
+PROMPTS = {"review": PROMPT, "writeup": WRITEUP}
+
 ARM3_SUFFIX = """
 
 Use the ml-genomics-failures MCP server to audit this: its checklist, the matching cases, and its check tools on \
@@ -59,12 +65,12 @@ BASH = ["python", "python3", "ls", "head", "tail", "wc", "cat", "grep", "sort", 
 CONTAMINATION = ("rubric.json", "ml-genomics-failures/evals", "ml-genomics-failures/dist", "AGENTS.md", "FAILURES.md")
 
 
-def claude_cmd(arm: dict, mcp_config: Path, model: str) -> list[str]:
+def claude_cmd(arm: dict, mcp_config: Path, model: str, prompt: str) -> list[str]:
     allowed = ["Read", "Write", "Edit", "Glob", "Grep", *(f"Bash({c}:*)" for c in BASH)]
     if arm["mcp"]:
         allowed.append("mcp__ml-genomics-failures")
     cmd = [
-        "claude", "-p", PROMPT + arm["suffix"],
+        "claude", "-p", prompt + arm["suffix"],
         "--model", model,
         "--restricted", "--tools", "Bash,Read,Write,Edit,Glob,Grep",
         "--allowedTools", *allowed,
@@ -110,7 +116,7 @@ class LimitReached(RuntimeError):
     """The account hit a usage or rate limit: the run says nothing about the agent, so it isn't recorded."""
 
 
-def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: int) -> dict:
+def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: int, prompt: str = "review") -> dict:
     run_dir = out / "runs" / task / f"arm{arm_id}" / f"rep{rep}"
     if (run_dir / "run.json").exists():
         return json.loads((run_dir / "run.json").read_text())
@@ -126,7 +132,7 @@ def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: in
         t0 = time.time()
         try:
             proc = subprocess.run(
-                claude_cmd(arm, mcp_config, model),
+                claude_cmd(arm, mcp_config, model, PROMPTS[prompt]),
                 cwd=ws,
                 env=env,
                 stdin=subprocess.DEVNULL,
@@ -145,6 +151,8 @@ def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: in
         "arm": arm_id,
         "rep": rep,
         "model": model,
+        "prompt": prompt,
+        "prompt_text": PROMPTS[prompt] + arm["suffix"],
         "wall_s": round(time.time() - t0, 1),
         "timed_out": timed_out,
         "stderr_tail": stderr[-500:],
@@ -164,6 +172,12 @@ def main() -> None:
     p.add_argument("--reps", type=int, default=2)
     p.add_argument("--tasks", default="all")
     p.add_argument("--model", default="claude-sonnet-5-5")
+    p.add_argument(
+        "--prompt",
+        choices=sorted(PROMPTS),
+        default="review",
+        help="review: is the claim supported? writeup: draft the Results paragraph (no audit requested)",
+    )
     p.add_argument("--parallel", type=int, default=4)
     p.add_argument("--timeout", type=int, default=1200)
     a = p.parse_args()
@@ -177,7 +191,7 @@ def main() -> None:
     a.out.mkdir(parents=True, exist_ok=True)
     (a.out / "config.json").write_text(
         json.dumps(
-            {"tasks": tasks, "arms": arms, "reps": a.reps, "model": a.model, "git": sha, "prompt": PROMPT}, indent=2
+            {"tasks": tasks, "arms": arms, "reps": a.reps, "model": a.model, "git": sha, "prompt": a.prompt}, indent=2
         )
     )
     jobs = [(t, arm, r) for t in tasks for arm in arms for r in range(a.reps)]
@@ -187,7 +201,7 @@ def main() -> None:
     )
     total = 0.0
     with ThreadPoolExecutor(a.parallel) as pool:
-        futs = {pool.submit(run_one, t, arm, r, a.out, a.model, a.timeout): (t, arm, r) for t, arm, r in jobs}
+        futs = {pool.submit(run_one, t, arm, r, a.out, a.model, a.timeout, a.prompt): (t, arm, r) for t, arm, r in jobs}
         for i, f in enumerate(as_completed(futs), 1):
             t, arm, r = futs[f]
             try:
