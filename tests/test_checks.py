@@ -145,6 +145,13 @@ def test_shortcuts_entity_memorization_disappears_with_grouped_folds():
     assert grouped["features"][0]["score"] == 0.5 and grouped["features"][0]["test_rows_with_seen_category"] == 0
 
 
+def test_shortcuts_balanced_category_reports_no_shortcut():
+    rows = [{"label": i % 2, "plate": f"p{(i // 2) % 4}"} for i in range(120)]  # every plate exactly 50/50
+    out = checks.shortcuts(rows, "label", ["plate"])
+    assert out["features"][0]["score"] < 0.5 and "note" in out["features"][0]
+    assert out["summary"].startswith("No single feature predicts the label beyond chance")
+
+
 def test_shortcuts_regression_and_multiclass():
     rng = np.random.default_rng(2)
     gc = rng.random(300)

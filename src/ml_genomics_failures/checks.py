@@ -22,6 +22,10 @@ from pathlib import Path
 import numpy as np
 
 MAX_EXACT_BP = 20_000_000  # above this, sequence_similarity subsamples k-mers (FracMinHash)
+BELOW_CHANCE = (
+    "below chance means no association, not a negative one: predicting held-out rows from the other rows of an "
+    "uninformative category is biased below chance"
+)
 SHARE_FLAG = 0.8  # a baseline reaching this fraction of the model's gain over chance "explains most of it"
 
 
@@ -490,6 +494,7 @@ def shortcuts(
                 "score": _r(score),
                 "share_of_model_gain": _share(score, chance, model_score),
                 "test_rows_with_seen_category": _r(float(np.mean(seen))) if kind == "categorical" else None,
+                **({"note": BELOW_CHANCE} if math.isfinite(score) and score < chance - 0.05 else {}),
             }
         )
     results.sort(key=lambda r: -(r["score"] if r["score"] is not None else -1e9))
@@ -522,6 +527,11 @@ def _fold_mean(lab: Label, fs: list[np.ndarray], preds: np.ndarray, chance: floa
 
 def _shortcut_summary(o: dict) -> str:
     top = o["features"][0]
+    if top["score"] is None or top["score"] <= o["chance"] + 0.05:
+        return (
+            f"No single feature predicts the label beyond chance ({o['metric']} chance {o['chance']}; best "
+            f"{top['feature']} {top['score']}). No shortcut among these features."
+        )
     parts = [f"Best single feature: {top['feature']} ({o['metric']} {top['score']}, chance {o['chance']})."]
     flagged = [r for r in o["features"] if (r["share_of_model_gain"] or 0) >= SHARE_FLAG]
     if flagged:
