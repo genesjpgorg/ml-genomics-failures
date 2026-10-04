@@ -28,6 +28,11 @@ test: >-
 fix: >-
   Report results as phylogenetic signal unless they beat the phylogeny baseline. Use phenotype-relevant input
   (coding sequences, candidate genes) rather than random windows, which are about 1–2% coding in mammals.
+  A potential approach is to use domain knowledge and measured biological signals to define and supervise an
+  intermediate layer between DNA and phenotype: predict gene expression, chromatin states or other functional
+  features in relevant tissues and developmental stages, then use those predictions to predict phenotype.
+  Validate the intermediate predictions independently and test whether they improve phenotype prediction beyond
+  the phylogeny baseline; adding this layer alone does not establish that the model learned phenotype.
 sources:
   - citation: genes.jpg control B report (run tol200m-refseq-diverse-genome).
     url: https://github.com/genesjpgorg/genes.jpg/blob/main/docs/reports/control-b-shuffle-tokens.md

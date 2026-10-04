@@ -97,7 +97,7 @@
         "A composition-only k-mer nearest neighbour already gets 0.67 family top-1 on new species."
       ],
       "test": "A nearest-relative baseline using true phylogenetic distance (tree distance, Mash/ANI) that returns the relative's photos. Score traits (body size, habitat, colour) and test whether DNA explains the variation left after phylogeny (phylogenetic contrasts). Look at lineages where phenotype breaks from phylogeny (whales vs hippos, seals).",
-      "fix": "Report results as phylogenetic signal unless they beat the phylogeny baseline. Use phenotype-relevant input (coding sequences, candidate genes) rather than random windows, which are about 1–2% coding in mammals.",
+      "fix": "Report results as phylogenetic signal unless they beat the phylogeny baseline. Use phenotype-relevant input (coding sequences, candidate genes) rather than random windows, which are about 1–2% coding in mammals. A potential approach is to use domain knowledge and measured biological signals to define and supervise an intermediate layer between DNA and phenotype: predict gene expression, chromatin states or other functional features in relevant tissues and developmental stages, then use those predictions to predict phenotype. Validate the intermediate predictions independently and test whether they improve phenotype prediction beyond the phylogeny baseline; adding this layer alone does not establish that the model learned phenotype.",
       "sources": [
         {
           "citation": "genes.jpg control B report (run tol200m-refseq-diverse-genome).",
