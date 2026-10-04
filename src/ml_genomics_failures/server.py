@@ -18,6 +18,7 @@ from typing import Any, TypedDict
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 
 from . import __version__, checks
@@ -331,17 +332,37 @@ def full_book() -> str:
     return checklist_markdown() + "\n\n" + "\n\n".join(render_case(c, 2) for c in book()["cases"])
 
 
+def http_app(allowed_hosts: list[str] | None = None, public: bool = False):
+    """Stateless Streamable HTTP ASGI app at /mcp, for hosting (Modal, uvicorn, any ASGI server).
+
+    ``public=True`` turns off DNS-rebinding protection: it guards servers on localhost or private networks, and a
+    public, read-only, unauthenticated endpoint that never reads files gains nothing from it. Otherwise only
+    ``allowed_hosts`` (default: localhost) may be used in the Host header."""
+    if public:
+        security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    elif allowed_hosts:
+        security = TransportSecuritySettings(
+            allowed_hosts=allowed_hosts, allowed_origins=[f"https://{h}" for h in allowed_hosts]
+        )
+    else:
+        security = None
+    return mcp.streamable_http_app(stateless_http=True, json_response=True, transport_security=security)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="ml-genomics-failures-mcp", description=__doc__.split("\n")[0])
     p.add_argument("--http", action="store_true", help="serve Streamable HTTP instead of stdio")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)
-    p.add_argument("--stateless", action="store_true", help="stateless HTTP (for serverless/multi-replica hosting)")
+    p.add_argument("--allowed-host", action="append", help="Host header to accept (repeatable), e.g. mcp.example.org")
+    p.add_argument("--public", action="store_true", help="accept any Host header (public, read-only deployments)")
     a = p.parse_args()
     global ALLOW_PATHS
     ALLOW_PATHS = not a.http
     if a.http:
-        mcp.run("streamable-http", host=a.host, port=a.port, stateless_http=a.stateless)
+        import uvicorn
+
+        uvicorn.run(http_app(a.allowed_host, a.public), host=a.host, port=a.port)
     else:
         mcp.run()
 

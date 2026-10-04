@@ -5,7 +5,7 @@ description = "Book of failures for ML in genomics: documented pitfalls and the 
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = ["mcp>=2.3,<3", "numpy>=1.26"]
+dependencies = ["mcp>=2.3,<3", "numpy>=1.26", "uvicorn>=0.30"]
 
 [project.scripts]
 ml-genomics-failures-mcp = "ml_genomics_failures.server:main"
