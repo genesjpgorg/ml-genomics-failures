@@ -1,0 +1,13 @@
+{
+  "id": "T03",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "S (batch confounding)",
+  "mechanism": "Cases were mostly run on plates 1-2 (March) and controls on plates 3-4 (April). Plates shift every protein, and there is no real disease signal in this data, so the classifier learns the plate. (Feature selection on all samples before CV also inflates the AUROC.)",
+  "quantify": [
+    "plate or run date alone predicts case status with AUROC ~0.91",
+    "~85% of cases on plates 1-2 vs ~15% of controls"
+  ],
+  "fix": "Randomize cases and controls across plates, analyse within plate or correct for plate inside CV folds, and validate on an independently processed cohort.",
+  "book_case": "F10 (disguised)"
+}

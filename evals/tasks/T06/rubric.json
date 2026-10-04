@@ -1,0 +1,13 @@
+{
+  "id": "T06",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "K (control that isn't a null)",
+  "mechanism": "Dinucleotide shuffling keeps composition, and composition (GC) separates bound from unbound almost as well as the CNN. A 0.03 gap from a single seed is not evidence of grammar. The sequences contain no motifs at all: bound sequences are just GC-richer.",
+  "quantify": [
+    "GC content alone gives accuracy ~0.96 on the test set",
+    "the shuffled control (0.86) keeps nearly all of the performance; the 0.03 gap has no error bar"
+  ],
+  "fix": "Use GC-matched negatives, report GC/k-mer baselines and multiple seeds, add a true null (permuted labels), and test grammar directly (motif insertion/rearrangement experiments).",
+  "book_case": "F02 (disguised)"
+}

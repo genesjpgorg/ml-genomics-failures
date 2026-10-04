@@ -1,0 +1,4 @@
+{
+  "cv_auroc": 0.713,
+  "cv": "5-fold stratified, selection inside folds"
+}

@@ -1,0 +1,7 @@
+{
+  "cnn_test_auroc": 0.89,
+  "shuffled_control_test_auroc": 0.86,
+  "seeds": [
+    0
+  ]
+}

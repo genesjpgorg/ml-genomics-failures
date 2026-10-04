@@ -5,3 +5,5 @@ __pycache__/
 .ruff_cache/
 dist/*.whl
 dist/*.tar.gz
+evals/.venv/
+evals/results/

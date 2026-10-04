@@ -25,3 +25,4 @@ packages = ["src/ml_genomics_failures"]
 
 [tool.ruff]
 line-length = 120
+extend-exclude = ["evals/tasks"]  # the "colleague" code under review, flaws included

@@ -1,0 +1,13 @@
+{
+  "id": "T01",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "L (leakage through shared entities)",
+  "mechanism": "Pairs were split at random, so every test pair's proteins also appear in training. Labels depend only on per-protein interaction propensity, so memorizing each protein's training interaction rate reproduces the reported AUROC; nothing pair-specific is shown, and nothing about new proteins.",
+  "quantify": [
+    "about 100% of test pairs share a protein with training",
+    "a per-protein label-rate baseline with no sequence information reaches AUROC ~0.77, about the model's 0.79"
+  ],
+  "fix": "Protein-disjoint split (no test protein in training), or report performance separately for pairs with 0, 1 or 2 proteins seen in training; compare with a per-protein degree baseline.",
+  "book_case": "F03 / F04 (disguised)"
+}

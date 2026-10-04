@@ -1,0 +1,193 @@
+"""Run the eval: every task x arm x repetition as one headless Claude Code session.
+
+usage: evals/.venv/bin/python evals/run.py --out evals/results/pilot [--arms 0,1,3] [--reps 2] [--tasks T01,C02]
+                                           [--model claude-sonnet-5-5] [--parallel 4]
+
+Arms:
+  0  baseline: no book, no MCP
+  1  the book as text: dist/AGENTS.md appended to the system prompt
+  2  MCP server available, not mentioned in the prompt
+  3  MCP server available, and the prompt asks to audit with it
+
+Isolation: each run gets a fresh copy of the task workspace in a temp directory outside this repo, Claude Code in
+--restricted mode (user/project settings ignored, file tools confined to the workspace), only the MCP servers the
+arm defines (--strict-mcp-config), no web tools, Write/Edit confined to the workspace copy, and Bash limited to
+read-only commands and Python. Python can still
+read any file, so runs whose tool calls touch this repo (rubrics, AGENTS.md) are flagged as contaminated.
+
+Re-running with the same --out skips finished runs, so an interrupted eval resumes.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+EVALS = Path(__file__).resolve().parent
+REPO = EVALS.parent
+TASKS = EVALS / "tasks"
+AGENT_PYTHON_BIN = EVALS / ".venv" / "bin"
+MCP_SERVER = REPO / ".venv" / "bin" / "ml-genomics-failures-mcp"
+
+PROMPT = """A colleague wrote up the analysis in this directory (README.md and the files next to it). Review it \
+before it goes into a paper: is the main claim supported by the evidence? Check the data and results yourself \
+where you can: create scripts in this directory with the Write tool and run them with Python (numpy, pandas, scipy and scikit-learn are \
+installed).
+
+End your answer with a line `VERDICT: SUPPORTED` or `VERDICT: NOT SUPPORTED`, followed by the issues that matter \
+most."""
+ARM3_SUFFIX = """
+
+Use the ml-genomics-failures MCP server to audit this: its checklist, the matching cases, and its check tools on \
+the data."""
+
+ARMS = {
+    "0": {"mcp": False, "book": False, "suffix": ""},
+    "1": {"mcp": False, "book": True, "suffix": ""},
+    "2": {"mcp": True, "book": False, "suffix": ""},
+    "3": {"mcp": True, "book": False, "suffix": ARM3_SUFFIX},
+}
+BASH = ["python", "python3", "ls", "head", "tail", "wc", "cat", "grep", "sort", "cut"]
+CONTAMINATION = ("rubric.json", "ml-genomics-failures/evals", "ml-genomics-failures/dist", "AGENTS.md", "FAILURES.md")
+
+
+def claude_cmd(arm: dict, mcp_config: Path, model: str) -> list[str]:
+    allowed = ["Read", "Write", "Edit", "Glob", "Grep", *(f"Bash({c}:*)" for c in BASH)]
+    if arm["mcp"]:
+        allowed.append("mcp__ml-genomics-failures")
+    cmd = [
+        "claude", "-p", PROMPT + arm["suffix"],
+        "--model", model,
+        "--restricted", "--tools", "Bash,Read,Write,Edit,Glob,Grep",
+        "--allowedTools", *allowed,
+        "--strict-mcp-config", "--mcp-config", str(mcp_config),
+        "--output-format", "stream-json", "--verbose",
+        "--no-session-persistence",
+    ]  # fmt: skip
+    if arm["book"]:
+        cmd += ["--append-system-prompt-file", str(REPO / "dist" / "AGENTS.md")]
+    return cmd
+
+
+def parse_stream(lines: list[str]) -> dict:
+    tools, answer, final = [], "", {}
+    for line in lines:
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if e.get("type") == "assistant":
+            for c in e["message"].get("content", []):
+                if c.get("type") == "tool_use":
+                    tools.append({"name": c["name"], "input": c.get("input", {})})
+                elif c.get("type") == "text":
+                    answer = c["text"]  # keep the last assistant text as a fallback answer
+        elif e.get("type") == "result":
+            final = e
+    return {
+        "answer": final.get("result") or answer,
+        "is_error": bool(final.get("is_error")) or not final,
+        "cost_usd": final.get("total_cost_usd"),
+        "duration_s": round(final.get("duration_ms", 0) / 1000, 1),
+        "turns": final.get("num_turns"),
+        "tool_calls": [t["name"] for t in tools],
+        "mcp_calls": [t["name"].split("__")[-1] for t in tools if t["name"].startswith("mcp__")],
+        "contaminated": any(m in json.dumps(t["input"]) for t in tools for m in CONTAMINATION),
+        "tool_inputs": tools,
+    }
+
+
+def run_one(task: str, arm_id: str, rep: int, out: Path, model: str, timeout: int) -> dict:
+    run_dir = out / "runs" / task / f"arm{arm_id}" / f"rep{rep}"
+    if (run_dir / "run.json").exists():
+        return json.loads((run_dir / "run.json").read_text())
+    run_dir.mkdir(parents=True, exist_ok=True)
+    arm = ARMS[arm_id]
+    with tempfile.TemporaryDirectory(prefix="review-") as tmp:
+        ws = Path(tmp) / "analysis"
+        shutil.copytree(TASKS / task / "workspace", ws)
+        servers = {"ml-genomics-failures": {"command": str(MCP_SERVER), "args": []}} if arm["mcp"] else {}
+        mcp_config = Path(tmp) / "mcp.json"
+        mcp_config.write_text(json.dumps({"mcpServers": servers}))
+        env = {**os.environ, "PATH": f"{AGENT_PYTHON_BIN}:{os.environ['PATH']}"}
+        t0 = time.time()
+        try:
+            proc = subprocess.run(
+                claude_cmd(arm, mcp_config, model),
+                cwd=ws,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            stdout, stderr, timed_out = proc.stdout, proc.stderr, False
+        except subprocess.TimeoutExpired as e:
+            stdout = e.stdout.decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+            stderr, timed_out = "timeout", True
+    (run_dir / "transcript.jsonl").write_text(stdout)
+    result = {
+        "task": task,
+        "arm": arm_id,
+        "rep": rep,
+        "model": model,
+        "wall_s": round(time.time() - t0, 1),
+        "timed_out": timed_out,
+        "stderr_tail": stderr[-500:],
+        **parse_stream(stdout.splitlines()),
+    }
+    (run_dir / "run.json").write_text(json.dumps(result, indent=2))
+    return result
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--arms", default="0,1,3")
+    p.add_argument("--reps", type=int, default=2)
+    p.add_argument("--tasks", default="all")
+    p.add_argument("--model", default="claude-sonnet-5-5")
+    p.add_argument("--parallel", type=int, default=4)
+    p.add_argument("--timeout", type=int, default=1200)
+    a = p.parse_args()
+    if not MCP_SERVER.exists():
+        sys.exit(f"MCP server not found at {MCP_SERVER}; run `uv sync` in the repo first")
+    tasks = sorted(d.name for d in TASKS.iterdir() if d.is_dir()) if a.tasks == "all" else a.tasks.split(",")
+    arms = a.arms.split(",")
+    sha = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True, check=False
+    ).stdout.strip()
+    a.out.mkdir(parents=True, exist_ok=True)
+    (a.out / "config.json").write_text(
+        json.dumps(
+            {"tasks": tasks, "arms": arms, "reps": a.reps, "model": a.model, "git": sha, "prompt": PROMPT}, indent=2
+        )
+    )
+    jobs = [(t, arm, r) for t in tasks for arm in arms for r in range(a.reps)]
+    print(f"{len(jobs)} runs: {len(tasks)} tasks x arms {arms} x {a.reps} reps, model {a.model}, {a.parallel} parallel")
+    total = 0.0
+    with ThreadPoolExecutor(a.parallel) as pool:
+        futs = {pool.submit(run_one, t, arm, r, a.out, a.model, a.timeout): (t, arm, r) for t, arm, r in jobs}
+        for i, f in enumerate(as_completed(futs), 1):
+            t, arm, r = futs[f]
+            res = f.result()
+            total += res.get("cost_usd") or 0
+            flags = " ERROR" * res["is_error"] + " TIMEOUT" * res["timed_out"] + " CONTAMINATED" * res["contaminated"]
+            print(
+                f"[{i}/{len(jobs)}] {t} arm{arm} rep{r}: {res['duration_s']}s, ${res.get('cost_usd') or 0:.2f}, "
+                f"{len(res['mcp_calls'])} MCP calls{flags}  (total ${total:.2f})",
+                flush=True,
+            )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,14 @@
+{
+  "id": "T02",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "C/L (gene-level circularity)",
+  "mechanism": "Labels are almost uniform within each gene (genes are mostly all-disrupting or all-benign) and the split is by variant, so test variants come from training genes. Predicting a variant from its gene's training label rate reproduces the AUROC; that says nothing about which variant in a gene disrupts splicing.",
+  "quantify": [
+    "labels are near-homogeneous within genes",
+    "a gene label-rate baseline reaches AUROC ~0.93 vs the model's 0.94",
+    "the variant-level feature alone gives only ~0.55"
+  ],
+  "fix": "Gene-level split, or evaluate within genes that have both labels; report a gene-prior baseline.",
+  "book_case": "F09 (disguised)"
+}

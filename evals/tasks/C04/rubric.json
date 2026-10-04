@@ -1,0 +1,14 @@
+{
+  "id": "C04",
+  "flawed": false,
+  "expected_verdict": "SUPPORTED",
+  "mechanism": "Clean control. The claim is about the axis that was tested (across genes, held-out chromosomes) and explicitly excludes variant effects.",
+  "false_alarms": [
+    "calling it unsupported because it doesn't predict individual variant effects (not claimed)"
+  ],
+  "acceptable_caveats": [
+    "paralogs across chromosomes could leak",
+    "one cell type",
+    "no comparison with simpler baselines (e.g. CpG/GC content)"
+  ]
+}

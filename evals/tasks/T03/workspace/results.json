@@ -1,0 +1,18 @@
+{
+  "cv_auroc": 0.896,
+  "signature": [
+    "prot001",
+    "prot006",
+    "prot091",
+    "prot092",
+    "prot095",
+    "prot101",
+    "prot113",
+    "prot134",
+    "prot166",
+    "prot168",
+    "prot176",
+    "prot181"
+  ],
+  "cv": "5-fold stratified"
+}

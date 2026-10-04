@@ -1,0 +1,15 @@
+{
+  "id": "C01",
+  "flawed": false,
+  "expected_verdict": "SUPPORTED",
+  "mechanism": "Clean control. The split is protein-disjoint (0% overlap), the signal is pair-level (co-expression alone gives AUROC ~0.85), and the claim is modest.",
+  "false_alarms": [
+    "claiming proteins leak between train and test",
+    "calling the result invalid because a single feature does the work (that is the claim)"
+  ],
+  "acceptable_caveats": [
+    "co-expression is not causal",
+    "single dataset / organism",
+    "sample size"
+  ]
+}

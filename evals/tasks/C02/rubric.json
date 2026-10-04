@@ -1,0 +1,15 @@
+{
+  "id": "C02",
+  "flawed": false,
+  "expected_verdict": "SUPPORTED",
+  "mechanism": "Clean control. Plates are balanced (plate alone AUROC ~0.36), selection is inside CV folds, three proteins carry a real shift, and the claim asks for external validation.",
+  "false_alarms": [
+    "claiming plate/batch confounding",
+    "claiming feature-selection leakage"
+  ],
+  "acceptable_caveats": [
+    "needs external validation",
+    "modest sample size",
+    "plate effects exist but are balanced"
+  ]
+}

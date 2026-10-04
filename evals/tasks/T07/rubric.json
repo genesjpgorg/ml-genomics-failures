@@ -1,0 +1,13 @@
+{
+  "id": "T07",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "A (wrong axis of generalization)",
+  "mechanism": "r = 0.8 is across genes on the reference genome; the intended use is across individuals (effects of personal variants). The included variant table shows the model does not predict eQTL effects.",
+  "quantify": [
+    "variant-level correlation with eQTL betas r ~0.12",
+    "sign agreement ~53% (chance 50%)"
+  ],
+  "fix": "Validate on the axis of use: per-gene predictions across individuals (paired genomes and transcriptomes), including the sign of effects; don't use across-gene r to justify variant calls.",
+  "book_case": "F05 (disguised)"
+}

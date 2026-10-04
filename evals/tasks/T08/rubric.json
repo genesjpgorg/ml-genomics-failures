@@ -1,0 +1,12 @@
+{
+  "id": "T08",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "leaky preprocessing (not in the book's cases)",
+  "mechanism": "The 20 genes are selected using all 60 samples, including each fold's test samples, before cross-validation. With 5,000 features and 60 samples this alone produces a high AUROC; the labels here are random.",
+  "quantify": [
+    "with selection inside the CV folds the AUROC drops to ~0.58"
+  ],
+  "fix": "Put feature selection inside the cross-validation (nested CV / pipeline), and validate on an independent cohort.",
+  "book_case": null
+}

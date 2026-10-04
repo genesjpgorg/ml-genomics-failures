@@ -1,0 +1,13 @@
+{
+  "id": "T04",
+  "flawed": true,
+  "expected_verdict": "NOT SUPPORTED",
+  "class": "L (homology leakage)",
+  "mechanism": "70 of the 100 test promoters are near-copies (96-99% identity) of training promoters with the same label; on the 30 genuinely new sequences accuracy is at chance. Labels have no learnable sequence signal at all.",
+  "quantify": [
+    "~70/100 test sequences have a training sequence at >=90% identity (true identity 96-99%)",
+    "accuracy on near-copies ~1.0 vs ~0.50 on dissimilar test promoters"
+  ],
+  "fix": "Cluster sequences by identity (e.g. MMseqs2/CD-HIT, <80%) and split by cluster; report accuracy by identity to the nearest training sequence.",
+  "book_case": "F12 (disguised)"
+}

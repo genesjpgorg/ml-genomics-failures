@@ -1,0 +1,25 @@
+{
+  "cv_auroc": 0.988,
+  "signature": [
+    "gene0212",
+    "gene0443",
+    "gene0496",
+    "gene0584",
+    "gene0870",
+    "gene1513",
+    "gene2056",
+    "gene2139",
+    "gene2382",
+    "gene2464",
+    "gene2530",
+    "gene2722",
+    "gene3234",
+    "gene3715",
+    "gene4215",
+    "gene4280",
+    "gene4344",
+    "gene4636",
+    "gene4684",
+    "gene4875"
+  ]
+}
