@@ -42,6 +42,15 @@ Any MCP client can use the book through tools instead of reading files:
 | `get_audit_checklist()` | The 8-question audit, pitfall classes and case index |
 | prompt `audit_experiment(description)` | The audit applied to your experiment |
 | resource `failures://book` | The whole book as one markdown document |
+| `check_split_overlap(columns, train, test, label?)` | Entities (genes, enhancers, species, individuals) shared by train and test, and the score of memorizing each entity's label (F03, F04, F09) |
+| `check_sequence_similarity(train_fasta, test_fasta, test_scores?)` | Each test sequence's nearest training sequence by k-mer containment, and performance by identity to training (F12) |
+| `check_shortcuts(table, label, features, group_column?)` | Cross-validated score of each candidate confounder (batch, GC, distance, ancestry...) predicting the label alone (F10, F11, F01) |
+| `kmer_baseline(train, test)` | GC-only and k-mer composition baselines for sequence → label (F01, F02, F08) |
+
+The `check_*` tools and `kmer_baseline` measure pitfalls on your own data. Pass `model_score` and each result
+reports what share of your model's gain over chance the trivial baseline already reaches. They take CSV/TSV or
+FASTA inline; a local (stdio) server also accepts file paths, while a hosted one never reads files. They use only
+numpy: about 5 s for 12 Mbp of sequence. For proteins or alignment-level identity, use MMseqs2.
 
 `search` and `fetch` use the result shape ChatGPT connectors expect, so one server works everywhere.
 
@@ -77,8 +86,6 @@ args = ["--from", "git+https://github.com/genesjpgorg/ml-genomics-failures", "ml
 `ml-genomics-failures-mcp --http --host 0.0.0.0 --port 8000` (add `--stateless` for serverless or multi-replica
 hosting) behind HTTPS, and add `https://<host>/mcp` as a connector. A hosted endpoint isn't set up yet.
 
-Executable checks (split overlap between train and test entities, nearest-training-sequence identity, shortcut and
-k-mer baselines) are planned as further tools.
 
 ## Layout
 

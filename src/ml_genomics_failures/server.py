@@ -14,17 +14,20 @@ import json
 import re
 from functools import cache
 from importlib.resources import files
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from . import __version__
+from . import __version__, checks
 from .render import audit_section, index_table, render_case
 
 REPO_URL = "https://github.com/genesjpgorg/ml-genomics-failures"
 READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False)
+# File-path inputs are read only when the server runs locally (stdio). A hosted server takes data inline, so a
+# caller can never make it read its own filesystem.
+ALLOW_PATHS = False
 # search weights per field: a hit in the title counts more than one buried in the mechanism
 WEIGHTS = {"title": 3, "domain": 2, "claim": 1, "mechanism": 1, "red_flags": 1, "test": 1, "fix": 1}
 
@@ -129,7 +132,8 @@ mcp = MCPServer(
         "get_audit_checklist (or the audit_experiment prompt) and answer every question for the experiment at hand. "
         "Use search or list_cases to find matching cases, and fetch a case before citing it by ID (e.g. F03). Treat "
         "cases as hypotheses to test on the user's run, not verdicts, and don't add claims about a paper that the "
-        "case doesn't contain."
+        "case doesn't contain. When the user has data (splits, sequences, a feature table, sequences with labels), "
+        "run the check_* tools and kmer_baseline to measure the pitfalls instead of only describing them."
     ),
     website_url=REPO_URL,
     version=__version__,
@@ -179,6 +183,133 @@ def get_audit_checklist() -> str:
     return checklist_markdown()
 
 
+# --- executable checks --------------------------------------------------------------------------------------
+
+
+def _load(text: str | None, path: str | None, name: str) -> str:
+    if (text is None) == (path is None):
+        raise ToolError(f"give exactly one of {name} (inline) or {name}_path")
+    if path is not None:
+        if not ALLOW_PATHS:
+            raise ToolError("file paths are only read by a local (stdio) server; pass the data inline instead")
+        return checks.read_text(path)
+    return text
+
+
+def _run(fn, *args, **kwargs) -> dict[str, Any]:
+    try:
+        return fn(*args, **kwargs)
+    except checks.CheckError as e:
+        raise ToolError(str(e)) from e
+
+
+@mcp.tool(annotations=READ_ONLY)
+def check_split_overlap(
+    columns: list[str],
+    train: str | None = None,
+    test: str | None = None,
+    train_path: str | None = None,
+    test_path: str | None = None,
+    label: str | None = None,
+    task: str = "auto",
+    model_score: float | None = None,
+) -> dict[str, Any]:
+    """Leakage check (class L; cases F03, F04, F09): how many test rows share an entity (gene, enhancer, promoter,
+    species, individual...) with training, per entity column. With `label`, also scores an entity-memorization
+    baseline: predict each test row from the training labels of its own entities, with no features. Compare it
+    with the model's score (`model_score`, same metric: AUROC for binary labels, accuracy for multiclass, Spearman
+    for numeric); if it gets close, the model may be memorizing per-entity label rates.
+
+    Give each input inline (CSV/TSV or FASTA text) or, when the server runs locally, as a file path (.gz is fine).
+    Returns a plain-language summary that names the matching cases, plus the numbers."""
+    tr = checks.parse_csv(_load(train, train_path, "train"), "train")
+    te = checks.parse_csv(_load(test, test_path, "test"), "test")
+    return _run(checks.split_overlap, tr, te, columns, label, task, model_score)
+
+
+@mcp.tool(annotations=READ_ONLY)
+def check_sequence_similarity(
+    train_fasta: str | None = None,
+    test_fasta: str | None = None,
+    train_fasta_path: str | None = None,
+    test_fasta_path: str | None = None,
+    k: int = 15,
+    scale: int | None = None,
+    test_scores: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Homology leakage check (class L; case F12) for DNA/RNA: for every test sequence, its nearest training
+    sequence by k-mer containment, with an estimated identity, binned (>=0.99, 0.95-0.99, ...). Pass `test_scores`
+    ({test id: per-example score or 0/1 correct}) to see the model's performance by identity to training. Large
+    inputs are subsampled automatically (FracMinHash `scale`). For proteins or alignment-level identity use
+    MMseqs2.
+
+    Give each input inline (CSV/TSV or FASTA text) or, when the server runs locally, as a file path (.gz is fine).
+    Returns a plain-language summary that names the matching cases, plus the numbers."""
+    tr = checks.parse_fasta(_load(train_fasta, train_fasta_path, "train_fasta"), "train_fasta")
+    te = checks.parse_fasta(_load(test_fasta, test_fasta_path, "test_fasta"), "test_fasta")
+    return _run(checks.sequence_similarity, tr, te, k, scale, test_scores)
+
+
+@mcp.tool(annotations=READ_ONLY)
+def check_shortcuts(
+    label: str,
+    features: list[str],
+    table: str | None = None,
+    table_path: str | None = None,
+    task: str = "auto",
+    group_column: str | None = None,
+    n_folds: int = 5,
+    model_score: float | None = None,
+) -> dict[str, Any]:
+    """Shortcut / confounder check (class S; cases F10, F11, F01): cross-validated score of predicting `label`
+    from each candidate feature alone (batch, plate, GC, distance, sequencing depth, ancestry, family, gene...).
+    One row per example. Categorical features predict from same-category training rows; numeric ones are binned.
+    `group_column` keeps groups (e.g. gene, individual) within one fold, like an entity-level split. With
+    `model_score` (same metric: AUROC binary, accuracy multiclass, Spearman numeric), each feature's share of the
+    model's gain over chance is reported.
+
+    Give each input inline (CSV/TSV or FASTA text) or, when the server runs locally, as a file path (.gz is fine).
+    Returns a plain-language summary that names the matching cases, plus the numbers."""
+    rows = checks.parse_csv(_load(table, table_path, "table"), "table")
+    return _run(checks.shortcuts, rows, label, features, task, group_column, n_folds, model_score)
+
+
+@mcp.tool(annotations=READ_ONLY)
+def kmer_baseline(
+    train: str | None = None,
+    test: str | None = None,
+    train_path: str | None = None,
+    test_path: str | None = None,
+    sequence_column: str = "sequence",
+    label_column: str = "label",
+    id_column: str = "id",
+    k: int = 5,
+    task: str = "auto",
+    model_score: float | None = None,
+) -> dict[str, Any]:
+    """Composition baseline (class B; cases F01, F02, F08) for any sequence -> label model: predicts each test
+    label from the nearest training sequences by GC content alone and by k-mer frequencies. Inputs are CSV/TSV
+    with id, label and sequence columns. If composition reaches most of the model's score (`model_score`, same
+    metric), the model adds little beyond composition, and composition-preserving controls such as token
+    shuffling are not nulls.
+
+    Give each input inline (CSV/TSV or FASTA text) or, when the server runs locally, as a file path (.gz is fine).
+    Returns a plain-language summary that names the matching cases, plus the numbers."""
+
+    def triples(text: str, name: str) -> list[tuple[str, str, str]]:
+        rows = checks.parse_csv(text, name)
+        need = [label_column, sequence_column]
+        try:
+            checks.require_columns(rows, need, name)
+        except checks.CheckError as e:
+            raise ToolError(str(e)) from e
+        return [(r.get(id_column, str(i)), r[label_column], r[sequence_column]) for i, r in enumerate(rows)]
+
+    tr = triples(_load(train, train_path, "train"), "train")
+    te = triples(_load(test, test_path, "test"), "test")
+    return _run(checks.kmer_baseline, tr, te, k, task, model_score)
+
+
 @mcp.prompt(title="Audit an ML-in-genomics experiment")
 def audit_experiment(description: str) -> str:
     """Audit an experiment, benchmark or paper claim against the book of failures."""
@@ -207,6 +338,8 @@ def main() -> None:
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--stateless", action="store_true", help="stateless HTTP (for serverless/multi-replica hosting)")
     a = p.parse_args()
+    global ALLOW_PATHS
+    ALLOW_PATHS = not a.http
     if a.http:
         mcp.run("streamable-http", host=a.host, port=a.port, stateless_http=a.stateless)
     else:
