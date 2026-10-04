@@ -97,7 +97,7 @@
         "A composition-only k-mer nearest neighbour already gets 0.67 family top-1 on new species."
       ],
       "test": "A nearest-relative baseline using true phylogenetic distance (tree distance, Mash/ANI) that returns the relative's photos. Score traits (body size, habitat, colour) and test whether DNA explains the variation left after phylogeny (phylogenetic contrasts). Look at lineages where phenotype breaks from phylogeny (whales vs hippos, seals).",
-      "fix": "Report results as phylogenetic signal unless they beat the phylogeny baseline. Use phenotype-relevant input (coding sequences, candidate genes) rather than random windows, which are about 1–2% coding in mammals. A potential approach is to use domain knowledge and measured biological signals to define and supervise an intermediate layer between DNA and phenotype: predict gene expression, chromatin states or other functional features in relevant tissues and developmental stages, then use those predictions to predict phenotype. Validate the intermediate predictions independently and test whether they improve phenotype prediction beyond the phylogeny baseline; adding this layer alone does not establish that the model learned phenotype.",
+      "fix": "Report results as phylogenetic signal unless they beat the phylogeny baseline. Select phenotype-relevant loci, including non-coding regulatory DNA (promoters, enhancers and their target-gene context) as well as coding sequences; a low coding fraction is not a reason to dismiss non-coding DNA. Changes in gene regulation are a major mechanism of animal morphological evolution: regulatory changes appear to predominate in repeated marine–freshwater stickleback adaptation (Jones et al.), and functional experiments implicate changes in a non-coding limb enhancer in snake limb loss (Kvon et al.). These findings motivate regulatory modeling within animal classes and infraclasses and across deeper evolutionary comparisons, but do not establish that most phenotype-changing mutations are non-coding at every taxonomic rank. Prioritize sequence-to-expression models as a biologically motivated intermediate layer: non-coding regulatory changes can alter where, when and how much a gene is expressed, linking DNA variation to phenotype. Use domain knowledge and measured biological signals to supervise DNA → gene expression, chromatin states or other functional features → phenotype, with intermediate targets matched to relevant tissues, cell types and developmental stages. Validate predicted expression differences across held-out species, not just expression levels across genes (see F05), and test whether the intermediate features improve phenotype prediction beyond the phylogeny baseline; this is a proposed modeling strategy, not a demonstrated fix for F01.",
       "sources": [
         {
           "citation": "genes.jpg control B report (run tol200m-refseq-diverse-genome).",
@@ -105,6 +105,14 @@
         },
         {
           "citation": "Felsenstein J. Phylogenies and the comparative method. Am Nat 125:1–15 (1985)."
+        },
+        {
+          "citation": "Jones FC, et al. The genomic basis of adaptive evolution in threespine sticklebacks. Nature 484:55–61 (2012).",
+          "url": "https://doi.org/10.1038/nature10944"
+        },
+        {
+          "citation": "Kvon EZ, et al. Progressive Loss of Function in a Limb Enhancer during Snake Evolution. Cell 167:633–642.e11 (2016).",
+          "url": "https://doi.org/10.1016/j.cell.2016.09.028"
         }
       ],
       "status": {
